@@ -1,0 +1,35 @@
+id: "logical-workflow"
+name: "Logical Operations Workflow"
+description: "A workflow that demonstrates logical operations"
+
+nodes:
+  - id: "and"
+    type: "and"
+    provider: "logic"
+    config:
+      type: "and"
+      values:
+        - true
+        - false
+
+  - id: "or"
+    type: "or"
+    provider: "logic"
+    config:
+      type: "or"
+      values:
+        - true
+        - false
+
+  - id: "output"
+    type: "string_processor"
+    provider: "string"
+    config:
+      operation: "uppercase"
+      input: "${or.output}"
+
+edges:
+  - from: "and"
+    to: "or"
+  - from: "or"
+    to: "output" 

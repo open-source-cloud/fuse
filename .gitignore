@@ -1,0 +1,15 @@
+# Binary files
+bin/
+
+# Test reports
+*.xml
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS specific files
+.DS_Store
+Thumbs.db 
