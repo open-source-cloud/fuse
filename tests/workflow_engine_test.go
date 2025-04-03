@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
+	"github.com/gustavobertoi/core-workflow-poc/internal/workflow"
 	"github.com/gustavobertoi/core-workflow-poc/pkg/logic"
 	"github.com/gustavobertoi/core-workflow-poc/pkg/strproc"
-	"github.com/gustavobertoi/core-workflow-poc/workflow"
 	"github.com/stretchr/testify/suite"
 )
 

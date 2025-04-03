@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gustavobertoi/core-workflow-poc/workflow"
+	"github.com/gustavobertoi/core-workflow-poc/internal/workflow"
 )
 
 // Case represents a single case in a switch statement
