@@ -1,4 +1,4 @@
-module github.com/gustavobertoi/core-workflow-poc
+module github.com/open-source-cloud/core-workflow-poc
 
 go 1.21
 

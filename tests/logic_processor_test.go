@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/gustavobertoi/core-workflow-poc/internal/workflow"
-	"github.com/gustavobertoi/core-workflow-poc/pkg/logic"
+	"github.com/open-source-cloud/core-workflow-poc/internal/workflow"
+	"github.com/open-source-cloud/core-workflow-poc/pkg/logic"
 	"github.com/stretchr/testify/suite"
 )
 

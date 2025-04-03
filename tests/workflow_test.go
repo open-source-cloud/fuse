@@ -5,9 +5,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/gustavobertoi/core-workflow-poc/internal/workflow"
-	"github.com/gustavobertoi/core-workflow-poc/pkg/logic"
-	"github.com/gustavobertoi/core-workflow-poc/pkg/strproc"
+	"github.com/open-source-cloud/core-workflow-poc/internal/workflow"
+	"github.com/open-source-cloud/core-workflow-poc/pkg/logic"
+	"github.com/open-source-cloud/core-workflow-poc/pkg/strproc"
 	"github.com/stretchr/testify/suite"
 )
 
