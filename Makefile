@@ -10,7 +10,7 @@ test:
 	$(GOTESTSUM) --junitfile test-report.xml --format testdox -- ./pkg/... ./tests/... ./internal/...
 
 build:
-	go build -o bin/workflow main.go
+	go build -o bin/workflow cmd/examples/main.go
 
 clean:
 	rm -rf bin/
