@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/open-source-cloud/core-workflow-poc/internal/workflow"
+	"github.com/open-source-cloud/fuse/internal/workflow"
 )
 
 // IfConfig represents the configuration for an if condition node

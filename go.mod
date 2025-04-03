@@ -1,4 +1,4 @@
-module github.com/open-source-cloud/core-workflow-poc
+module github.com/open-source-cloud/fuse
 
 go 1.21
 

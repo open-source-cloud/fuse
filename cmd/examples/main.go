@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/open-source-cloud/core-workflow-poc/internal/workflow"
-	"github.com/open-source-cloud/core-workflow-poc/pkg/logic"
-	"github.com/open-source-cloud/core-workflow-poc/pkg/schema"
-	"github.com/open-source-cloud/core-workflow-poc/pkg/strproc"
+	"github.com/open-source-cloud/fuse/internal/workflow"
+	"github.com/open-source-cloud/fuse/pkg/logic"
+	"github.com/open-source-cloud/fuse/pkg/schema"
+	"github.com/open-source-cloud/fuse/pkg/strproc"
 )
 
 func main() {

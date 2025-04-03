@@ -3,7 +3,7 @@ package logic
 import (
 	"fmt"
 
-	"github.com/open-source-cloud/core-workflow-poc/internal/workflow"
+	"github.com/open-source-cloud/fuse/internal/workflow"
 )
 
 // ProcessorProvider provides logic processing nodes

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/open-source-cloud/core-workflow-poc/internal/workflow"
+	"github.com/open-source-cloud/fuse/internal/workflow"
 )
 
 // ValidatorConfig represents the configuration for a schema validator node

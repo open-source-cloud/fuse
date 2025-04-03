@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/open-source-cloud/core-workflow-poc/internal/workflow"
+	"github.com/open-source-cloud/fuse/internal/workflow"
 )
 
 const (

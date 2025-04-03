@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/open-source-cloud/core-workflow-poc/internal/workflow"
+	"github.com/open-source-cloud/fuse/internal/workflow"
 )
 
 // ConditionConfig represents the base configuration for condition nodes
