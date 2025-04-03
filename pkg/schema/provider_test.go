@@ -7,27 +7,44 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/suite"
 )
 
-func TestSchemaValidatorProvider(t *testing.T) {
-	provider := NewSchemaValidatorProvider()
+// ProviderSuite defines a test suite for the schema validator provider
+type ProviderSuite struct {
+	suite.Suite
+	tempDir string
+}
 
-	if provider.Name() != "schema_validator" {
-		t.Errorf("Expected provider name 'schema_validator', got '%s'", provider.Name())
-	}
+func TestProviderSuite(t *testing.T) {
+	suite.Run(t, new(ProviderSuite))
+}
 
-	// Create a temporary schema file for testing
+// SetupSuite sets up resources shared by all tests in the suite
+func (s *ProviderSuite) SetupSuite() {
+	// Create a temporary directory for test files
 	tempDir, err := os.MkdirTemp("", "schema-test")
-	if err != nil {
-		t.Fatalf("Failed to create temp directory: %v", err)
-	}
-	defer func() {
-		if err := os.RemoveAll(tempDir); err != nil {
+	s.Require().NoError(err, "Failed to create temp directory")
+	s.tempDir = tempDir
+}
+
+// TearDownSuite cleans up resources after all tests have run
+func (s *ProviderSuite) TearDownSuite() {
+	if s.tempDir != "" {
+		if err := os.RemoveAll(s.tempDir); err != nil {
 			log.Printf("Failed to remove temp directory: %v", err)
 		}
-	}()
+	}
+}
 
-	schemaPath := filepath.Join(tempDir, "test-schema.json")
+func (s *ProviderSuite) TestSchemaValidatorProvider() {
+	provider := NewSchemaValidatorProvider()
+
+	s.Equal("schema_validator", provider.Name(), "Provider should have correct name")
+
+	// Create a temporary schema file for testing
+	schemaPath := filepath.Join(s.tempDir, "test-schema.json")
 	schemaJSON := `{
 		"id": "test-schema",
 		"name": "Test Schema",
@@ -42,9 +59,8 @@ func TestSchemaValidatorProvider(t *testing.T) {
 		]
 	}`
 
-	if err := os.WriteFile(schemaPath, []byte(schemaJSON), 0600); err != nil {
-		t.Fatalf("Failed to write schema file: %v", err)
-	}
+	err := os.WriteFile(schemaPath, []byte(schemaJSON), 0600)
+	s.Require().NoError(err, "Failed to write schema file")
 
 	// Test creating a node with valid config
 	config := map[string]interface{}{
@@ -52,24 +68,15 @@ func TestSchemaValidatorProvider(t *testing.T) {
 	}
 
 	node, err := provider.CreateNode(config)
-	if err != nil {
-		t.Errorf("Failed to create node: %v", err)
-	}
-
-	if node == nil {
-		t.Fatal("Expected node to be created, but got nil")
-	}
+	s.NoError(err, "Should create node with valid config")
+	s.NotNil(node, "Created node should not be nil")
 
 	// Test node ID
 	expectedID := "schema_validator_" + schemaPath
-	if node.ID() != expectedID {
-		t.Errorf("Expected node ID '%s', got '%s'", expectedID, node.ID())
-	}
+	s.Equal(expectedID, node.ID(), "Node should have correct ID")
 
 	// Test validation
-	if err := node.Validate(); err != nil {
-		t.Errorf("Node validation failed: %v", err)
-	}
+	s.NoError(node.Validate(), "Node validation should succeed")
 
 	// Test execution with valid data
 	validData := map[string]interface{}{
@@ -77,14 +84,10 @@ func TestSchemaValidatorProvider(t *testing.T) {
 	}
 
 	result, err := node.Execute(context.Background(), validData)
-	if err != nil {
-		t.Errorf("Execution failed with valid data: %v", err)
-	}
+	s.NoError(err, "Execution should succeed with valid data")
 
 	// The result should be the input data (pass-through)
-	if !reflect.DeepEqual(result, validData) {
-		t.Errorf("Expected result to be the input data, but got %v", result)
-	}
+	s.True(reflect.DeepEqual(result, validData), "Result should match input data")
 
 	// Test execution with invalid data
 	invalidData := map[string]interface{}{
@@ -92,9 +95,7 @@ func TestSchemaValidatorProvider(t *testing.T) {
 	}
 
 	_, err = node.Execute(context.Background(), invalidData)
-	if err == nil {
-		t.Error("Expected execution to fail with invalid data, but it succeeded")
-	}
+	s.Error(err, "Execution should fail with invalid data")
 
 	// Test creating a node with invalid config
 	invalidConfig := map[string]interface{}{
@@ -102,7 +103,5 @@ func TestSchemaValidatorProvider(t *testing.T) {
 	}
 
 	_, err = provider.CreateNode(invalidConfig)
-	if err == nil {
-		t.Error("Expected CreateNode to fail with invalid config, but it succeeded")
-	}
+	s.Error(err, "CreateNode should fail with invalid config")
 }
