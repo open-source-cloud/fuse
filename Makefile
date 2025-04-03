@@ -7,7 +7,7 @@ run:
 	go run main.go
 
 test:
-	$(GOTESTSUM) --junitfile test-report.xml --format testdox -- ./tests/...
+	$(GOTESTSUM) --junitfile test-report.xml --format testdox -- ./pkg/... ./tests/... ./internal/...
 
 build:
 	go build -o bin/workflow main.go

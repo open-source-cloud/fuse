@@ -1,0 +1,21 @@
+id: "schema-validation-workflow"
+name: "Schema Validation Workflow"
+description: "A workflow that validates input data against a schema"
+
+nodes:
+  - id: "validate_user"
+    type: "schema_validator"
+    provider: "schema"
+    config:
+      schema_path: "examples/schemas/user_profile.json"
+
+  - id: "output"
+    type: "string_processor"
+    provider: "string"
+    config:
+      operation: "trim"
+      input: "Validation succeeded!"
+
+edges:
+  - from: "validate_user"
+    to: "output" 

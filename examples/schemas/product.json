@@ -1,0 +1,209 @@
+{
+  "id": "product",
+  "name": "Product Schema",
+  "description": "Schema for validating product data",
+  "version": "1.0.0",
+  "fields": [
+    {
+      "id": "id",
+      "name": "Product ID",
+      "description": "Unique product identifier",
+      "type": "string",
+      "required": true,
+      "validation": [
+        {
+          "type": "pattern",
+          "value": "^PROD-[0-9]{6}$",
+          "message": "Product ID must be in format PROD-XXXXXX where X is a digit",
+          "error_code": "product_id_invalid_format"
+        }
+      ]
+    },
+    {
+      "id": "name",
+      "name": "Product Name",
+      "description": "Name of the product",
+      "type": "string",
+      "required": true,
+      "validation": [
+        {
+          "type": "min_length",
+          "value": 3,
+          "message": "Product name must be at least 3 characters long",
+          "error_code": "product_name_too_short"
+        },
+        {
+          "type": "max_length",
+          "value": 100,
+          "message": "Product name cannot exceed 100 characters",
+          "error_code": "product_name_too_long"
+        }
+      ]
+    },
+    {
+      "id": "description",
+      "name": "Product Description",
+      "description": "Detailed description of the product",
+      "type": "string",
+      "required": false,
+      "validation": [
+        {
+          "type": "max_length",
+          "value": 1000,
+          "message": "Product description cannot exceed 1000 characters",
+          "error_code": "product_description_too_long"
+        }
+      ]
+    },
+    {
+      "id": "price",
+      "name": "Price",
+      "description": "Price of the product",
+      "type": "float",
+      "required": true,
+      "validation": [
+        {
+          "type": "min_value",
+          "value": 0.01,
+          "message": "Price must be greater than 0",
+          "error_code": "price_too_low"
+        }
+      ]
+    },
+    {
+      "id": "category",
+      "name": "Category",
+      "description": "Product category",
+      "type": "string",
+      "required": true,
+      "validation": [
+        {
+          "type": "enum",
+          "value": [
+            "electronics",
+            "clothing",
+            "books",
+            "home",
+            "beauty",
+            "sports",
+            "food",
+            "other"
+          ],
+          "message": "Invalid product category",
+          "error_code": "category_invalid"
+        }
+      ]
+    },
+    {
+      "id": "inventory",
+      "name": "Inventory",
+      "description": "Inventory information",
+      "type": "object",
+      "required": true,
+      "properties": [
+        {
+          "id": "quantity",
+          "name": "Quantity",
+          "description": "Available quantity in stock",
+          "type": "integer",
+          "required": true,
+          "validation": [
+            {
+              "type": "min_value",
+              "value": 0,
+              "message": "Quantity cannot be negative",
+              "error_code": "quantity_negative"
+            }
+          ]
+        },
+        {
+          "id": "sku",
+          "name": "SKU",
+          "description": "Stock Keeping Unit",
+          "type": "string",
+          "required": true,
+          "validation": [
+            {
+              "type": "pattern",
+              "value": "^SKU-[A-Z0-9]{8}$",
+              "message": "SKU must be in format SKU-XXXXXXXX where X is a letter or digit",
+              "error_code": "sku_invalid_format"
+            }
+          ]
+        },
+        {
+          "id": "warehouse",
+          "name": "Warehouse",
+          "description": "Warehouse location",
+          "type": "string",
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "dimensions",
+      "name": "Dimensions",
+      "description": "Physical dimensions of the product",
+      "type": "object",
+      "required": false,
+      "properties": [
+        {
+          "id": "length",
+          "name": "Length",
+          "type": "float",
+          "required": true,
+          "validation": [
+            {
+              "type": "min_value",
+              "value": 0,
+              "message": "Length cannot be negative",
+              "error_code": "length_negative"
+            }
+          ]
+        },
+        {
+          "id": "width",
+          "name": "Width",
+          "type": "float",
+          "required": true,
+          "validation": [
+            {
+              "type": "min_value",
+              "value": 0,
+              "message": "Width cannot be negative",
+              "error_code": "width_negative"
+            }
+          ]
+        },
+        {
+          "id": "height",
+          "name": "Height",
+          "type": "float",
+          "required": true,
+          "validation": [
+            {
+              "type": "min_value",
+              "value": 0,
+              "message": "Height cannot be negative",
+              "error_code": "height_negative"
+            }
+          ]
+        },
+        {
+          "id": "weight",
+          "name": "Weight",
+          "type": "float",
+          "required": true,
+          "validation": [
+            {
+              "type": "min_value",
+              "value": 0,
+              "message": "Weight cannot be negative",
+              "error_code": "weight_negative"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

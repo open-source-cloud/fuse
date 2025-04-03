@@ -1,0 +1,15 @@
+{
+  "username": "johndoe",
+  "email": "john.doe@example.com",
+  "age": 28,
+  "address": {
+    "street": "123 Main Street",
+    "city": "San Francisco",
+    "state": "CA",
+    "zip": "94105"
+  },
+  "preferences": {
+    "theme": "dark",
+    "notifications": true
+  }
+}
