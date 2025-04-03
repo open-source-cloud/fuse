@@ -8,6 +8,16 @@ import (
 	"sync"
 )
 
+// Engine represents the workflow execution engine
+type Engine interface {
+	// RegisterProvider registers a new node provider
+	RegisterProvider(provider NodeProvider) error
+	// ExecuteWorkflow runs a workflow with the given input
+	ExecuteWorkflow(ctx context.Context, workflow *Workflow, input interface{}) (interface{}, error)
+	// ValidateWorkflow checks if a workflow definition is valid
+	ValidateWorkflow(workflow *Workflow) error
+}
+
 // DefaultEngine implements the WorkflowEngine interface
 type DefaultEngine struct {
 	providers map[string]NodeProvider
