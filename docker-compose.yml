@@ -1,0 +1,15 @@
+services:
+  arangodb:
+    image: arangodb:latest
+    environment:
+      - ARANGO_ROOT_PASSWORD=rootpassword
+    ports:
+      - "8529:8529"
+    volumes:
+      - arangodb_data:/var/lib/arangodb3
+      - arangodb_apps:/var/lib/arangodb3-apps
+    restart: unless-stopped
+
+volumes:
+  arangodb_data:
+  arangodb_apps:
