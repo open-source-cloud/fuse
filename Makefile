@@ -4,7 +4,7 @@ GOTESTSUM := $(shell go env GOPATH)/bin/gotestsum
 GOLANGCI_LINT := $(shell go env GOPATH)/bin/golangci-lint
 
 run:
-	go run main.go
+	go run cmd/examples/main.go
 
 test:
 	$(GOTESTSUM) --junitfile test-report.xml --format testdox -- ./pkg/... ./tests/... ./internal/...

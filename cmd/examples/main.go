@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/gustavobertoi/core-workflow-poc/internal/workflow"
-	"github.com/gustavobertoi/core-workflow-poc/pkg/logic"
-	"github.com/gustavobertoi/core-workflow-poc/pkg/schema"
-	"github.com/gustavobertoi/core-workflow-poc/pkg/strproc"
+	"github.com/open-source-cloud/core-workflow-poc/internal/workflow"
+	"github.com/open-source-cloud/core-workflow-poc/pkg/logic"
+	"github.com/open-source-cloud/core-workflow-poc/pkg/schema"
+	"github.com/open-source-cloud/core-workflow-poc/pkg/strproc"
 )
 
 func main() {
@@ -22,7 +22,7 @@ func main() {
 	}
 
 	// Load and execute string workflow
-	stringWF, err := workflow.LoadWorkflowFromYAML("examples/string_workflow.yaml")
+	stringWF, err := workflow.LoadWorkflowFromYAML("examples/workflow/string_workflow.yaml")
 	if err != nil {
 		log.Fatalf("Failed to load string workflow: %v", err)
 	}
@@ -41,7 +41,7 @@ func main() {
 	fmt.Printf("String workflow result: %v\n", result)
 
 	// Load and execute logical workflow
-	logicalWF, err := workflow.LoadWorkflowFromYAML("examples/logical_workflow.yaml")
+	logicalWF, err := workflow.LoadWorkflowFromYAML("examples/workflow/logical_workflow.yaml")
 	if err != nil {
 		log.Fatalf("Failed to load logical workflow: %v", err)
 	}
@@ -59,7 +59,7 @@ func main() {
 	fmt.Printf("Logical workflow result: %v\n", result)
 
 	// Load and execute schema validation workflow
-	schemaWF, err := workflow.LoadWorkflowFromYAML("examples/schema_workflow.yaml")
+	schemaWF, err := workflow.LoadWorkflowFromYAML("examples/workflow/schema_workflow.yaml")
 	if err != nil {
 		log.Fatalf("Failed to load schema workflow: %v", err)
 	}
