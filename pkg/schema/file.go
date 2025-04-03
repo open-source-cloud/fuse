@@ -10,7 +10,7 @@ import (
 // LoadSchemaFromFile loads a schema from a JSON file
 func LoadSchemaFromFile(filePath string) (*Schema, error) {
 	// Read the file
-	data, err := os.ReadFile(filePath)
+	data, err := os.ReadFile(filePath) //nolint:gosec // File reading is safe within the app's context
 	if err != nil {
 		return nil, fmt.Errorf("failed to read schema file: %w", err)
 	}

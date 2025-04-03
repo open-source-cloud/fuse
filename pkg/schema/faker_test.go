@@ -1,19 +1,16 @@
+// Package schema provides testing for schema functionality
+//
+//nolint:gosec // Using weak random is acceptable for test data generation
 package schema
 
 import (
 	"encoding/json"
 	"fmt"
-	"math/rand"
+	"math/rand" //nolint:gosec // Using weak random is acceptable for test data generation
 	"testing"
-	"time"
 
 	"github.com/go-faker/faker/v4"
 )
-
-func init() {
-	// Seed the random number generator
-	rand.Seed(time.Now().UnixNano())
-}
 
 // UserProfile represents a user profile for testing with faker
 type UserProfile struct {
