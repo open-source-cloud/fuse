@@ -2,6 +2,19 @@
 
 A flexible and extensible workflow engine for building end-to-end automations and tasks. FUSE follows SOLID principles and provides a modular architecture where each node can be implemented as an independent package.
 
+## Disclaimer
+
+This project is currently under active development and is not yet ready for production use. The APIs, interfaces, and functionality are subject to change without notice. We recommend waiting for a stable release before using FUSE in any production environment.
+
+# Overview
+
+- [Overview](#overview)
+- [Features](#features)
+- [Architecture](#architecture)
+- [Loading and Executing YAML Workflows](#loading-and-executing-yaml-workflows)
+- [Future Enhancements](#future-enhancements)
+- [Contributing](#contributing)
+
 ## Features
 
 - Modular node system with provider-based architecture
@@ -336,3 +349,14 @@ if err != nil {
 - Monitoring and metrics
 - Error recovery and retry mechanisms
 - Workflow versioning
+
+## Contributing
+
+Please see [CONTRIBUTE.md](docs/CONTRIBUTE.md) for detailed information about:
+
+- Setting up your development environment
+- Building and testing the project
+- Code conventions and project structure
+- Submitting pull requests
+- Commit message guidelines
+- License and contribution agreement
