@@ -4,13 +4,13 @@ GOTESTSUM := $(shell go env GOPATH)/bin/gotestsum
 GOLANGCI_LINT := $(shell go env GOPATH)/bin/golangci-lint
 
 run:
-	go run cmd/examples/main.go
+	go run cmd/fuse/main.go
 
 test:
 	$(GOTESTSUM) --junitfile test-report.xml --format testdox -- ./pkg/... ./tests/... ./internal/...
 
 build:
-	go build -o bin/workflow cmd/examples/main.go
+	go build -o bin/fuse cmd/fuse/main.go
 
 clean:
 	rm -rf bin/

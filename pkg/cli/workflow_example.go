@@ -1,29 +1,26 @@
-package app
+package cli
 
 import (
 	"context"
-	"github.com/mattn/go-colorable"
+	"os"
+
 	"github.com/open-source-cloud/fuse/internal/workflow"
 	"github.com/open-source-cloud/fuse/pkg/logic"
 	"github.com/open-source-cloud/fuse/pkg/schema"
 	"github.com/open-source-cloud/fuse/pkg/strproc"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"time"
+	"github.com/spf13/cobra"
 )
 
-func initLog() {
-	zerolog.TimeFieldFormat = time.TimeOnly
-	zerolog.SetGlobalLevel(zerolog.DebugLevel)
-	log.Logger = log.Output(zerolog.ConsoleWriter{
-		Out:        colorable.NewColorableStdout(),
-		TimeFormat: time.TimeOnly,
-	}).With().Caller().Logger()
+// Workflow example command
+var workflowCmd = &cobra.Command{
+	Use:   "workflow",
+	Short: "Workflow example",
+	Run:   workflowExampleRunner,
 }
 
-func runApplication() {
-	initLog()
-
+// Workflow example runner
+func workflowExampleRunner(_ *cobra.Command, _ []string) {
 	// Register node providers
 	providers := map[string]workflow.NodeProvider{
 		"string": strproc.NewStringProcessorProvider(),
@@ -35,11 +32,13 @@ func runApplication() {
 	stringWF, err := workflow.LoadWorkflowFromYAML("examples/workflow/string_workflow.yaml")
 	if err != nil {
 		log.Info().Msgf("Failed to load string workflow: %v", err)
+		os.Exit(1)
 	}
 
 	wf, err := workflow.ConvertYAMLToWorkflow(stringWF, providers)
 	if err != nil {
 		log.Info().Msgf("Failed to convert string workflow: %v", err)
+		os.Exit(1)
 	}
 
 	engine := workflow.NewDefaultEngine()
@@ -54,16 +53,19 @@ func runApplication() {
 	logicalWF, err := workflow.LoadWorkflowFromYAML("examples/workflow/logical_workflow.yaml")
 	if err != nil {
 		log.Info().Msgf("Failed to load logical workflow: %v", err)
+		os.Exit(1)
 	}
 
 	wf, err = workflow.ConvertYAMLToWorkflow(logicalWF, providers)
 	if err != nil {
 		log.Info().Msgf("Failed to convert logical workflow: %v", err)
+		os.Exit(1)
 	}
 
 	result, err = engine.ExecuteWorkflow(context.Background(), wf, nil)
 	if err != nil {
 		log.Info().Msgf("Failed to execute logical workflow: %v", err)
+		os.Exit(1)
 	}
 
 	log.Info().Msgf("Logical workflow result: %v", result)
@@ -72,11 +74,13 @@ func runApplication() {
 	schemaWF, err := workflow.LoadWorkflowFromYAML("examples/workflow/schema_workflow.yaml")
 	if err != nil {
 		log.Info().Msgf("Failed to load schema workflow: %v", err)
+		os.Exit(1)
 	}
 
 	wf, err = workflow.ConvertYAMLToWorkflow(schemaWF, providers)
 	if err != nil {
 		log.Info().Msgf("Failed to convert schema workflow: %v", err)
+		os.Exit(1)
 	}
 
 	// Create sample valid user data
@@ -99,6 +103,7 @@ func runApplication() {
 	result, err = engine.ExecuteWorkflow(context.Background(), wf, userData)
 	if err != nil {
 		log.Info().Msgf("Failed to execute schema workflow: %v", err)
+		os.Exit(1)
 	}
 
 	log.Info().Msgf("Schema workflow result: %v", result)
