@@ -1,141 +1,95 @@
-// Package workflow provides the core workflow engine implementation.
-// It includes types and functions for defining and executing workflows.
 package workflow
 
 import (
-	"context"
-	"fmt"
+	"github.com/rs/zerolog/log"
 	"sync"
 )
 
-// Engine represents the workflow execution engine
 type Engine interface {
-	// RegisterProvider registers a new node provider
-	RegisterProvider(provider NodeProvider) error
-	// ExecuteWorkflow runs a workflow with the given input
-	ExecuteWorkflow(ctx context.Context, workflow *Workflow, input interface{}) (interface{}, error)
-	// ValidateWorkflow checks if a workflow definition is valid
-	ValidateWorkflow(workflow *Workflow) error
+	Run() error
+	AddProvider(providerSpec NodeProviderSpec) error
+	AddSchema(schema Schema) error
+	ExecuteWorkflow(workflowId string, input interface{}) error
 }
 
-// DefaultEngine implements the WorkflowEngine interface
+type EngineExecuteSignal struct {
+	Signal string
+	Data   interface{}
+}
+
 type DefaultEngine struct {
-	providers map[string]NodeProvider
-	mu        sync.RWMutex
+	executeChan chan EngineExecuteSignal
+	state       State
 }
 
-// NewDefaultEngine creates a new instance of DefaultEngine
-func NewDefaultEngine() *DefaultEngine {
+// NewDefaultEngine is a constructor for DefaultEngine.
+func NewDefaultEngine(state State) *DefaultEngine {
 	return &DefaultEngine{
-		providers: make(map[string]NodeProvider),
+		state: state,
 	}
 }
 
-// RegisterProvider implements WorkflowEngine.RegisterProvider
-func (e *DefaultEngine) RegisterProvider(provider NodeProvider) error {
-	if provider == nil {
-		return &Error{
-			Message: "provider cannot be nil",
+func (e *DefaultEngine) Run() error {
+	log.Info().Msg("Engine started")
+
+	var wg sync.WaitGroup
+	e.executeChan = make(chan EngineExecuteSignal)
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case signal := <-e.executeChan:
+				if signal.Signal == "quit" {
+					log.Info().Msg("Received quit signal, stopping engine")
+					return
+				}
+				// Handle other signals here if needed
+				log.Info().Msgf("Received signal: %v", signal.Signal)
+				if signal.Signal == "workflow-execute" {
+					if signalData, ok := signal.Data.(struct {
+						WorkflowId string
+						Input      interface{}
+					}); ok {
+						go e.handleExecuteWorkflow(signalData.WorkflowId, signalData.Input)
+					} else {
+						log.Error().Msg("Invalid workflow-execute signal data")
+					}
+				}
+			}
 		}
-	}
-	e.mu.Lock()
-	defer e.mu.Unlock()
+	}()
 
-	name := provider.Name()
-	if _, exists := e.providers[name]; exists {
-		return fmt.Errorf("provider %s already registered", name)
-	}
+	e.executeChan <- EngineExecuteSignal{Signal: "started", Data: nil}
 
-	e.providers[name] = provider
+	wg.Wait()
 	return nil
 }
 
-// ExecuteWorkflow implements WorkflowEngine.ExecuteWorkflow
-func (e *DefaultEngine) ExecuteWorkflow(ctx context.Context, workflow *Workflow, input interface{}) (interface{}, error) {
-	if workflow == nil {
-		return nil, &Error{
-			Message: "workflow cannot be nil",
-		}
-	}
-	if err := e.ValidateWorkflow(workflow); err != nil {
-		return nil, err
-	}
-
-	// Create a map of nodes for faster lookup
-	nodeMap := make(map[string]Node)
-	for _, node := range workflow.Nodes {
-		nodeMap[node.ID()] = node
-	}
-
-	// Execute the workflow
-	currentInput := input
-	for _, edge := range workflow.Edges {
-		fromNode, exists := nodeMap[edge.FromNodeID]
-		if !exists {
-			return nil, &Error{
-				Message: fmt.Sprintf("node %s not found", edge.FromNodeID),
-			}
-		}
-
-		output, err := fromNode.Execute(ctx, currentInput)
-		if err != nil {
-			return nil, &Error{
-				Message: fmt.Sprintf("error executing node %s: %v", edge.FromNodeID, err),
-				Err:     err,
-			}
-		}
-
-		// Check edge condition if present
-		if edge.Condition != nil && !edge.Condition(output) {
-			return nil, &Error{
-				Message: fmt.Sprintf("edge condition not met for node %s", edge.FromNodeID),
-			}
-		}
-
-		currentInput = output
-	}
-
-	return currentInput, nil
+func (e *DefaultEngine) AddProvider(providerSpec NodeProviderSpec) error {
+	provider := NewDefaultNodeProvider(providerSpec)
+	return e.state.AddProvider(provider)
 }
 
-// ValidateWorkflow implements WorkflowEngine.ValidateWorkflow
-func (e *DefaultEngine) ValidateWorkflow(workflow *Workflow) error {
-	if workflow == nil {
-		return fmt.Errorf("workflow is nil")
-	}
+func (e *DefaultEngine) AddSchema(schema Schema) error {
+	return e.state.AddSchema(schema)
+}
 
-	if workflow.ID == "" {
-		return fmt.Errorf("workflow ID is empty")
-	}
+func (e *DefaultEngine) ExecuteWorkflow(workflowId string, input interface{}) error {
+	// Log workflow execution initiation
+	log.Info().Msgf("Executing workflow with ID: %s", workflowId)
 
-	if len(workflow.Nodes) == 0 {
-		return fmt.Errorf("workflow has no nodes")
-	}
-
-	// Validate each node
-	for _, node := range workflow.Nodes {
-		if err := node.Validate(); err != nil {
-			return &Error{
-				Message: fmt.Sprintf("invalid node %s: %v", node.ID(), err),
-				Err:     err,
-			}
-		}
-	}
-
-	// Validate edges
-	nodeIDs := make(map[string]bool)
-	for _, node := range workflow.Nodes {
-		nodeIDs[node.ID()] = true
-	}
-
-	for _, edge := range workflow.Edges {
-		if !nodeIDs[edge.FromNodeID] {
-			return fmt.Errorf("edge references non-existent node %s", edge.FromNodeID)
-		}
-		if !nodeIDs[edge.ToNodeID] {
-			return fmt.Errorf("edge references non-existent node %s", edge.ToNodeID)
-		}
-	}
-
+	e.executeChan <- EngineExecuteSignal{Signal: "workflow-execute", Data: struct {
+		WorkflowId string
+		Input      interface{}
+	}{
+		WorkflowId: workflowId,
+		Input:      input,
+	}}
 	return nil
+}
+
+func (e *DefaultEngine) handleExecuteWorkflow(workflowId string, input interface{}) {
+	log.Info().Msgf("Executing workflow with ID: %s", workflowId)
 }

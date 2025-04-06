@@ -12,7 +12,7 @@ type IfConfig struct {
 	Condition func(interface{}) bool
 }
 
-// IfNode implements the workflow.Node interface for if conditions
+// IfNode implements the workflow.GraphNode interface for if conditions
 type IfNode struct {
 	*ConditionNode
 	ifConfig IfConfig

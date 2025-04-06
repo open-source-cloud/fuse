@@ -17,7 +17,7 @@ type ElseConfig struct {
 	DefaultValue interface{}
 }
 
-// ElseNode implements the workflow.Node interface for else conditions
+// ElseNode implements the workflow.GraphNode interface for else conditions
 type ElseNode struct {
 	*ConditionNode
 	elseConfig ElseConfig

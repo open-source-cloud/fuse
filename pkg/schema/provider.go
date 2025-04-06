@@ -14,7 +14,7 @@ type ValidatorConfig struct {
 	SchemaPath string `json:"schema_path"`
 }
 
-// ValidatorNode implements the workflow.Node interface for schema validation
+// ValidatorNode implements the workflow.GraphNode interface for schema validation
 type ValidatorNode struct {
 	id     string
 	config ValidatorConfig

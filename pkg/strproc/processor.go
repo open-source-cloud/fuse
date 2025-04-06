@@ -24,7 +24,7 @@ type StringProcessorConfig struct {
 	Input     string // The input string to process
 }
 
-// StringProcessorNode implements the workflow.Node interface
+// StringProcessorNode implements the workflow.GraphNode interface
 type StringProcessorNode struct {
 	id     string
 	config StringProcessorConfig

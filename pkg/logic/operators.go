@@ -21,13 +21,13 @@ type OperatorConfig struct {
 	Values []interface{}
 }
 
-// AndNode implements the workflow.Node interface for logical AND operations
+// AndNode implements the workflow.GraphNode interface for logical AND operations
 type AndNode struct {
 	*ConditionNode
 	operatorConfig OperatorConfig
 }
 
-// OrNode implements the workflow.Node interface for logical OR operations
+// OrNode implements the workflow.GraphNode interface for logical OR operations
 type OrNode struct {
 	*ConditionNode
 	operatorConfig OperatorConfig

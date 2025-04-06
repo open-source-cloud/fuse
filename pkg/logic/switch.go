@@ -19,7 +19,7 @@ type SwitchConfig struct {
 	Cases []Case
 }
 
-// SwitchNode implements the workflow.Node interface for switch conditions
+// SwitchNode implements the workflow.GraphNode interface for switch conditions
 type SwitchNode struct {
 	*ConditionNode
 	switchConfig SwitchConfig

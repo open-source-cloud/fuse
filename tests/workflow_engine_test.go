@@ -53,7 +53,7 @@ func (s *WorkflowEngineTestSuite) TestExecuteSingleNodeWorkflow() {
 
 	wf := &workflow.Workflow{
 		ID:    "single-node-workflow",
-		Name:  "Single Node Workflow",
+		Name:  "Single GraphNode Workflow",
 		Nodes: []workflow.Node{node, outputNode},
 		Edges: []workflow.Edge{
 			{
@@ -86,7 +86,7 @@ func (s *WorkflowEngineTestSuite) TestExecuteWorkflowWithInvalidNode() {
 
 	wf := &workflow.Workflow{
 		ID:    "invalid-node-workflow",
-		Name:  "Invalid Node Workflow",
+		Name:  "Invalid GraphNode Workflow",
 		Nodes: []workflow.Node{node, outputNode},
 		Edges: []workflow.Edge{
 			{
