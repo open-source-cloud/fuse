@@ -12,13 +12,13 @@ import (
 
 type WorkflowYAMLTestSuite struct {
 	suite.Suite
-	providers map[string]workflow.NodeProvider
+	providers map[string]engine.NodeProvider
 }
 
 func (s *WorkflowYAMLTestSuite) SetupTest() {
-	s.providers = map[string]workflow.NodeProvider{
+	s.providers = map[string]engine.NodeProvider{
 		"string": strproc.NewStringProcessorProvider(),
-		"logic":  logic.NewLogicProcessorProvider(),
+		"logic":  debug.NewLogicProcessorProvider(),
 	}
 }
 
@@ -54,7 +54,7 @@ edges:
 	}
 
 	// Load the workflow
-	ywf, err := workflow.LoadWorkflowFromYAML(tmpfile.Name())
+	ywf, err := engine.LoadWorkflowFromYAML(tmpfile.Name())
 	s.Require().NoError(err)
 	s.Require().NotNil(ywf)
 	s.Equal("test-workflow", ywf.ID)
@@ -64,7 +64,7 @@ edges:
 	s.Len(ywf.Edges, 1)
 
 	// Convert to workflow
-	wf, err := workflow.ConvertYAMLToWorkflow(ywf, s.providers)
+	wf, err := engine.ConvertYAMLToWorkflow(ywf, s.providers)
 	s.Require().NoError(err)
 	s.Require().NotNil(wf)
 	s.Equal("test-workflow", wf.ID)
@@ -102,18 +102,18 @@ nodes:
 	}
 
 	// Load the workflow
-	ywf, err := workflow.LoadWorkflowFromYAML(tmpfile.Name())
+	ywf, err := engine.LoadWorkflowFromYAML(tmpfile.Name())
 	s.Require().NoError(err)
 	s.Require().NotNil(ywf)
 
 	// Convert to workflow should fail due to invalid provider
-	wf, err := workflow.ConvertYAMLToWorkflow(ywf, s.providers)
+	wf, err := engine.ConvertYAMLToWorkflow(ywf, s.providers)
 	s.Require().Error(err)
 	s.Nil(wf)
 }
 
 func (s *WorkflowYAMLTestSuite) TestLoadNonExistentFile() {
-	ywf, err := workflow.LoadWorkflowFromYAML("non-existent.yaml")
+	ywf, err := engine.LoadWorkflowFromYAML("non-existent.yaml")
 	s.Require().Error(err)
 	s.Nil(ywf)
 }

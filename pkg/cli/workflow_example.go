@@ -2,8 +2,11 @@ package cli
 
 import (
 	"github.com/google/uuid"
+	"github.com/open-source-cloud/fuse/internal/graph"
+	"github.com/open-source-cloud/fuse/internal/providers/debug"
 	"github.com/open-source-cloud/fuse/internal/workflow"
 	"github.com/spf13/cobra"
+	"time"
 )
 
 // Workflow example command
@@ -15,23 +18,35 @@ var workflowCmd = &cobra.Command{
 
 // Workflow example runner
 func workflowExampleRunner(_ *cobra.Command, _ []string) error {
-	logicProviderSpec := workflow.NodeProviderSpec{
-		ID: "fuse.io/workflows/logic",
-		Nodes: []workflow.NodeSpec{
-			{
-				ID: "fuse.io/workflows/logic/print",
-			},
-		},
-	}
-	schemaUUID, _ := uuid.NewV7()
-	testSchema := workflow.Schema{
-		ID: schemaUUID.String(),
+	newUUID := func() string {
+		id, _ := uuid.NewV7()
+		return id.String()
 	}
 
-	engine := workflow.NewDefaultEngine(workflow.NewInMemoryState())
-	_ = engine.AddProvider(logicProviderSpec)
-	_ = engine.AddSchema(testSchema)
-	_ = engine.Run()
+	rootNodeId := newUUID()
+	logNodeId := newUUID()
+	testGraph := graph.NewGraph(rootNodeId, &debug.NullNode{})
+	_ = testGraph.AddNode(
+		rootNodeId,
+		newUUID(),
+		workflow.NewDefaultEdge(newUUID(), nil),
+		logNodeId,
+		&debug.LogNode{},
+	)
+
+	testWorkflow, _ := workflow.LoadSchema(newUUID(), testGraph)
+	executeSignalChan := make(chan workflow.ExecuteSignal)
+	go func() {
+		time.Sleep(2 * time.Second)
+		executeSignalChan <- workflow.ExecuteSignal{
+			Signal: "workflow-start",
+			Data:   testWorkflow,
+		}
+	}()
+
+	workflowEngine := workflow.NewDefaultEngine(executeSignalChan)
+	_ = workflowEngine.RegisterNodeProvider(debug.NewNodeProvider())
+	_ = workflowEngine.Run()
 
 	////Register node providers
 	//providers := map[string]workflow.NodeProvider{

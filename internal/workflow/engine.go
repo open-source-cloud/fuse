@@ -1,39 +1,64 @@
 package workflow
 
 import (
+	"fmt"
+	"github.com/open-source-cloud/fuse/pkg/workflow"
 	"github.com/rs/zerolog/log"
 	"sync"
 )
 
 type Engine interface {
+	RegisterNodeProvider(provider workflow.NodeProvider) error
 	Run() error
-	AddProvider(providerSpec NodeProviderSpec) error
-	AddSchema(schema Schema) error
-	ExecuteWorkflow(workflowId string, input interface{}) error
 }
 
-type EngineExecuteSignal struct {
+type ExecuteSignal struct {
 	Signal string
 	Data   interface{}
 }
 
 type DefaultEngine struct {
-	executeChan chan EngineExecuteSignal
-	state       State
+	executeChan chan ExecuteSignal
+	schemas     map[string]Schema
+	providers   map[string]workflow.NodeProvider
+	nodes       map[string]workflow.Node
 }
 
-// NewDefaultEngine is a constructor for DefaultEngine.
-func NewDefaultEngine(state State) *DefaultEngine {
+func NewDefaultEngine(executeChan chan ExecuteSignal) *DefaultEngine {
 	return &DefaultEngine{
-		state: state,
+		executeChan: executeChan,
+		schemas:     make(map[string]Schema),
+		providers:   make(map[string]workflow.NodeProvider),
+		nodes:       make(map[string]workflow.Node),
 	}
+}
+
+func (e *DefaultEngine) RegisterNodeProvider(provider workflow.NodeProvider) error {
+	if _, exists := e.providers[provider.ID()]; exists {
+		err := fmt.Errorf("provider %s already registered", provider.ID())
+		log.Error().Err(err)
+		return err
+	}
+	log.Info().Msgf("Registered provider %s", provider.ID())
+
+	count := 0
+	for _, node := range provider.Nodes() {
+		if _, exists := e.nodes[node.ID()]; exists {
+			err := fmt.Errorf("node %s already registered", node.ID())
+			log.Error().Err(err)
+			return err
+		}
+		log.Info().Msgf("  > Registered node %s", node.ID())
+		count++
+	}
+
+	return nil
 }
 
 func (e *DefaultEngine) Run() error {
 	log.Info().Msg("Engine started")
 
 	var wg sync.WaitGroup
-	e.executeChan = make(chan EngineExecuteSignal)
 
 	wg.Add(1)
 	go func() {
@@ -47,7 +72,13 @@ func (e *DefaultEngine) Run() error {
 				}
 				// Handle other signals here if needed
 				log.Info().Msgf("Received signal: %v", signal.Signal)
-				if signal.Signal == "workflow-execute" {
+				if signal.Signal == "workflow-start" {
+					if workflowSchema, ok := signal.Data.(Schema); ok {
+						go e.handleStartWorkflow(workflowSchema)
+					} else {
+						log.Error().Msgf("Invalid workflow-start signal data: %v", signal.Data)
+					}
+				} else if signal.Signal == "workflow-execute" {
 					if signalData, ok := signal.Data.(struct {
 						WorkflowId string
 						Input      interface{}
@@ -61,33 +92,37 @@ func (e *DefaultEngine) Run() error {
 		}
 	}()
 
-	e.executeChan <- EngineExecuteSignal{Signal: "started", Data: nil}
+	e.executeChan <- ExecuteSignal{Signal: "started", Data: nil}
 
 	wg.Wait()
 	return nil
 }
 
-func (e *DefaultEngine) AddProvider(providerSpec NodeProviderSpec) error {
-	provider := NewDefaultNodeProvider(providerSpec)
-	return e.state.AddProvider(provider)
-}
+func (e *DefaultEngine) handleStartWorkflow(workflowSchema Schema) {
+	log.Info().Msgf("Starting workflow with ID: %s", workflowSchema.ID())
 
-func (e *DefaultEngine) AddSchema(schema Schema) error {
-	return e.state.AddSchema(schema)
-}
+	if _, exists := e.schemas[workflowSchema.ID()]; !exists {
+		e.schemas[workflowSchema.ID()] = workflowSchema
+	}
+	schemaGraph := workflowSchema.Graph()
 
-func (e *DefaultEngine) ExecuteWorkflow(workflowId string, input interface{}) error {
-	// Log workflow execution initiation
-	log.Info().Msgf("Executing workflow with ID: %s", workflowId)
+	// trigger first node
+	rootNode := schemaGraph.Root()
+	nodeOutput, err := rootNode.NodeRef().Execute(nil)
+	if err != nil {
+		log.Error().Err(err).Msgf("Workflow#%s > failed to execute root node", workflowSchema.ID())
+	}
 
-	e.executeChan <- EngineExecuteSignal{Signal: "workflow-execute", Data: struct {
-		WorkflowId string
-		Input      interface{}
-	}{
-		WorkflowId: workflowId,
-		Input:      input,
-	}}
-	return nil
+	e.executeChan <- ExecuteSignal{
+		Signal: "workflow-execute",
+		Data: struct {
+			WorkflowId string
+			Input      interface{}
+		}{
+			WorkflowId: workflowSchema.ID(),
+			Input:      nodeOutput,
+		},
+	}
 }
 
 func (e *DefaultEngine) handleExecuteWorkflow(workflowId string, input interface{}) {

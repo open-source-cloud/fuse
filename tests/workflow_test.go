@@ -13,15 +13,15 @@ import (
 
 type WorkflowTestSuite struct {
 	suite.Suite
-	engine    *workflow.DefaultEngine
-	providers map[string]workflow.NodeProvider
+	engine    *engine.DefaultEngine
+	providers map[string]engine.NodeProvider
 }
 
 func (s *WorkflowTestSuite) SetupTest() {
-	s.engine = workflow.NewDefaultEngine()
-	s.providers = map[string]workflow.NodeProvider{
+	s.engine = engine.NewDefaultEngine()
+	s.providers = map[string]engine.NodeProvider{
 		"string": strproc.NewStringProcessorProvider(),
-		"logic":  logic.NewLogicProcessorProvider(),
+		"logic":  debug.NewLogicProcessorProvider(),
 	}
 }
 
@@ -75,12 +75,12 @@ edges:
 	}
 
 	// Load workflow
-	wf, err := workflow.LoadWorkflowFromYAML(tmpfile.Name())
+	wf, err := engine.LoadWorkflowFromYAML(tmpfile.Name())
 	s.Require().NoError(err)
 	s.Require().NotNil(wf)
 
 	// Convert to internal workflow
-	workflow, err := workflow.ConvertYAMLToWorkflow(wf, s.providers)
+	workflow, err := engine.ConvertYAMLToWorkflow(wf, s.providers)
 	s.Require().NoError(err)
 	s.Require().NotNil(workflow)
 
@@ -147,12 +147,12 @@ edges:
 	}
 
 	// Load workflow
-	wf, err := workflow.LoadWorkflowFromYAML(tmpfile.Name())
+	wf, err := engine.LoadWorkflowFromYAML(tmpfile.Name())
 	s.Require().NoError(err)
 	s.Require().NotNil(wf)
 
 	// Convert to internal workflow
-	workflow, err := workflow.ConvertYAMLToWorkflow(wf, s.providers)
+	workflow, err := engine.ConvertYAMLToWorkflow(wf, s.providers)
 	s.Require().NoError(err)
 	s.Require().NotNil(workflow)
 

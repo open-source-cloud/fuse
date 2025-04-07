@@ -12,20 +12,20 @@ import (
 
 type WorkflowEngineTestSuite struct {
 	suite.Suite
-	engine    *workflow.DefaultEngine
-	providers map[string]workflow.NodeProvider
+	engine    *engine.DefaultEngine
+	providers map[string]engine.NodeProvider
 }
 
 func (s *WorkflowEngineTestSuite) SetupTest() {
-	s.engine = workflow.NewDefaultEngine()
-	s.providers = map[string]workflow.NodeProvider{
+	s.engine = engine.NewDefaultEngine()
+	s.providers = map[string]engine.NodeProvider{
 		"string": strproc.NewStringProcessorProvider(),
-		"logic":  logic.NewLogicProcessorProvider(),
+		"logic":  debug.NewLogicProcessorProvider(),
 	}
 }
 
 func (s *WorkflowEngineTestSuite) TestExecuteEmptyWorkflow() {
-	wf := &workflow.Workflow{
+	wf := &engine.Workflow{
 		ID:   "empty-workflow",
 		Name: "Empty Workflow",
 	}
@@ -51,11 +51,11 @@ func (s *WorkflowEngineTestSuite) TestExecuteSingleNodeWorkflow() {
 	})
 	s.Require().NoError(err)
 
-	wf := &workflow.Workflow{
+	wf := &engine.Workflow{
 		ID:    "single-node-workflow",
 		Name:  "Single GraphNode Workflow",
-		Nodes: []workflow.Node{node, outputNode},
-		Edges: []workflow.Edge{
+		Nodes: []engine.Node{node, outputNode},
+		Edges: []engine.Edge{
 			{
 				FromNodeID: node.ID(),
 				ToNodeID:   outputNode.ID(),
@@ -84,11 +84,11 @@ func (s *WorkflowEngineTestSuite) TestExecuteWorkflowWithInvalidNode() {
 	})
 	s.Require().NoError(err)
 
-	wf := &workflow.Workflow{
+	wf := &engine.Workflow{
 		ID:    "invalid-node-workflow",
 		Name:  "Invalid GraphNode Workflow",
-		Nodes: []workflow.Node{node, outputNode},
-		Edges: []workflow.Edge{
+		Nodes: []engine.Node{node, outputNode},
+		Edges: []engine.Edge{
 			{
 				FromNodeID: node.ID(),
 				ToNodeID:   outputNode.ID(),

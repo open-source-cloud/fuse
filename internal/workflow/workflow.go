@@ -1,30 +1,16 @@
 package workflow
 
-type Schema struct {
-	ID string
+type Workflow interface {
+	Schema() Schema
 }
 
-type Instance interface {
-	ID() string
-	Schema() *Schema
+type DefaultWorkflow struct {
+	schema Schema
 }
 
-type DefaultInstance struct {
-	id     string
-	schema *Schema
-	graph  Graph
-}
-
-func NewDefaultInstance(id string, schema *Schema, graph Graph) *DefaultInstance {
-	return &DefaultInstance{
-		id:     id,
+// NewDefaultWorkflow creates and returns a new instance of DefaultWorkflow.
+func NewDefaultWorkflow(schema Schema) *DefaultWorkflow {
+	return &DefaultWorkflow{
 		schema: schema,
-		graph:  graph,
 	}
-}
-func (w *DefaultInstance) ID() string {
-	return w.id
-}
-func (w *DefaultInstance) Schema() *Schema {
-	return w.schema
 }

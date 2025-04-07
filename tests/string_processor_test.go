@@ -11,7 +11,7 @@ import (
 
 type StringProcessorTestSuite struct {
 	suite.Suite
-	provider workflow.NodeProvider
+	provider engine.NodeProvider
 }
 
 func (s *StringProcessorTestSuite) SetupTest() {

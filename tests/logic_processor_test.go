@@ -11,16 +11,16 @@ import (
 
 type LogicProcessorTestSuite struct {
 	suite.Suite
-	provider workflow.NodeProvider
+	provider engine.NodeProvider
 }
 
 func (s *LogicProcessorTestSuite) SetupTest() {
-	s.provider = logic.NewLogicProcessorProvider()
+	s.provider = debug.NewLogicProcessorProvider()
 }
 
 func (s *LogicProcessorTestSuite) TestAnd() {
 	config := map[string]interface{}{
-		"type":   logic.NodeTypeAnd,
+		"type":   debug.NodeTypeAnd,
 		"values": []interface{}{true, true},
 	}
 
@@ -39,7 +39,7 @@ func (s *LogicProcessorTestSuite) TestAnd() {
 
 func (s *LogicProcessorTestSuite) TestOr() {
 	config := map[string]interface{}{
-		"type":   logic.NodeTypeOr,
+		"type":   debug.NodeTypeOr,
 		"values": []interface{}{false, true},
 	}
 
@@ -68,7 +68,7 @@ func (s *LogicProcessorTestSuite) TestInvalidConfig() {
 
 func (s *LogicProcessorTestSuite) TestEmptyValues() {
 	config := map[string]interface{}{
-		"type":   logic.NodeTypeAnd,
+		"type":   debug.NodeTypeAnd,
 		"values": []interface{}{},
 	}
 
@@ -79,7 +79,7 @@ func (s *LogicProcessorTestSuite) TestEmptyValues() {
 
 func (s *LogicProcessorTestSuite) TestInvalidValueType() {
 	config := map[string]interface{}{
-		"type":   logic.NodeTypeAnd,
+		"type":   debug.NodeTypeAnd,
 		"values": []interface{}{"not-a-boolean", "also-not-a-boolean"},
 	}
 
