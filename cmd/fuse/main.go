@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/mattn/go-colorable"
-	"github.com/open-source-cloud/fuse/pkg/cli"
+	"github.com/open-source-cloud/fuse/internal/cli"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
