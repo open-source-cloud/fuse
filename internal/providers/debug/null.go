@@ -3,22 +3,21 @@ package debug
 import (
 	"fmt"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
+	"github.com/rs/zerolog/log"
 )
 
-type NullNode struct{}
+type nullNode struct{}
 
-func (n *NullNode) ID() string {
+func (n *nullNode) ID() string {
 	return fmt.Sprintf("%s/null", debugProviderID)
 }
 
-func (n *NullNode) InputSchema() *workflow.DataSchema {
-	return nil
+func (n *nullNode) Params() workflow.Params {
+	//TODO implement me
+	panic("implement me")
 }
 
-func (n *NullNode) OutputSchemas(name string) *workflow.DataSchema {
-	return nil
-}
-
-func (n *NullNode) Execute(input map[string]any) (interface{}, error) {
+func (n *nullNode) Execute() (interface{}, error) {
+	log.Info().Msg("null node executed")
 	return nil, nil
 }

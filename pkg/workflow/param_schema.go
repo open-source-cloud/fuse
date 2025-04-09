@@ -1,6 +1,6 @@
 package workflow
 
-// FieldSchema represents a schema definition for a single data field.
+// ParamSchema represents a schema definition for a single data field.
 // Each field in the schema can have specific properties like type, validation rules, and metadata.
 //
 // Validations array format:
@@ -19,8 +19,8 @@ package workflow
 // Example usage:
 // FieldName: "Username", Type: "string", Required: true, Validations: []string{"len=8", "regex=^[a-zA-Z]+$"}
 // FieldName: "Age", Type: "int", Required: true, Validations: []string{"min=18", "max=65"}
-type FieldSchema struct {
-	FieldName   string   // The name of the field
+type ParamSchema struct {
+	ParamName   string   // The name of the field
 	Type        string   // The variable type (e.g., string, int, bool, etc.)
 	Required    bool     // Whether the field is mandatory
 	Validations []string // A list of validations to apply (e.g., min, max, regex, etc.)
@@ -28,30 +28,4 @@ type FieldSchema struct {
 	Default     any      // Default value if any
 }
 
-// DataSchema represents a collection of FieldSchema.
-type DataSchema struct {
-	Fields []FieldSchema // The array of FieldSchema definitions
-}
-
-type DataMap struct {
-	From string
-	To   string
-}
-
-type DataMapping interface {
-	DataMap() []DataMap
-}
-
-type DefaultDataMapping struct {
-	dataMap []DataMap
-}
-
-func NewDataMapping(mappings []DataMap) *DefaultDataMapping {
-	return &DefaultDataMapping{
-		dataMap: mappings,
-	}
-}
-
-func (m *DefaultDataMapping) DataMap() []DataMap {
-	return m.dataMap
-}
+type Params map[string]ParamSchema

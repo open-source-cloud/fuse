@@ -1,8 +1,6 @@
 package cli
 
 import (
-	"time"
-
 	"github.com/open-source-cloud/fuse/internal/graph"
 	"github.com/open-source-cloud/fuse/internal/providers/debug"
 	"github.com/open-source-cloud/fuse/internal/workflow"
@@ -19,32 +17,22 @@ var workflowCmd = &cobra.Command{
 
 // Workflow example runner
 func workflowExampleRunner(_ *cobra.Command, _ []string) error {
-	rootNodeId := uuid.V7()
-	logNodeId := uuid.V7()
-	testGraph := graph.NewGraph(rootNodeId, &debug.NullNode{})
-	_ = testGraph.AddNode(
-		rootNodeId,
-		uuid.V7(),
-		workflow.NewDefaultEdge(uuid.V7(), nil),
-		logNodeId,
-		&debug.LogNode{},
-	)
+	//worker := workflow.NewWorkflow(uuid.V7(), nil)
+	//worker.Start()
 
-	testWorkflow, _ := workflow.LoadSchema(uuid.V7(), testGraph)
+	provider := debug.NewNodeProvider()
+	rootNode := graph.NewNode(uuid.V7(), provider.Nodes()[0])
+	schema := workflow.LoadSchema(uuid.V7(), graph.NewGraph(rootNode))
 
-	executeSignalChan := make(chan workflow.ExecuteSignal)
-	go func() {
-		time.Sleep(2 * time.Second)
-		executeSignalChan <- workflow.ExecuteSignal{
-			Signal: "workflow-start",
-			Data:   testWorkflow,
-		}
-	}()
+	engine := workflow.NewEngine()
+	engine.Start()
 
-	workflowEngine := workflow.NewDefaultEngine(executeSignalChan)
-	_ = workflowEngine.RegisterNodeProvider(debug.NewNodeProvider())
+	engine.AddSchema(schema)
+	engine.SendMessage(workflow.NewEngineMessage(workflow.EngineMessageStartWorkflow, schema.ID()))
 
-	_ = workflowEngine.Run()
+	quitOnCtrlC()
+
+	//engine.Stop()
 
 	return nil
 }

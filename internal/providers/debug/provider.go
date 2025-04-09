@@ -4,19 +4,18 @@ import "github.com/open-source-cloud/fuse/pkg/workflow"
 
 const debugProviderID = "fuse.io/workflows/internal/debug"
 
-type NodeProvider struct{}
+type nodeProvider struct{}
 
-func NewNodeProvider() *NodeProvider {
-	return &NodeProvider{}
+func NewNodeProvider() workflow.NodeProvider {
+	return &nodeProvider{}
 }
 
-func (p *NodeProvider) ID() string {
+func (p *nodeProvider) ID() string {
 	return debugProviderID
 }
 
-func (p *NodeProvider) Nodes() []workflow.Node {
+func (p *nodeProvider) Nodes() []workflow.Node {
 	return []workflow.Node{
-		&NullNode{},
-		&LogNode{},
+		&nullNode{},
 	}
 }

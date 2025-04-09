@@ -1,43 +1,27 @@
 package graph
 
-import "github.com/open-source-cloud/fuse/pkg/workflow"
-
 type Edge interface {
-	ID() string
-	EdgeRef() workflow.Edge
 	From() Node
 	To() Node
 }
 
-type SimpleEdge struct {
-	id      string
-	edgeRef workflow.Edge
-	from    Node
-	to      Node
+type edge struct {
+	from Node
+	to   Node
 }
 
-// NewSimpleEdge creates a new instance of SimpleEdge.
-func NewSimpleEdge(id string, edgeRef workflow.Edge, from Node, to Node) *SimpleEdge {
-	return &SimpleEdge{
-		id:      id,
-		edgeRef: edgeRef,
-		from:    from,
-		to:      to,
+// NewEdge creates and returns a new edge with the specified from and to nodes.
+func NewEdge(from Node, to Node) Edge {
+	return &edge{
+		from: from,
+		to:   to,
 	}
 }
 
-func (e *SimpleEdge) ID() string {
-	return e.id
-}
-
-func (e *SimpleEdge) EdgeRef() workflow.Edge {
-	return e.edgeRef
-}
-
-func (e *SimpleEdge) From() Node {
+func (e *edge) From() Node {
 	return e.from
 }
 
-func (e *SimpleEdge) To() Node {
+func (e *edge) To() Node {
 	return e.to
 }

@@ -1,130 +1,94 @@
 package workflow
 
 import (
-	"fmt"
-	"github.com/open-source-cloud/fuse/pkg/workflow"
+	"github.com/open-source-cloud/fuse/pkg/uuid"
 	"github.com/rs/zerolog/log"
-	"sync"
+	"github.com/vladopajic/go-actor/actor"
 )
 
 type Engine interface {
-	RegisterNodeProvider(provider workflow.NodeProvider) error
-	Run() error
+	actor.Actor
+	AddSchema(schema Schema)
+	SendMessage(msg EngineMessage)
 }
 
-type ExecuteSignal struct {
-	Signal string
-	Data   interface{}
+type engine struct {
+	baseActor            actor.Actor
+	externalMessagesChan chan EngineMessage
+	mailbox              actor.Mailbox[any]
+	schemas              map[string]Schema
+	workflows            map[string]Workflow
 }
 
-type DefaultEngine struct {
-	executeChan chan ExecuteSignal
-	schemas     map[string]Schema
-	providers   map[string]workflow.NodeProvider
-	nodes       map[string]workflow.Node
-}
-
-func NewDefaultEngine(executeChan chan ExecuteSignal) *DefaultEngine {
-	return &DefaultEngine{
-		executeChan: executeChan,
-		schemas:     make(map[string]Schema),
-		providers:   make(map[string]workflow.NodeProvider),
-		nodes:       make(map[string]workflow.Node),
+func NewEngine() Engine {
+	worker := &engine{
+		externalMessagesChan: make(chan EngineMessage),
+		mailbox:              actor.NewMailbox[any](),
+		schemas:              make(map[string]Schema),
+		workflows:            make(map[string]Workflow),
 	}
+	worker.baseActor = actor.New(worker)
+
+	return worker
 }
 
-func (e *DefaultEngine) RegisterNodeProvider(provider workflow.NodeProvider) error {
-	if _, exists := e.providers[provider.ID()]; exists {
-		err := fmt.Errorf("provider %s already registered", provider.ID())
-		log.Error().Err(err)
-		return err
-	}
-	log.Info().Msgf("Registered provider %s", provider.ID())
-
-	count := 0
-	for _, node := range provider.Nodes() {
-		if _, exists := e.nodes[node.ID()]; exists {
-			err := fmt.Errorf("node %s already registered", node.ID())
-			log.Error().Err(err)
-			return err
+func (e *engine) DoWork(ctx actor.Context) actor.WorkerStatus {
+	select {
+	case <-ctx.Done():
+		for _, workflow := range e.workflows {
+			workflow.Stop()
 		}
-		log.Info().Msgf("  > Registered node %s", node.ID())
-		count++
-	}
+		log.Info().Msg("Stopping engine")
+		return actor.WorkerEnd
 
-	return nil
+	case msg := <-e.externalMessagesChan:
+		log.Info().Msgf("received external engineMessage: %s", msg)
+		e.handleMessage(ctx, msg)
+		return actor.WorkerContinue
+
+	case msg := <-e.mailbox.ReceiveC():
+		log.Info().Msgf("received engineMessage: %s", msg)
+		return actor.WorkerContinue
+	}
 }
 
-func (e *DefaultEngine) Run() error {
-	log.Info().Msg("Engine started")
+func (e *engine) Start() {
+	e.baseActor.Start()
+}
 
-	var wg sync.WaitGroup
+func (e *engine) Stop() {
+	e.baseActor.Stop()
+}
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for {
-			select {
-			case signal := <-e.executeChan:
-				if signal.Signal == "quit" {
-					log.Info().Msg("Received quit signal, stopping engine")
-					return
-				}
-				// Handle other signals here if needed
-				log.Info().Msgf("Received signal: %v", signal.Signal)
-				if signal.Signal == "workflow-start" {
-					if workflowSchema, ok := signal.Data.(Schema); ok {
-						go e.handleStartWorkflow(workflowSchema)
-					} else {
-						log.Error().Msgf("Invalid workflow-start signal data: %v", signal.Data)
-					}
-				} else if signal.Signal == "workflow-execute" {
-					if signalData, ok := signal.Data.(struct {
-						WorkflowId string
-						Input      interface{}
-					}); ok {
-						go e.handleExecuteWorkflow(signalData.WorkflowId, signalData.Input)
-					} else {
-						log.Error().Msg("Invalid workflow-execute signal data")
-					}
-				}
-			}
+func (e *engine) AddSchema(schema Schema) {
+	e.schemas[schema.ID()] = schema
+}
+
+func (e *engine) SendMessage(msg EngineMessage) {
+	e.externalMessagesChan <- msg
+}
+
+func (e *engine) handleMessage(ctx actor.Context, msg EngineMessage) {
+	switch msg.Type() {
+	case EngineMessageStartWorkflow:
+		schemaId, ok := msg.Data().(string)
+		if !ok {
+			log.Error().Msg("Invalid engineMessage data")
+			return
 		}
-	}()
+		workflowSchema, ok := e.schemas[schemaId]
+		if !ok {
+			log.Error().Msgf("Schema with ID %s not found", schemaId)
+			return
+		}
+		newWorkflowUuid := uuid.V7()
+		log.Info().Msgf("Start new workflow with ID %s from schema ID %s", newWorkflowUuid, schemaId)
+		workflow := NewWorkflow(newWorkflowUuid, workflowSchema)
+		workflow.Start()
+		e.workflows[newWorkflowUuid] = workflow
+		workflow.SendMessage(ctx, NewMessage(MessageStartWorkflow, nil))
 
-	e.executeChan <- ExecuteSignal{Signal: "started", Data: nil}
-
-	wg.Wait()
-	return nil
-}
-
-func (e *DefaultEngine) handleStartWorkflow(workflowSchema Schema) {
-	log.Info().Msgf("Starting workflow with ID: %s", workflowSchema.ID())
-
-	if _, exists := e.schemas[workflowSchema.ID()]; !exists {
-		e.schemas[workflowSchema.ID()] = workflowSchema
+	default:
+		log.Warn().Msgf("Unhandled engine engineMessage type: %s", msg.Type())
 	}
-	schemaGraph := workflowSchema.Graph()
-
-	// trigger first node
-	rootNode := schemaGraph.Root()
-	nodeOutput, err := rootNode.NodeRef().Execute(nil)
-	if err != nil {
-		log.Error().Err(err).Msgf("Workflow#%s > failed to execute root node", workflowSchema.ID())
-	}
-
-	e.executeChan <- ExecuteSignal{
-		Signal: "workflow-execute",
-		Data: struct {
-			WorkflowId string
-			Input      interface{}
-		}{
-			WorkflowId: workflowSchema.ID(),
-			Input:      nodeOutput,
-		},
-	}
-}
-
-func (e *DefaultEngine) handleExecuteWorkflow(workflowId string, input interface{}) {
-	log.Info().Msgf("Executing workflow with ID: %s", workflowId)
 }

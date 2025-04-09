@@ -1,53 +1,46 @@
 package graph
 
-import "github.com/open-source-cloud/fuse/pkg/workflow"
+import (
+	"fmt"
+	"github.com/open-source-cloud/fuse/pkg/workflow"
+)
 
 type Node interface {
 	ID() string
 	NodeRef() workflow.Node
 	InputEdges() []Edge
 	OutputEdges() []Edge
-	AddInputEdge(edge Edge)
-	AddOutputEdge(edge Edge)
 }
 
-type SimpleNode struct {
+type node struct {
 	id          string
-	nodeRef     workflow.Node
+	node        workflow.Node
 	inputEdges  []Edge
 	outputEdges []Edge
 }
 
-func NewSimpleNode(id string, node workflow.Node) *SimpleNode {
-	// Construct a SimpleNode and set initial values if needed
-	return &SimpleNode{
-		id:          id,
-		nodeRef:     node,
+// NewNode creates a new instance of node with the given parameters.
+func NewNode(uuid string, workflowNode workflow.Node) Node {
+	return &node{
+		id:          fmt.Sprintf("%s/%s", workflowNode.ID(), uuid),
+		node:        workflowNode,
 		inputEdges:  []Edge{},
 		outputEdges: []Edge{},
 	}
 }
 
-func (n *SimpleNode) ID() string {
+func (n *node) ID() string {
 	return n.id
 }
 
-func (n *SimpleNode) NodeRef() workflow.Node {
-	return n.nodeRef
+func (n *node) NodeRef() workflow.Node {
+	return n.node
 }
 
-func (n *SimpleNode) InputEdges() []Edge {
+func (n *node) InputEdges() []Edge {
 	return n.inputEdges
 }
 
-func (n *SimpleNode) OutputEdges() []Edge {
+func (n *node) OutputEdges() []Edge {
 	return n.outputEdges
-}
-
-func (n *SimpleNode) AddInputEdge(edge Edge) {
-	n.inputEdges = append(n.inputEdges, edge)
-}
-
-func (n *SimpleNode) AddOutputEdge(edge Edge) {
-	n.outputEdges = append(n.outputEdges, edge)
 }

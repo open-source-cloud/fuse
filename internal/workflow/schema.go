@@ -4,37 +4,25 @@ import "github.com/open-source-cloud/fuse/internal/graph"
 
 type Schema interface {
 	ID() string
-	Name() string
-	Description() string
-	Graph() graph.Graph
+	FindNodeByIndex(index int) graph.Node
 }
 
-func LoadSchema(id string, graph graph.Graph) (Schema, error) {
-	return &SchemaImpl{
-		id:    id,
-		graph: graph,
-	}, nil
-}
-
-type SchemaImpl struct {
+type schema struct {
 	id    string
 	graph graph.Graph
 }
 
-func (s *SchemaImpl) ID() string {
+func LoadSchema(id string, graph graph.Graph) Schema {
+	return &schema{
+		id:    id,
+		graph: graph,
+	}
+}
+
+func (s *schema) ID() string {
 	return s.id
 }
 
-func (s *SchemaImpl) Name() string {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (s *SchemaImpl) Description() string {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (s *SchemaImpl) Graph() graph.Graph {
-	return s.graph
+func (s *schema) FindNodeByIndex(index int) graph.Node {
+	return s.graph.Root()
 }
