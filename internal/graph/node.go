@@ -10,6 +10,7 @@ type Node interface {
 	NodeRef() workflow.Node
 	InputEdges() []Edge
 	OutputEdges() []Edge
+	AddOutputEdge(edge Edge)
 }
 
 type node struct {
@@ -43,4 +44,8 @@ func (n *node) InputEdges() []Edge {
 
 func (n *node) OutputEdges() []Edge {
 	return n.outputEdges
+}
+
+func (n *node) AddOutputEdge(edge Edge) {
+	n.outputEdges = append(n.outputEdges, edge)
 }

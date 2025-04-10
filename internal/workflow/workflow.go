@@ -1,6 +1,7 @@
 package workflow
 
 import (
+	"github.com/open-source-cloud/fuse/internal/graph"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 	"github.com/rs/zerolog/log"
 	"github.com/vladopajic/go-actor/actor"
@@ -16,12 +17,13 @@ const (
 )
 
 type workflowWorker struct {
-	baseActor actor.Actor
-	mailbox   actor.Mailbox[workflow.Message]
-	id        string
-	schema    Schema
-	data      map[string]interface{}
-	state     State
+	baseActor   actor.Actor
+	mailbox     actor.Mailbox[workflow.Message]
+	id          string
+	schema      Schema
+	data        map[string]interface{}
+	state       State
+	currentNode graph.Node
 }
 
 func NewWorkflow(id string, schema Schema) workflow.Workflow {
@@ -70,27 +72,43 @@ func (w *workflowWorker) SendMessage(ctx workflow.Context, msg workflow.Message)
 func (w *workflowWorker) handleMessage(ctx workflow.Context, msg workflow.Message) {
 	switch msg.Type() {
 	case workflow.MessageStartWorkflow:
-		input := msg.Data().(map[string]interface{})
 		rootNode := w.schema.RootNode()
-		result, _ := rootNode.NodeRef().Execute(input)
-		log.Info().Msgf("Workflow %s : Node %s finished with result: %s", w.id, rootNode.ID(), result)
+		w.executeNode(ctx, rootNode, msg.Data())
 
-		var output workflow.NodeOutput
-		_, isAsync := result.Async()
-		if !isAsync {
-			output = result.Output()
+	case workflow.MessageContinueWorkflow:
+		outputEdges := w.currentNode.OutputEdges()
+		if len(outputEdges) == 0 {
+			log.Info().Msgf("Workflow %s : No output edges for node %s", w.id, w.currentNode.ID())
+			w.state = StateFinished
+			log.Info().Msgf("Workflow %s : Workflow finished with state: %s", w.id, w.state)
+			ctx.Done()
+			return
 		}
-		//goland:noinspection ALL
-		if output.Status() == workflow.NodeOutputStatusSuccess {
-			w.SendMessage(ctx, workflow.NewMessage(workflow.MessageContinueWorkflow, output.Data()))
-		} else {
-			w.state = StateError
-		}
-		log.Info().Msgf("Workflow %s : Workflow finished with state: %s", w.id, w.state)
-		ctx.Done()
+		node := outputEdges[0].To()
+		w.executeNode(ctx, node, msg.Data())
 
 	default:
 		// Handle unknown message types
 		log.Warn().Msgf("Workflow %s : Received unknown message type %s", w.id, msg.Type())
+	}
+}
+
+func (w *workflowWorker) executeNode(ctx workflow.Context, node graph.Node, inputData interface{}) {
+	input := inputData.(map[string]interface{})
+	w.currentNode = node
+	result, _ := node.NodeRef().Execute(input)
+	log.Info().Msgf("Workflow %s : Node %s finished with result: %s", w.id, node.ID(), result)
+
+	var output workflow.NodeOutput
+	_, isAsync := result.Async()
+	if !isAsync {
+		output = result.Output()
+	}
+	//goland:noinspection ALL
+	if output.Status() == workflow.NodeOutputStatusSuccess {
+		w.SendMessage(ctx, workflow.NewMessage(workflow.MessageContinueWorkflow, output.Data()))
+	} else {
+		w.state = StateError
+		return
 	}
 }

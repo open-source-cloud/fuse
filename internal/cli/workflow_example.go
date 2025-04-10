@@ -19,7 +19,10 @@ var workflowCmd = &cobra.Command{
 func workflowExampleRunner(_ *cobra.Command, _ []string) error {
 	provider := debug.NewNodeProvider()
 	rootNode := graph.NewNode(uuid.V7(), provider.Nodes()[0])
-	schema := workflow.LoadSchema(uuid.V7(), graph.NewGraph(rootNode))
+	nextNode := graph.NewNode(uuid.V7(), provider.Nodes()[0])
+	newGraph := graph.NewGraph(rootNode)
+	newGraph.AddNode(rootNode.ID(), nextNode)
+	schema := workflow.LoadSchema(uuid.V7(), newGraph)
 
 	engine := workflow.NewEngine()
 	engine.Start()

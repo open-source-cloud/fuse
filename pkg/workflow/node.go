@@ -45,9 +45,15 @@ type NodeResult interface {
 }
 
 func NewNodeResult(status NodeOutputStatus, data NodeOutputData) NodeResult {
+	var outputData NodeOutputData
+	if data != nil {
+		outputData = data
+	} else {
+		outputData = map[string]interface{}{}
+	}
 	return &nodeResult{
 		asyncChan: nil,
-		output:    NewNodeOutput(status, data),
+		output:    NewNodeOutput(status, outputData),
 	}
 }
 

@@ -3,6 +3,7 @@ package graph
 type Graph interface {
 	Root() Node
 	FindNode(nodeId string) Node
+	AddNode(parentNodeId string, node Node)
 }
 
 type graph struct {
@@ -20,7 +21,6 @@ func (g *graph) Root() Node {
 }
 
 func (g *graph) FindNode(nodeId string) Node {
-
 	var find func(node Node) Node
 	find = func(node Node) Node {
 		if node.ID() == nodeId {
@@ -35,4 +35,9 @@ func (g *graph) FindNode(nodeId string) Node {
 		return nil
 	}
 	return find(g.root)
+}
+
+func (g *graph) AddNode(parentNodeId string, node Node) {
+	parentNode := g.FindNode(parentNodeId)
+	parentNode.AddOutputEdge(NewEdge(parentNode, node))
 }
