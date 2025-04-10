@@ -3,7 +3,8 @@ package workflow
 type MessageType string
 
 const (
-	MessageStartWorkflow MessageType = "workflow:start"
+	MessageStartWorkflow    MessageType = "workflow:start"
+	MessageContinueWorkflow MessageType = "workflow:continue"
 )
 
 type Message interface {

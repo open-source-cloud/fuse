@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"github.com/open-source-cloud/fuse/pkg/uuid"
+	"github.com/open-source-cloud/fuse/pkg/workflow"
 	"github.com/rs/zerolog/log"
 	"github.com/vladopajic/go-actor/actor"
 )
@@ -17,7 +18,7 @@ type engine struct {
 	externalMessagesChan chan EngineMessage
 	mailbox              actor.Mailbox[any]
 	schemas              map[string]Schema
-	workflows            map[string]Workflow
+	workflows            map[string]workflow.Workflow
 }
 
 func NewEngine() Engine {
@@ -25,7 +26,7 @@ func NewEngine() Engine {
 		externalMessagesChan: make(chan EngineMessage),
 		mailbox:              actor.NewMailbox[any](),
 		schemas:              make(map[string]Schema),
-		workflows:            make(map[string]Workflow),
+		workflows:            make(map[string]workflow.Workflow),
 	}
 	worker.baseActor = actor.New(worker)
 
@@ -35,8 +36,8 @@ func NewEngine() Engine {
 func (e *engine) DoWork(ctx actor.Context) actor.WorkerStatus {
 	select {
 	case <-ctx.Done():
-		for _, workflow := range e.workflows {
-			workflow.Stop()
+		for _, workflowActor := range e.workflows {
+			workflowActor.Stop()
 		}
 		log.Info().Msg("Stopping engine")
 		return actor.WorkerEnd
@@ -83,10 +84,15 @@ func (e *engine) handleMessage(ctx actor.Context, msg EngineMessage) {
 		}
 		newWorkflowUuid := uuid.V7()
 		log.Info().Msgf("Start new workflow with ID %s from schema ID %s", newWorkflowUuid, schemaId)
-		workflow := NewWorkflow(newWorkflowUuid, workflowSchema)
-		workflow.Start()
-		e.workflows[newWorkflowUuid] = workflow
-		workflow.SendMessage(ctx, NewMessage(MessageStartWorkflow, nil))
+		workflowActor := NewWorkflow(newWorkflowUuid, workflowSchema)
+		workflowActor.Start()
+		e.workflows[newWorkflowUuid] = workflowActor
+		workflowActor.SendMessage(
+			ctx,
+			workflow.NewMessage(workflow.MessageStartWorkflow, map[string]interface{}{
+				"hello": "world",
+			}),
+		)
 
 	default:
 		log.Warn().Msgf("Unhandled engine engineMessage type: %s", msg.Type())

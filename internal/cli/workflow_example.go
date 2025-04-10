@@ -17,9 +17,6 @@ var workflowCmd = &cobra.Command{
 
 // Workflow example runner
 func workflowExampleRunner(_ *cobra.Command, _ []string) error {
-	//worker := workflow.NewWorkflow(uuid.V7(), nil)
-	//worker.Start()
-
 	provider := debug.NewNodeProvider()
 	rootNode := graph.NewNode(uuid.V7(), provider.Nodes()[0])
 	schema := workflow.LoadSchema(uuid.V7(), graph.NewGraph(rootNode))
@@ -31,8 +28,7 @@ func workflowExampleRunner(_ *cobra.Command, _ []string) error {
 	engine.SendMessage(workflow.NewEngineMessage(workflow.EngineMessageStartWorkflow, schema.ID()))
 
 	quitOnCtrlC()
-
-	//engine.Stop()
+	engine.Stop()
 
 	return nil
 }

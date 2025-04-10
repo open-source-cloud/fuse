@@ -4,6 +4,7 @@ import "github.com/open-source-cloud/fuse/internal/graph"
 
 type Schema interface {
 	ID() string
+	RootNode() graph.Node
 	FindNodeByIndex(index int) graph.Node
 }
 
@@ -21,6 +22,10 @@ func LoadSchema(id string, graph graph.Graph) Schema {
 
 func (s *schema) ID() string {
 	return s.id
+}
+
+func (s *schema) RootNode() graph.Node {
+	return s.graph.Root()
 }
 
 func (s *schema) FindNodeByIndex(index int) graph.Node {

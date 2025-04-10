@@ -13,11 +13,10 @@ func (n *nullNode) ID() string {
 }
 
 func (n *nullNode) Params() workflow.Params {
-	//TODO implement me
-	panic("implement me")
+	return workflow.Params{}
 }
 
-func (n *nullNode) Execute() (interface{}, error) {
-	log.Info().Msg("null node executed")
-	return nil, nil
+func (n *nullNode) Execute(input workflow.NodeInput) (workflow.NodeResult, error) {
+	log.Info().Msgf("NullNode executed with input: %s", input)
+	return workflow.NewNodeResult(workflow.NodeOutputStatusSuccess, nil), nil
 }

@@ -3,7 +3,7 @@ package workflow
 type EngineMessageType string
 
 const (
-	EngineMessageStartWorkflow EngineMessageType = "workflow:start"
+	EngineMessageStartWorkflow EngineMessageType = "workflowWorker:start"
 )
 
 type EngineMessage interface {
