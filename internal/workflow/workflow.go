@@ -1,11 +1,20 @@
 package workflow
 
 import (
+	"fmt"
 	"github.com/open-source-cloud/fuse/internal/graph"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 	"github.com/rs/zerolog/log"
 	"github.com/vladopajic/go-actor/actor"
+	"reflect"
+	"strings"
 )
+
+func typesMap() map[string]reflect.Type {
+	return map[string]reflect.Type{
+		"int": reflect.TypeOf(0),
+	}
+}
 
 type State string
 
@@ -16,9 +25,16 @@ const (
 	StateError    State = "error"
 )
 
+type Context actor.Context
+
+type Workflow interface {
+	actor.Actor
+	SendMessage(ctx Context, msg Message)
+}
+
 type workflowWorker struct {
 	baseActor   actor.Actor
-	mailbox     actor.Mailbox[workflow.Message]
+	mailbox     actor.Mailbox[Message]
 	id          string
 	schema      Schema
 	data        map[string]interface{}
@@ -26,9 +42,9 @@ type workflowWorker struct {
 	currentNode graph.Node
 }
 
-func NewWorkflow(id string, schema Schema) workflow.Workflow {
+func NewWorkflow(id string, schema Schema) Workflow {
 	worker := &workflowWorker{
-		mailbox: actor.NewMailbox[workflow.Message](),
+		mailbox: actor.NewMailbox[Message](),
 		id:      id,
 		schema:  schema,
 		data:    make(map[string]interface{}),
@@ -61,7 +77,7 @@ func (w *workflowWorker) DoWork(ctx actor.Context) actor.WorkerStatus {
 	}
 }
 
-func (w *workflowWorker) SendMessage(ctx workflow.Context, msg workflow.Message) {
+func (w *workflowWorker) SendMessage(ctx Context, msg Message) {
 	err := w.mailbox.Send(ctx, msg)
 	if err != nil {
 		log.Error().Err(err).Msgf("Workflow %s : Failed to send message to Workflow", w.id)
@@ -69,13 +85,13 @@ func (w *workflowWorker) SendMessage(ctx workflow.Context, msg workflow.Message)
 	w.mailbox.Start()
 }
 
-func (w *workflowWorker) handleMessage(ctx workflow.Context, msg workflow.Message) {
+func (w *workflowWorker) handleMessage(ctx Context, msg Message) {
 	switch msg.Type() {
-	case workflow.MessageStartWorkflow:
+	case MessageStartWorkflow:
 		rootNode := w.schema.RootNode()
 		w.executeNode(ctx, rootNode, msg.Data())
 
-	case workflow.MessageContinueWorkflow:
+	case MessageContinueWorkflow:
 		outputEdges := w.currentNode.OutputEdges()
 		if len(outputEdges) == 0 {
 			log.Info().Msgf("Workflow %s : No output edges for node %s", w.id, w.currentNode.ID())
@@ -84,8 +100,23 @@ func (w *workflowWorker) handleMessage(ctx workflow.Context, msg workflow.Messag
 			ctx.Done()
 			return
 		}
-		node := outputEdges[0].To()
-		w.executeNode(ctx, node, msg.Data())
+
+		if len(outputEdges) == 0 {
+			w.state = StateFinished
+			log.Info().Msgf("Workflow %s : Workflow finished with state: %s", w.id, w.state)
+			ctx.Done()
+		} else if len(outputEdges) == 1 {
+			edge, exists := outputEdges["default"]
+			if !exists {
+				log.Error().Msgf("Workflow %s : No default output edge for node %s", w.id, w.currentNode.ID())
+				w.state = StateError
+				log.Info().Msgf("Workflow %s : Workflow finished with state: %s", w.id, w.state)
+				ctx.Done()
+			}
+			w.executeNode(ctx, edge.To(), msg.Data())
+		} else {
+			//w.executeParallelNodes(ctx, outputEdges, msg.Data())
+		}
 
 	default:
 		// Handle unknown message types
@@ -93,8 +124,8 @@ func (w *workflowWorker) handleMessage(ctx workflow.Context, msg workflow.Messag
 	}
 }
 
-func (w *workflowWorker) executeNode(ctx workflow.Context, node graph.Node, inputData interface{}) {
-	input := inputData.(map[string]interface{})
+func (w *workflowWorker) executeNode(ctx Context, node graph.Node, rawInputData interface{}) {
+	input, _ := w.processRawInput(node, rawInputData)
 	w.currentNode = node
 	result, _ := node.NodeRef().Execute(input)
 	log.Info().Msgf("Workflow %s : Node %s finished with result: %s", w.id, node.ID(), result)
@@ -106,9 +137,42 @@ func (w *workflowWorker) executeNode(ctx workflow.Context, node graph.Node, inpu
 	}
 	//goland:noinspection ALL
 	if output.Status() == workflow.NodeOutputStatusSuccess {
-		w.SendMessage(ctx, workflow.NewMessage(workflow.MessageContinueWorkflow, output.Data()))
+		w.SendMessage(ctx, NewMessage(MessageContinueWorkflow, output.Data()))
 	} else {
 		w.state = StateError
 		return
 	}
+}
+
+func (w *workflowWorker) processRawInput(node graph.Node, rawInputData interface{}) (map[string]interface{}, error) {
+	inputData := rawInputData.(map[string]interface{})
+	input := make(map[string]interface{})
+	nodeConfig := node.Config()
+	inputSchema := node.NodeRef().Metadata().Input()
+
+	for _, mapping := range nodeConfig.InputMapping() {
+		paramSchema, exists := inputSchema.Parameters[mapping.Mapping]
+		if !exists {
+			log.Error().Msgf("Workflow %s : Input mapping for parameter %s not found", w.id, mapping.ParamName)
+			return nil, fmt.Errorf("input mapping for parameter %s not found", mapping.ParamName)
+		}
+
+		paramValue, exists := inputData[mapping.ParamName]
+		if !exists {
+			log.Error().Msgf("Workflow %s : Input mapping for parameter %s not found", w.id, mapping.ParamName)
+			return nil, fmt.Errorf("input mapping for parameter %s not found", mapping.ParamName)
+		}
+
+		if strings.HasPrefix(paramSchema.Type, "[]") {
+			sliceType := reflect.SliceOf(typesMap()[paramSchema.Type[2:]])
+			slice := reflect.MakeSlice(sliceType, 0, 0)
+			appendedSlice := reflect.Append(slice, reflect.ValueOf(paramValue))
+			value := appendedSlice.Interface()
+			input[mapping.Mapping] = value
+		} else {
+
+		}
+	}
+
+	return input, nil
 }

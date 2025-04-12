@@ -2,7 +2,7 @@ package workflow
 
 type Node interface {
 	ID() string
-	Params() Params
+	Metadata() NodeMetadata
 	Execute(input NodeInput) (NodeResult, error)
 }
 

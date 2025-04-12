@@ -1,8 +1,8 @@
-package debug
+package logic
 
 import "github.com/open-source-cloud/fuse/pkg/workflow"
 
-const debugProviderID = "fuse.io/workflows/internal/debug"
+const logicProviderID = "fuse.io/workflows/internal/logic"
 
 type nodeProvider struct{}
 
@@ -11,11 +11,12 @@ func NewNodeProvider() workflow.NodeProvider {
 }
 
 func (p *nodeProvider) ID() string {
-	return debugProviderID
+	return logicProviderID
 }
 
 func (p *nodeProvider) Nodes() []workflow.Node {
 	return []workflow.Node{
-		&nilNode{},
+		&sumNode{},
+		&randNode{},
 	}
 }

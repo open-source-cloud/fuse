@@ -2,7 +2,6 @@ package workflow
 
 import (
 	"github.com/open-source-cloud/fuse/pkg/uuid"
-	"github.com/open-source-cloud/fuse/pkg/workflow"
 	"github.com/rs/zerolog/log"
 	"github.com/vladopajic/go-actor/actor"
 )
@@ -18,7 +17,7 @@ type engine struct {
 	externalMessagesChan chan EngineMessage
 	mailbox              actor.Mailbox[any]
 	schemas              map[string]Schema
-	workflows            map[string]workflow.Workflow
+	workflows            map[string]Workflow
 }
 
 func NewEngine() Engine {
@@ -26,7 +25,7 @@ func NewEngine() Engine {
 		externalMessagesChan: make(chan EngineMessage),
 		mailbox:              actor.NewMailbox[any](),
 		schemas:              make(map[string]Schema),
-		workflows:            make(map[string]workflow.Workflow),
+		workflows:            make(map[string]Workflow),
 	}
 	worker.baseActor = actor.New(worker)
 
@@ -89,7 +88,7 @@ func (e *engine) handleMessage(ctx actor.Context, msg EngineMessage) {
 		e.workflows[newWorkflowUuid] = workflowActor
 		workflowActor.SendMessage(
 			ctx,
-			workflow.NewMessage(workflow.MessageStartWorkflow, map[string]interface{}{
+			NewMessage(MessageStartWorkflow, map[string]interface{}{
 				"hello": "world",
 			}),
 		)
