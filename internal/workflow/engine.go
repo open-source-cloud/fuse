@@ -1,141 +1,100 @@
-// Package workflow provides the core workflow engine implementation.
-// It includes types and functions for defining and executing workflows.
+// Package workflow for internal workflow
 package workflow
 
 import (
-	"context"
-	"fmt"
-	"sync"
+	"github.com/open-source-cloud/fuse/pkg/uuid"
+	"github.com/rs/zerolog/log"
+	"github.com/vladopajic/go-actor/actor"
 )
 
-// Engine represents the workflow execution engine
+// Engine describes the engine interface
 type Engine interface {
-	// RegisterProvider registers a new node provider
-	RegisterProvider(provider NodeProvider) error
-	// ExecuteWorkflow runs a workflow with the given input
-	ExecuteWorkflow(ctx context.Context, workflow *Workflow, input interface{}) (interface{}, error)
-	// ValidateWorkflow checks if a workflow definition is valid
-	ValidateWorkflow(workflow *Workflow) error
+	actor.Actor
+	AddSchema(schema Schema)
+	SendMessage(msg EngineMessage)
 }
 
-// DefaultEngine implements the WorkflowEngine interface
-type DefaultEngine struct {
-	providers map[string]NodeProvider
-	mu        sync.RWMutex
+type engine struct {
+	baseActor            actor.Actor
+	externalMessagesChan chan EngineMessage
+	mailbox              actor.Mailbox[any]
+	schemas              map[string]Schema
+	workflows            map[string]Workflow
 }
 
-// NewDefaultEngine creates a new instance of DefaultEngine
-func NewDefaultEngine() *DefaultEngine {
-	return &DefaultEngine{
-		providers: make(map[string]NodeProvider),
+// NewEngine creates the engine actor
+func NewEngine() Engine {
+	worker := &engine{
+		externalMessagesChan: make(chan EngineMessage),
+		mailbox:              actor.NewMailbox[any](),
+		schemas:              make(map[string]Schema),
+		workflows:            make(map[string]Workflow),
+	}
+	worker.baseActor = actor.New(worker)
+
+	return worker
+}
+
+func (e *engine) DoWork(ctx actor.Context) actor.WorkerStatus {
+	select {
+	case <-ctx.Done():
+		for _, workflowActor := range e.workflows {
+			workflowActor.Stop()
+		}
+		log.Info().Msg("Stopping engine")
+		return actor.WorkerEnd
+
+	case msg := <-e.externalMessagesChan:
+		log.Info().Msgf("received external engineMessage: %s", msg)
+		e.handleMessage(ctx, msg)
+		return actor.WorkerContinue
+
+	case msg := <-e.mailbox.ReceiveC():
+		log.Info().Msgf("received engineMessage: %s", msg)
+		return actor.WorkerContinue
 	}
 }
 
-// RegisterProvider implements WorkflowEngine.RegisterProvider
-func (e *DefaultEngine) RegisterProvider(provider NodeProvider) error {
-	if provider == nil {
-		return &Error{
-			Message: "provider cannot be nil",
-		}
-	}
-	e.mu.Lock()
-	defer e.mu.Unlock()
-
-	name := provider.Name()
-	if _, exists := e.providers[name]; exists {
-		return fmt.Errorf("provider %s already registered", name)
-	}
-
-	e.providers[name] = provider
-	return nil
+func (e *engine) Start() {
+	e.baseActor.Start()
 }
 
-// ExecuteWorkflow implements WorkflowEngine.ExecuteWorkflow
-func (e *DefaultEngine) ExecuteWorkflow(ctx context.Context, workflow *Workflow, input interface{}) (interface{}, error) {
-	if workflow == nil {
-		return nil, &Error{
-			Message: "workflow cannot be nil",
-		}
-	}
-	if err := e.ValidateWorkflow(workflow); err != nil {
-		return nil, err
-	}
-
-	// Create a map of nodes for faster lookup
-	nodeMap := make(map[string]Node)
-	for _, node := range workflow.Nodes {
-		nodeMap[node.ID()] = node
-	}
-
-	// Execute the workflow
-	currentInput := input
-	for _, edge := range workflow.Edges {
-		fromNode, exists := nodeMap[edge.FromNodeID]
-		if !exists {
-			return nil, &Error{
-				Message: fmt.Sprintf("node %s not found", edge.FromNodeID),
-			}
-		}
-
-		output, err := fromNode.Execute(ctx, currentInput)
-		if err != nil {
-			return nil, &Error{
-				Message: fmt.Sprintf("error executing node %s: %v", edge.FromNodeID, err),
-				Err:     err,
-			}
-		}
-
-		// Check edge condition if present
-		if edge.Condition != nil && !edge.Condition(output) {
-			return nil, &Error{
-				Message: fmt.Sprintf("edge condition not met for node %s", edge.FromNodeID),
-			}
-		}
-
-		currentInput = output
-	}
-
-	return currentInput, nil
+func (e *engine) Stop() {
+	e.baseActor.Stop()
 }
 
-// ValidateWorkflow implements WorkflowEngine.ValidateWorkflow
-func (e *DefaultEngine) ValidateWorkflow(workflow *Workflow) error {
-	if workflow == nil {
-		return fmt.Errorf("workflow is nil")
-	}
+func (e *engine) AddSchema(schema Schema) {
+	e.schemas[schema.ID()] = schema
+}
 
-	if workflow.ID == "" {
-		return fmt.Errorf("workflow ID is empty")
-	}
+func (e *engine) SendMessage(msg EngineMessage) {
+	e.externalMessagesChan <- msg
+}
 
-	if len(workflow.Nodes) == 0 {
-		return fmt.Errorf("workflow has no nodes")
-	}
-
-	// Validate each node
-	for _, node := range workflow.Nodes {
-		if err := node.Validate(); err != nil {
-			return &Error{
-				Message: fmt.Sprintf("invalid node %s: %v", node.ID(), err),
-				Err:     err,
-			}
+func (e *engine) handleMessage(ctx actor.Context, msg EngineMessage) {
+	switch msg.Type() {
+	case EngineMessageStartWorkflow:
+		schemaID, ok := msg.Data().(string)
+		if !ok {
+			log.Error().Msg("Invalid engineMessage data")
+			return
 		}
-	}
-
-	// Validate edges
-	nodeIDs := make(map[string]bool)
-	for _, node := range workflow.Nodes {
-		nodeIDs[node.ID()] = true
-	}
-
-	for _, edge := range workflow.Edges {
-		if !nodeIDs[edge.FromNodeID] {
-			return fmt.Errorf("edge references non-existent node %s", edge.FromNodeID)
+		workflowSchema, ok := e.schemas[schemaID]
+		if !ok {
+			log.Error().Msgf("Schema with ID %s not found", schemaID)
+			return
 		}
-		if !nodeIDs[edge.ToNodeID] {
-			return fmt.Errorf("edge references non-existent node %s", edge.ToNodeID)
-		}
-	}
+		newWorkflowUUID := uuid.V7()
+		log.Info().Msgf("Start new workflow with ID %s from schema ID %s", newWorkflowUUID, schemaID)
+		workflowActor := NewWorkflow(newWorkflowUUID, workflowSchema)
+		workflowActor.Start()
+		e.workflows[newWorkflowUUID] = workflowActor
+		workflowActor.SendMessage(
+			ctx,
+			NewMessage(MessageStartWorkflow, map[string]any{}),
+		)
 
-	return nil
+	default:
+		log.Warn().Msgf("Unhandled engine engineMessage type: %s", msg.Type())
+	}
 }
