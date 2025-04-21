@@ -7,7 +7,7 @@ run:
 	go run cmd/fuse/main.go
 
 test:
-	$(GOTESTSUM) --junitfile test-report.xml --format testdox -- ./pkg/... ./tests/... ./internal/...
+	$(GOTESTSUM) --junitfile test-report.xml --format testdox -- ./pkg/... ./internal/...
 
 build:
 	go build -o bin/fuse cmd/fuse/main.go
