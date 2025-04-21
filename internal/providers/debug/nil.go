@@ -3,7 +3,6 @@ package debug
 import (
 	"fmt"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
-	"github.com/rs/zerolog/log"
 )
 
 type nilNode struct{}
@@ -25,7 +24,6 @@ func (n *nilNode) Metadata() workflow.NodeMetadata {
 	)
 }
 
-func (n *nilNode) Execute(input workflow.NodeInput) (workflow.NodeResult, error) {
-	log.Info().Msgf("NullNode executed with input: %s", input)
+func (n *nilNode) Execute(_ workflow.NodeInput) (workflow.NodeResult, error) {
 	return workflow.NewNodeResult(workflow.NodeOutputStatusSuccess, nil), nil
 }

@@ -88,9 +88,7 @@ func (e *engine) handleMessage(ctx actor.Context, msg EngineMessage) {
 		e.workflows[newWorkflowUuid] = workflowActor
 		workflowActor.SendMessage(
 			ctx,
-			NewMessage(MessageStartWorkflow, map[string]interface{}{
-				"hello": "world",
-			}),
+			NewMessage(MessageStartWorkflow, map[string]any{}),
 		)
 
 	default:

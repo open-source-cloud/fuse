@@ -9,15 +9,15 @@ const (
 
 type Message interface {
 	Type() MessageType
-	Data() interface{}
+	Data() any
 }
 
 type message struct {
 	msgType MessageType
-	data    interface{}
+	data    any
 }
 
-func NewMessage(msgType MessageType, data interface{}) Message {
+func NewMessage(msgType MessageType, data any) Message {
 	return &message{
 		msgType: msgType,
 		data:    data,
@@ -28,6 +28,6 @@ func (m *message) Type() MessageType {
 	return m.msgType
 }
 
-func (m *message) Data() interface{} {
+func (m *message) Data() any {
 	return m.data
 }

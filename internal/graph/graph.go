@@ -3,7 +3,8 @@ package graph
 type Graph interface {
 	Root() Node
 	FindNode(nodeId string) Node
-	AddNode(parentNodeId string, edgeIdentifier string, node Node)
+	AddNode(parentNodeId string, edgeId string, node Node)
+	AddNodeMultipleParents(parentNodeIds []string, edgeIdentifier string, node Node)
 }
 
 type graph struct {
@@ -37,7 +38,15 @@ func (g *graph) FindNode(nodeId string) Node {
 	return find(g.root)
 }
 
-func (g *graph) AddNode(parentNodeId string, edgeIdentifier string, node Node) {
+func (g *graph) AddNode(parentNodeId string, edgeId string, node Node) {
 	parentNode := g.FindNode(parentNodeId)
-	parentNode.AddOutputEdge(edgeIdentifier, NewEdge(parentNode, node))
+	newEdge := NewEdge(edgeId, parentNode, node)
+	parentNode.AddOutputEdge(edgeId, newEdge)
+	node.AddInputEdge(newEdge)
+}
+
+func (g *graph) AddNodeMultipleParents(parentNodeIds []string, edgeId string, node Node) {
+	for _, parentNodeId := range parentNodeIds {
+		g.AddNode(parentNodeId, edgeId, node)
+	}
 }

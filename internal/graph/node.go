@@ -44,7 +44,8 @@ type Node interface {
 	Config() NodeConfig
 	InputEdges() []Edge
 	OutputEdges() map[string]Edge
-	AddOutputEdge(edgeIdentifier string, edge Edge)
+	AddInputEdge(edge Edge)
+	AddOutputEdge(edgeId string, edge Edge)
 }
 
 type node struct {
@@ -86,6 +87,10 @@ func (n *node) OutputEdges() map[string]Edge {
 	return n.outputEdges
 }
 
-func (n *node) AddOutputEdge(edgeIdentifier string, edge Edge) {
-	n.outputEdges[edgeIdentifier] = edge
+func (n *node) AddInputEdge(edge Edge) {
+	n.inputEdges = append(n.inputEdges, edge)
+}
+
+func (n *node) AddOutputEdge(edgeId string, edge Edge) {
+	n.outputEdges[edgeId] = edge
 }

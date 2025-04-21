@@ -1,7 +1,9 @@
 package cli
 
 import (
+	"fmt"
 	"github.com/open-source-cloud/fuse/internal/graph"
+	"github.com/open-source-cloud/fuse/internal/providers/debug"
 	"github.com/open-source-cloud/fuse/internal/providers/logic"
 	"github.com/open-source-cloud/fuse/internal/workflow"
 	"github.com/open-source-cloud/fuse/pkg/uuid"
@@ -19,16 +21,27 @@ var workflowCmd = &cobra.Command{
 func workflowExampleRunner(_ *cobra.Command, _ []string) error {
 	engine := workflow.NewEngine()
 
+	debugProvider := debug.NewNodeProvider()
 	logicProvider := logic.NewNodeProvider()
 
 	rootNodeConfig := graph.NewNodeConfig()
-	rootNode := graph.NewNode(uuid.V7(), logicProvider.Nodes()[1], rootNodeConfig)
+	rootNode := graph.NewNode(uuid.V7(), debugProvider.Nodes()[0], rootNodeConfig)
 	newGraph := graph.NewGraph(rootNode)
 
-	nextNodeConfig := graph.NewNodeConfig()
-	nextNodeConfig.AddInputMapping("edge[]", "rand", "value")
-	nextNode := graph.NewNode(uuid.V7(), logicProvider.Nodes()[0], nextNodeConfig)
-	newGraph.AddNode(rootNode.ID(), "default", nextNode)
+	randNode1Config := graph.NewNodeConfig()
+	randNode1 := graph.NewNode(uuid.V7(), logicProvider.Nodes()[1], randNode1Config)
+	randNodeEdgeId1 := uuid.V7()
+	newGraph.AddNode(rootNode.ID(), randNodeEdgeId1, randNode1)
+	randNode2Config := graph.NewNodeConfig()
+	randNodeEdgeId2 := uuid.V7()
+	randNode2 := graph.NewNode(uuid.V7(), logicProvider.Nodes()[1], randNode2Config)
+	newGraph.AddNode(rootNode.ID(), randNodeEdgeId2, randNode2)
+
+	sumNodeConfig := graph.NewNodeConfig()
+	sumNodeConfig.AddInputMapping(fmt.Sprintf("edge[%s]", randNodeEdgeId1), "rand", "values")
+	sumNodeConfig.AddInputMapping(fmt.Sprintf("edge[%s]", randNodeEdgeId2), "rand", "values")
+	sumNode := graph.NewNode(uuid.V7(), logicProvider.Nodes()[0], sumNodeConfig)
+	newGraph.AddNodeMultipleParents([]string{randNode1.ID(), randNode2.ID()}, uuid.V7(), sumNode)
 
 	engine.Start()
 

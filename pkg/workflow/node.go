@@ -11,9 +11,9 @@ const (
 	NodeOutputStatusError   NodeOutputStatus = "error"
 )
 
-type NodeInput map[string]interface{}
+type NodeInput map[string]any
 type NodeOutputStatus string
-type NodeOutputData interface{}
+type NodeOutputData any
 type NodeOutput interface {
 	Status() NodeOutputStatus
 	Data() NodeOutputData
@@ -49,7 +49,7 @@ func NewNodeResult(status NodeOutputStatus, data NodeOutputData) NodeResult {
 	if data != nil {
 		outputData = data
 	} else {
-		outputData = map[string]interface{}{}
+		outputData = map[string]any{}
 	}
 	return &nodeResult{
 		asyncChan: nil,

@@ -3,7 +3,6 @@ package logic
 import (
 	"fmt"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
-	"github.com/rs/zerolog/log"
 )
 
 type sumNode struct{}
@@ -17,13 +16,13 @@ func (n *sumNode) Metadata() workflow.NodeMetadata {
 		// input
 		workflow.InputOutputMetadata{
 			Parameters: workflow.Parameters{
-				"value": workflow.ParameterSchema{
-					Name:        "value",
+				"values": workflow.ParameterSchema{
+					Name:        "values",
 					Type:        "[]int",
 					Required:    true,
 					Validations: nil,
-					Description: "Value to sum",
-					Default:     0,
+					Description: "Values to sum",
+					Default:     []int{},
 				},
 			},
 			Edges: workflow.EdgeMetadata{
@@ -35,7 +34,7 @@ func (n *sumNode) Metadata() workflow.NodeMetadata {
 		workflow.InputOutputMetadata{
 			Parameters: workflow.Parameters{
 				"result": workflow.ParameterSchema{
-					Name:        "result",
+					Name:        "sum",
 					Type:        "int",
 					Validations: nil,
 					Description: "Result of the sum",
@@ -51,6 +50,12 @@ func (n *sumNode) Metadata() workflow.NodeMetadata {
 }
 
 func (n *sumNode) Execute(input workflow.NodeInput) (workflow.NodeResult, error) {
-	log.Info().Msgf("SumNode executed with input: %s", input)
-	return workflow.NewNodeResult(workflow.NodeOutputStatusSuccess, nil), nil
+	sum := 0
+	values := input["values"].([]any)
+	for _, value := range values {
+		intValue, _ := value.(int)
+		sum += intValue
+	}
+
+	return workflow.NewNodeResult(workflow.NodeOutputStatusSuccess, map[string]any{"sum": sum}), nil
 }

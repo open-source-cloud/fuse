@@ -8,15 +8,15 @@ const (
 
 type EngineMessage interface {
 	Type() EngineMessageType
-	Data() interface{}
+	Data() any
 }
 
 type engineMessage struct {
 	msgType EngineMessageType
-	data    interface{}
+	data    any
 }
 
-func NewEngineMessage(msgType EngineMessageType, data interface{}) EngineMessage {
+func NewEngineMessage(msgType EngineMessageType, data any) EngineMessage {
 	return &engineMessage{
 		msgType: msgType,
 		data:    data,
@@ -27,6 +27,6 @@ func (m *engineMessage) Type() EngineMessageType {
 	return m.msgType
 }
 
-func (m *engineMessage) Data() interface{} {
+func (m *engineMessage) Data() any {
 	return m.data
 }
