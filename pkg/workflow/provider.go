@@ -4,4 +4,5 @@ package workflow
 type NodeProvider interface {
 	ID() string
 	Nodes() []Node
+	GetNode(id string) (Node, error)
 }

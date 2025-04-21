@@ -1,23 +1,52 @@
 // Package debug provides debug nodes for workflow
 package debug
 
-import "github.com/open-source-cloud/fuse/pkg/workflow"
+import (
+	"fmt"
 
-const debugProviderID = "fuse.io/workflows/internal/debug"
+	"github.com/open-source-cloud/fuse/pkg/workflow"
+)
 
-type nodeProvider struct{}
+// DebugProviderID is the ID of the debug node provider
+const DebugProviderID = "fuse.io/workflows/internal/debug"
 
-// NewNodeProvider creates a new DebugNodeProvider
+// NodeProvider is a debug node provider
+type NodeProvider struct {
+	workflow.NodeProvider
+
+	nodes map[string]workflow.Node
+}
+
+// NewNodeProvider creates a new NodeProvider
 func NewNodeProvider() workflow.NodeProvider {
-	return &nodeProvider{}
-}
-
-func (p *nodeProvider) ID() string {
-	return debugProviderID
-}
-
-func (p *nodeProvider) Nodes() []workflow.Node {
-	return []workflow.Node{
-		&nilNode{},
+	nodeProvider := &NodeProvider{
+		nodes: make(map[string]workflow.Node),
 	}
+
+	nodeProvider.nodes[NilNodeID] = NewNilNode()
+
+	return nodeProvider
+}
+
+// ID returns the ID of the NodeProvider
+func (np *NodeProvider) ID() string {
+	return DebugProviderID
+}
+
+// Nodes returns all nodes in the provider
+func (np *NodeProvider) Nodes() []workflow.Node {
+	values := make([]workflow.Node, 0, len(np.nodes))
+	for _, node := range np.nodes {
+		values = append(values, node)
+	}
+	return values
+}
+
+// GetNode returns a node by ID
+func (np *NodeProvider) GetNode(id string) (workflow.Node, error) {
+	node, ok := np.nodes[id]
+	if !ok {
+		return nil, fmt.Errorf("node %s not found", id)
+	}
+	return node, nil
 }

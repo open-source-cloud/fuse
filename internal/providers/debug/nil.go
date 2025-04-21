@@ -1,17 +1,29 @@
 package debug
 
 import (
-	"fmt"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 )
 
-type nilNode struct{}
+// NilNodeID is the ID of the nil node
+const NilNodeID = "fuse.io/workflows/internal/debug/nil"
 
-func (n *nilNode) ID() string {
-	return fmt.Sprintf("%s/nil", debugProviderID)
+// NilNode is a nil node
+type NilNode struct {
+	workflow.Node
 }
 
-func (n *nilNode) Metadata() workflow.NodeMetadata {
+// NewNilNode creates a new nil node
+func NewNilNode() workflow.Node {
+	return &NilNode{}
+}
+
+// ID returns the ID of the nil node
+func (n *NilNode) ID() string {
+	return NilNodeID
+}
+
+// Metadata returns the metadata of the nil node
+func (n *NilNode) Metadata() workflow.NodeMetadata {
 	return workflow.NewNodeMetadata(
 		workflow.InputOutputMetadata{
 			Parameters: workflow.Parameters{},
@@ -24,6 +36,7 @@ func (n *nilNode) Metadata() workflow.NodeMetadata {
 	)
 }
 
-func (n *nilNode) Execute(_ workflow.NodeInput) (workflow.NodeResult, error) {
+// Execute executes the nil node
+func (n *NilNode) Execute(_ workflow.NodeInput) (workflow.NodeResult, error) {
 	return workflow.NewNodeResult(workflow.NodeOutputStatusSuccess, nil), nil
 }

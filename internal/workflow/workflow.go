@@ -2,13 +2,14 @@ package workflow
 
 import (
 	"fmt"
-	"github.com/open-source-cloud/fuse/internal/graph"
+	"regexp"
+	"strings"
+
 	"github.com/open-source-cloud/fuse/internal/typeschema"
+	"github.com/open-source-cloud/fuse/pkg/graph"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 	"github.com/rs/zerolog/log"
 	"github.com/vladopajic/go-actor/actor"
-	"regexp"
-	"strings"
 )
 
 // State type for workflow states
