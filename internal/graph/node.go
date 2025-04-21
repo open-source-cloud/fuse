@@ -1,3 +1,4 @@
+// Package graph provides the graph interfaces for workflows
 package graph
 
 import (
@@ -5,12 +6,14 @@ import (
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 )
 
+// NodeInputMapping provides the structure for node input mapping
 type NodeInputMapping struct {
 	Source    string
 	ParamName string
 	Mapping   string
 }
 
+// NodeConfig describes a Node's configuration
 type NodeConfig interface {
 	InputMapping() []NodeInputMapping
 	AddInputMapping(source string, paramName string, mapping string)
@@ -20,6 +23,7 @@ type nodeConfig struct {
 	inputMapping []NodeInputMapping
 }
 
+// NewNodeConfig creates a new node configuration
 func NewNodeConfig() NodeConfig {
 	return &nodeConfig{
 		inputMapping: []NodeInputMapping{},
@@ -38,6 +42,7 @@ func (c *nodeConfig) AddInputMapping(source string, paramName string, mapping st
 	})
 }
 
+// Node describes an executable Node object
 type Node interface {
 	ID() string
 	NodeRef() workflow.Node
@@ -45,7 +50,7 @@ type Node interface {
 	InputEdges() []Edge
 	OutputEdges() map[string]Edge
 	AddInputEdge(edge Edge)
-	AddOutputEdge(edgeId string, edge Edge)
+	AddOutputEdge(edgeID string, edge Edge)
 }
 
 type node struct {
@@ -91,6 +96,6 @@ func (n *node) AddInputEdge(edge Edge) {
 	n.inputEdges = append(n.inputEdges, edge)
 }
 
-func (n *node) AddOutputEdge(edgeId string, edge Edge) {
-	n.outputEdges[edgeId] = edge
+func (n *node) AddOutputEdge(edgeID string, edge Edge) {
+	n.outputEdges[edgeID] = edge
 }

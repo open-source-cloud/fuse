@@ -1,12 +1,16 @@
 package workflow
 
+// MessageType go type for message type parameters
 type MessageType string
 
 const (
-	MessageStartWorkflow    MessageType = "workflow:start"
+	// MessageStartWorkflow message that starts a workflow execution
+	MessageStartWorkflow MessageType = "workflow:start"
+	// MessageContinueWorkflow message that continues a workflow execution
 	MessageContinueWorkflow MessageType = "workflow:continue"
 )
 
+// Message defines a message interface
 type Message interface {
 	Type() MessageType
 	Data() any
@@ -17,6 +21,7 @@ type message struct {
 	data    any
 }
 
+// NewMessage returns a new Message object with type and data
 func NewMessage(msgType MessageType, data any) Message {
 	return &message{
 		msgType: msgType,

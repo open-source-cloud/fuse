@@ -1,3 +1,4 @@
+// Package workflow for internal workflow
 package workflow
 
 import (
@@ -6,6 +7,7 @@ import (
 	"github.com/vladopajic/go-actor/actor"
 )
 
+// Engine describes the engine interface
 type Engine interface {
 	actor.Actor
 	AddSchema(schema Schema)
@@ -20,6 +22,7 @@ type engine struct {
 	workflows            map[string]Workflow
 }
 
+// NewEngine creates the engine actor
 func NewEngine() Engine {
 	worker := &engine{
 		externalMessagesChan: make(chan EngineMessage),
@@ -71,21 +74,21 @@ func (e *engine) SendMessage(msg EngineMessage) {
 func (e *engine) handleMessage(ctx actor.Context, msg EngineMessage) {
 	switch msg.Type() {
 	case EngineMessageStartWorkflow:
-		schemaId, ok := msg.Data().(string)
+		schemaID, ok := msg.Data().(string)
 		if !ok {
 			log.Error().Msg("Invalid engineMessage data")
 			return
 		}
-		workflowSchema, ok := e.schemas[schemaId]
+		workflowSchema, ok := e.schemas[schemaID]
 		if !ok {
-			log.Error().Msgf("Schema with ID %s not found", schemaId)
+			log.Error().Msgf("Schema with ID %s not found", schemaID)
 			return
 		}
-		newWorkflowUuid := uuid.V7()
-		log.Info().Msgf("Start new workflow with ID %s from schema ID %s", newWorkflowUuid, schemaId)
-		workflowActor := NewWorkflow(newWorkflowUuid, workflowSchema)
+		newWorkflowUUID := uuid.V7()
+		log.Info().Msgf("Start new workflow with ID %s from schema ID %s", newWorkflowUUID, schemaID)
+		workflowActor := NewWorkflow(newWorkflowUUID, workflowSchema)
 		workflowActor.Start()
-		e.workflows[newWorkflowUuid] = workflowActor
+		e.workflows[newWorkflowUUID] = workflowActor
 		workflowActor.SendMessage(
 			ctx,
 			NewMessage(MessageStartWorkflow, map[string]any{}),

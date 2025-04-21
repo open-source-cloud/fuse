@@ -1,9 +1,10 @@
 package logic
 
 import (
+	"crypto/rand"
 	"fmt"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
-	"math/rand"
+	"math/big"
 )
 
 type randNode struct{}
@@ -15,9 +16,7 @@ func (n *randNode) ID() string {
 func (n *randNode) Metadata() workflow.NodeMetadata {
 	return workflow.NewNodeMetadata(
 		// input
-		workflow.InputOutputMetadata{
-			Parameters: workflow.Parameters{},
-		},
+		workflow.InputOutputMetadata{},
 		// output
 		workflow.InputOutputMetadata{
 			Parameters: workflow.Parameters{
@@ -33,8 +32,14 @@ func (n *randNode) Metadata() workflow.NodeMetadata {
 	)
 }
 
-func (n *randNode) Execute(input workflow.NodeInput) (workflow.NodeResult, error) {
-	randomNumber := rand.Intn(100)
+func (n *randNode) Execute(_ workflow.NodeInput) (workflow.NodeResult, error) {
+	randomNumberBig, err := rand.Int(rand.Reader, big.NewInt(1000))
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate random number: %w", err)
+	}
+
+	randomNumber := int(randomNumberBig.Int64())
+
 	return workflow.NewNodeResult(workflow.NodeOutputStatusSuccess, map[string]any{
 		"rand": randomNumber,
 	}), nil

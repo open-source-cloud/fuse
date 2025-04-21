@@ -11,17 +11,24 @@ import (
 	"strings"
 )
 
+// State type for workflow states
 type State string
 
 const (
-	StateStopped  State = "stopped"
-	StateRunning  State = "running"
+	// StateStopped workflow is stopped
+	StateStopped State = "stopped"
+	// StateRunning workflow is running
+	StateRunning State = "running"
+	// StateFinished workflow has finished successfully
 	StateFinished State = "finished"
-	StateError    State = "error"
+	// StateError workflow has finished with errors
+	StateError State = "error"
 )
 
+// Context the context type used by workflow actors
 type Context actor.Context
 
+// Workflow describes the interface for a Workflow actor
 type Workflow interface {
 	actor.Actor
 	SendMessage(ctx Context, msg Message)
@@ -37,6 +44,7 @@ type workflowWorker struct {
 	currentNode []graph.Node
 }
 
+// NewWorkflow creates a new workflow actor worker
 func NewWorkflow(id string, schema Schema) Workflow {
 	worker := &workflowWorker{
 		mailbox:     actor.NewMailbox[Message](),
@@ -106,45 +114,46 @@ func (w *workflowWorker) handleMessage(ctx Context, msg Message) {
 				Str("workflow", w.id).
 				Msg("No current node")
 			return
-		} else {
-			currentNodeLogLabel := "node"
-			var currentNodeIds any
-			currentNodeIds = w.currentNode[0]
-			if currentNodeCount > 1 {
-				currentNodeLogLabel = "nodes"
-				currentNodeIds = w.currentNode
-			}
-
-			outputEdges := map[string]graph.Edge{}
-			for _, node := range w.currentNode {
-				nodeOutputEdges := node.OutputEdges()
-				for k, edge := range nodeOutputEdges {
-					outputEdges[k] = edge
-				}
-			}
-			outputEdgeCount := len(outputEdges)
-			var output workflow.NodeOutputData
-			if outputEdgeCount == 0 {
-				log.Info().
-					Str("workflow", w.id).
-					Any(currentNodeLogLabel, currentNodeIds).
-					Msg("No output edges")
-				w.state = StateFinished
-				ctx.Done()
-				return
-			} else if outputEdgeCount == 1 {
-				var edge graph.Edge
-				for _, edgeRef := range outputEdges {
-					edge = edgeRef
-					break
-				}
-				//goland:noinspection ALL
-				output = w.executeNode(edge.To(), msg.Data())
-			} else {
-				output = w.executeParallelNodes(outputEdges, msg.Data())
-			}
-			w.SendMessage(ctx, NewMessage(MessageContinueWorkflow, output))
 		}
+
+		currentNodeLogLabel := "node"
+		var currentNodeIDs any
+		currentNodeIDs = w.currentNode[0]
+		if currentNodeCount > 1 {
+			currentNodeLogLabel = "nodes"
+			currentNodeIDs = w.currentNode
+		}
+
+		outputEdges := map[string]graph.Edge{}
+		for _, node := range w.currentNode {
+			nodeOutputEdges := node.OutputEdges()
+			for k, edge := range nodeOutputEdges {
+				outputEdges[k] = edge
+			}
+		}
+		var output workflow.NodeOutputData
+		switch len(outputEdges) {
+		case 0:
+			log.Info().
+				Str("workflow", w.id).
+				Any(currentNodeLogLabel, currentNodeIDs).
+				Msg("No output edges")
+			w.state = StateFinished
+			ctx.Done()
+			return
+		case 1:
+			var edge graph.Edge
+			for _, edgeRef := range outputEdges {
+				edge = edgeRef
+				break
+			}
+			//goland:noinspection ALL
+			output = w.executeNode(edge.To(), msg.Data())
+		default:
+			output = w.executeParallelNodes(outputEdges, msg.Data())
+		}
+
+		w.SendMessage(ctx, NewMessage(MessageContinueWorkflow, output))
 
 	default:
 		// Handle unknown message types
@@ -176,9 +185,8 @@ func (w *workflowWorker) executeNode(node graph.Node, rawInputData any) workflow
 		output = result.Output()
 		if output.Status() == workflow.NodeOutputStatusSuccess {
 			return output.Data()
-		} else {
-			w.state = StateError
 		}
+		w.state = StateError
 	} else {
 		log.Warn().
 			Str("workflow", w.id).

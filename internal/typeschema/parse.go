@@ -1,3 +1,4 @@
+// Package typeschema for types schema
 package typeschema
 
 import (
@@ -15,7 +16,6 @@ func ParseValue(typeStr string, val any) (any, error) {
 		valSlice, ok := val.([]any)
 		if !ok {
 			valSlice = []any{val}
-			//return nil, fmt.Errorf("expected a slice for type '%s'", typeStr)
 		}
 		result := make([]any, len(valSlice))
 		for i, elem := range valSlice {

@@ -2,10 +2,10 @@ package workflow
 
 import "github.com/open-source-cloud/fuse/internal/graph"
 
+// Schema describes a workflow schema for execution
 type Schema interface {
 	ID() string
 	RootNode() graph.Node
-	FindNodeByIndex(index int) graph.Node
 }
 
 type schema struct {
@@ -13,6 +13,7 @@ type schema struct {
 	graph graph.Graph
 }
 
+// LoadSchema creates a new Schema object
 func LoadSchema(id string, graph graph.Graph) Schema {
 	return &schema{
 		id:    id,
@@ -25,9 +26,5 @@ func (s *schema) ID() string {
 }
 
 func (s *schema) RootNode() graph.Node {
-	return s.graph.Root()
-}
-
-func (s *schema) FindNodeByIndex(index int) graph.Node {
 	return s.graph.Root()
 }

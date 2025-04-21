@@ -30,16 +30,16 @@ func workflowExampleRunner(_ *cobra.Command, _ []string) error {
 
 	randNode1Config := graph.NewNodeConfig()
 	randNode1 := graph.NewNode(uuid.V7(), logicProvider.Nodes()[1], randNode1Config)
-	randNodeEdgeId1 := uuid.V7()
-	newGraph.AddNode(rootNode.ID(), randNodeEdgeId1, randNode1)
+	randNodeEdgeID1 := uuid.V7()
+	newGraph.AddNode(rootNode.ID(), randNodeEdgeID1, randNode1)
 	randNode2Config := graph.NewNodeConfig()
-	randNodeEdgeId2 := uuid.V7()
+	randNodeEdgeID2 := uuid.V7()
 	randNode2 := graph.NewNode(uuid.V7(), logicProvider.Nodes()[1], randNode2Config)
-	newGraph.AddNode(rootNode.ID(), randNodeEdgeId2, randNode2)
+	newGraph.AddNode(rootNode.ID(), randNodeEdgeID2, randNode2)
 
 	sumNodeConfig := graph.NewNodeConfig()
-	sumNodeConfig.AddInputMapping(fmt.Sprintf("edge[%s]", randNodeEdgeId1), "rand", "values")
-	sumNodeConfig.AddInputMapping(fmt.Sprintf("edge[%s]", randNodeEdgeId2), "rand", "values")
+	sumNodeConfig.AddInputMapping(fmt.Sprintf("edge[%s]", randNodeEdgeID1), "rand", "values")
+	sumNodeConfig.AddInputMapping(fmt.Sprintf("edge[%s]", randNodeEdgeID2), "rand", "values")
 	sumNode := graph.NewNode(uuid.V7(), logicProvider.Nodes()[0], sumNodeConfig)
 	newGraph.AddNodeMultipleParents([]string{randNode1.ID(), randNode2.ID()}, uuid.V7(), sumNode)
 

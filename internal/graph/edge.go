@@ -1,5 +1,7 @@
+// Package graph provides the graph interfaces for workflows
 package graph
 
+// Edge describes a graph's edge
 type Edge interface {
 	ID() string
 	From() Node
