@@ -1,6 +1,6 @@
 package workflow
 
-import "github.com/open-source-cloud/fuse/internal/graph"
+import "github.com/open-source-cloud/fuse/pkg/graph"
 
 // Schema describes a workflow schema for execution
 type Schema interface {
