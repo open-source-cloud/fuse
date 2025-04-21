@@ -1,17 +1,29 @@
 package logic
 
 import (
-	"fmt"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 )
 
-type sumNode struct{}
+// SumNodeID is the ID of the sum node
+const SumNodeID = "fuse.io/workflows/internal/logic/sum"
 
-func (n *sumNode) ID() string {
-	return fmt.Sprintf("%s/sum", logicProviderID)
+// SumNode is a sum node
+type SumNode struct {
+	workflow.Node
 }
 
-func (n *sumNode) Metadata() workflow.NodeMetadata {
+// NewSumNode creates a new sum node
+func NewSumNode() workflow.Node {
+	return &SumNode{}
+}
+
+// ID returns the ID of the sum node
+func (n *SumNode) ID() string {
+	return SumNodeID
+}
+
+// Metadata returns the metadata of the sum node
+func (n *SumNode) Metadata() workflow.NodeMetadata {
 	return workflow.NewNodeMetadata(
 		// input
 		workflow.InputOutputMetadata{
@@ -49,7 +61,8 @@ func (n *sumNode) Metadata() workflow.NodeMetadata {
 	)
 }
 
-func (n *sumNode) Execute(input workflow.NodeInput) (workflow.NodeResult, error) {
+// Execute executes the sum node and returns the sum of the values
+func (n *SumNode) Execute(input workflow.NodeInput) (workflow.NodeResult, error) {
 	sum := 0
 	values := input["values"].([]any)
 	for _, value := range values {
