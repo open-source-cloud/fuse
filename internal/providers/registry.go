@@ -1,3 +1,4 @@
+// Package providers provides a registry for the workflow node providers
 package providers
 
 import (
@@ -34,7 +35,7 @@ func (r *Registry) Register(providerID string, provider workflow.NodeProvider) {
 	r.providers[providerID] = provider
 }
 
-// GetProvider returns a provider by ID
+// Get returns a provider by ID
 func (r *Registry) Get(providerID string) (workflow.NodeProvider, error) {
 	provider, ok := r.providers[providerID]
 	if !ok {

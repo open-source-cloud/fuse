@@ -30,11 +30,13 @@ func init() {
 // This command reads the workflow config file, creates a schema, and starts the engine
 // It then adds the schema to the engine and sends a start message to the engine
 // It then waits for the engine to finish and returns the result
-func workflowRunner(_ *cobra.Command, args []string) error {
+func workflowRunner(_ *cobra.Command, _ []string) error {
 	engine := workflow.NewEngine()
 
 	providerRegistry := providers.NewRegistry()
 
+	// nolint:gosec
+	// We are ok with reading the file here because we are in the CLI
 	yamlSpec, err := os.ReadFile(workflowConfigYamlPath)
 	if err != nil {
 		return err

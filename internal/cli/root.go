@@ -14,7 +14,7 @@ var rootCmd = &cobra.Command{
 	Short:         "FUSE Workflow Engine application server",
 	SilenceErrors: false,
 	SilenceUsage:  false,
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, _ []string) {
 		err := cmd.Help()
 		if err != nil {
 			log.Error().Msgf("Failed to print help: %v", err)
