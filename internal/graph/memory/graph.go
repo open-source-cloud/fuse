@@ -1,7 +1,11 @@
 // Package memory provides a memory graph implementation
 package memory
 
-import "github.com/open-source-cloud/fuse/pkg/graph"
+import (
+	"fmt"
+
+	"github.com/open-source-cloud/fuse/pkg/graph"
+)
 
 // Graph is a memory graph
 type Graph struct {
@@ -9,7 +13,7 @@ type Graph struct {
 }
 
 // NewGraph creates a new Graph with a root node
-func NewGraph(root graph.Node) graph.Graph {
+func NewGraph(root graph.Node) *Graph {
 	return &Graph{
 		root: root,
 	}
@@ -21,7 +25,7 @@ func (g *Graph) Root() graph.Node {
 }
 
 // FindNode finds a node by ID
-func (g *Graph) FindNode(nodeID string) graph.Node {
+func (g *Graph) FindNode(nodeID string) (graph.Node, error) {
 	var find func(node graph.Node) graph.Node
 	find = func(node graph.Node) graph.Node {
 		if node.ID() == nodeID {
@@ -35,20 +39,32 @@ func (g *Graph) FindNode(nodeID string) graph.Node {
 		}
 		return nil
 	}
-	return find(g.root)
+	node := find(g.root)
+	if node == nil {
+		return nil, fmt.Errorf("node %s not found", nodeID)
+	}
+	return node, nil
 }
 
 // AddNode adds a node to the graph
-func (g *Graph) AddNode(parentNodeID string, edgeID string, node graph.Node) {
-	parentNode := g.FindNode(parentNodeID)
+func (g *Graph) AddNode(parentNodeID string, edgeID string, node graph.Node) error {
+	parentNode, err := g.FindNode(parentNodeID)
+	if err != nil {
+		return err
+	}
 	newEdge := NewEdge(edgeID, parentNode, node)
 	parentNode.AddOutputEdge(edgeID, newEdge)
 	node.AddInputEdge(newEdge)
+	return nil
 }
 
 // AddNodeMultipleParents adds a node to the graph with multiple parents
-func (g *Graph) AddNodeMultipleParents(parentNodeIDs []string, edgeID string, node graph.Node) {
+func (g *Graph) AddNodeMultipleParents(parentNodeIDs []string, edgeID string, node graph.Node) error {
 	for _, parentNodeID := range parentNodeIDs {
-		g.AddNode(parentNodeID, edgeID, node)
+		err := g.AddNode(parentNodeID, edgeID, node)
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
