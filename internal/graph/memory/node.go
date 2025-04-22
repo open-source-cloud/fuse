@@ -26,7 +26,7 @@ type (
 )
 
 // NewNode creates a new memory graph node
-func NewNode(uuid string, workflowNode workflow.Node, config graph.NodeConfig) graph.Node {
+func NewNode(uuid string, workflowNode workflow.Node, config graph.NodeConfig) *Node {
 	return &Node{
 		id:           fmt.Sprintf("%s/%s", workflowNode.ID(), uuid),
 		workflowNode: workflowNode,

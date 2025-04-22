@@ -10,13 +10,10 @@ import (
 
 // Root command for FUSE Workflow Engine CLI
 var rootCmd = &cobra.Command{
-	Use:   "fuse",
-	Short: "FUSE Workflow Engine application server",
-	Long: `
-		FUSE Workflow Engine application server
-		Entrypoint for FUSE Workflow Engine Server commands
-	`,
-	SilenceErrors: true,
+	Use:           "fuse",
+	Short:         "FUSE Workflow Engine application server",
+	SilenceErrors: false,
+	SilenceUsage:  false,
 	Run: func(cmd *cobra.Command, _ []string) {
 		err := cmd.Help()
 		if err != nil {

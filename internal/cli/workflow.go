@@ -1,68 +1,57 @@
 package cli
 
 import (
-	"fmt"
+	"os"
 
 	"github.com/open-source-cloud/fuse/internal/graph/memory"
-	"github.com/open-source-cloud/fuse/internal/providers/debug"
-	"github.com/open-source-cloud/fuse/internal/providers/logic"
+	"github.com/open-source-cloud/fuse/internal/providers"
 	"github.com/open-source-cloud/fuse/internal/workflow"
 	"github.com/open-source-cloud/fuse/pkg/uuid"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
 
-// Workflow example command
+// workflowConfigYamlPath is the path to the workflow config file
+var workflowConfigYamlPath string
+
 var workflowCmd = &cobra.Command{
 	Use:   "workflow",
 	Short: "Workflow runner",
+	Args:  cobra.NoArgs,
 	RunE:  workflowRunner,
 }
 
-// Workflow example runner
+// init initializes the workflow command flags
+func init() {
+	workflowCmd.Flags().StringVarP(&workflowConfigYamlPath, "config", "c", "", "Path to the workflow config file")
+}
+
+// Workflow runner
+// This command reads the workflow config file, creates a schema, and starts the engine
+// It then adds the schema to the engine and sends a start message to the engine
+// It then waits for the engine to finish and returns the result
 func workflowRunner(_ *cobra.Command, _ []string) error {
 	engine := workflow.NewEngine()
 
-	debugProvider := debug.NewNodeProvider()
-	logicProvider := logic.NewNodeProvider()
+	providerRegistry := providers.NewRegistry()
 
-	nilNode, err := debugProvider.GetNode(debug.NilNodeID)
+	// nolint:gosec
+	// We are ok with reading the file here because we are in the CLI
+	yamlSpec, err := os.ReadFile(workflowConfigYamlPath)
 	if err != nil {
 		return err
 	}
 
-	rootNodeConfig := memory.NewNodeConfig()
-	rootNode := memory.NewNode(uuid.V7(), nilNode, rootNodeConfig)
-	newGraph := memory.NewGraph(rootNode)
-
-	randNode, err := logicProvider.GetNode(logic.RandNodeID)
+	schemaDef, graph, err := memory.CreateSchemaFromYaml(yamlSpec, providerRegistry)
 	if err != nil {
 		return err
 	}
 
-	randNode1Config := memory.NewNodeConfig()
-	randNode1 := memory.NewNode(uuid.V7(), randNode, randNode1Config)
-	randNodeEdgeID1 := uuid.V7()
-	newGraph.AddNode(rootNode.ID(), randNodeEdgeID1, randNode1)
-
-	randNode2Config := memory.NewNodeConfig()
-	randNodeEdgeID2 := uuid.V7()
-	randNode2 := memory.NewNode(uuid.V7(), randNode, randNode2Config)
-	newGraph.AddNode(rootNode.ID(), randNodeEdgeID2, randNode2)
-
-	sumNode, err := logicProvider.GetNode(logic.SumNodeID)
-	if err != nil {
-		return err
-	}
-
-	sumNodeConfig := memory.NewNodeConfig()
-	sumNodeConfig.AddInputMapping(fmt.Sprintf("edge[%s]", randNodeEdgeID1), "rand", "values")
-	sumNodeConfig.AddInputMapping(fmt.Sprintf("edge[%s]", randNodeEdgeID2), "rand", "values")
-	sumNodeWorkflow := memory.NewNode(uuid.V7(), sumNode, sumNodeConfig)
-	newGraph.AddNodeMultipleParents([]string{randNode1.ID(), randNode2.ID()}, uuid.V7(), sumNodeWorkflow)
+	log.Info().Msgf("schema created: %s", schemaDef.Name)
 
 	engine.Start()
 
-	schema := workflow.LoadSchema(uuid.V7(), newGraph)
+	schema := workflow.LoadSchema(uuid.V7(), graph)
 	engine.AddSchema(schema)
 	engine.SendMessage(workflow.NewEngineMessage(workflow.EngineMessageStartWorkflow, schema.ID()))
 

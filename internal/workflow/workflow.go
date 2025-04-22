@@ -265,7 +265,20 @@ func (w *workflowWorker) processRawInput(node graph.Node, rawInputData any) (map
 			uuid := matches[2]
 			nodeInputData = inputData[uuid].(map[string]any)
 		}
+
+		log.Debug().Msgf("processRawInput.mapping.Source: %v", mapping.Source)
+		log.Debug().Msgf("processRawInput.mapping.ParamName: %v", mapping.ParamName)
+		log.Debug().Msgf("processRawInput.mapping.Mapping: %v", mapping.Mapping)
+
+		log.Debug().Msgf("processRawInput.nodeInputData: %v", nodeInputData)
+		log.Debug().Msgf("processRawInput.mapping: %v", mapping)
+		log.Debug().Msgf("processRawInput.inputSchema: %v", inputSchema)
+
 		paramSchema, exists := inputSchema.Parameters[mapping.Mapping]
+
+		log.Debug().Msgf("processRawInput.paramSchema: %v", paramSchema)
+		log.Debug().Msgf("processRawInput.exists: %v", exists)
+
 		if !exists {
 			log.Error().Msgf("Workflow %s : Input mapping for parameter %s not found", w.id, mapping.ParamName)
 			return nil, fmt.Errorf("input mapping for parameter %s not found", mapping.ParamName)
@@ -273,6 +286,9 @@ func (w *workflowWorker) processRawInput(node graph.Node, rawInputData any) (map
 		isArray := strings.HasPrefix(paramSchema.Type, "[]")
 
 		param, exists := nodeInputData[mapping.ParamName]
+		log.Debug().Msgf("processRawInput.param: %v", param)
+		log.Debug().Msgf("processRawInput.exists: %v", exists)
+
 		if !exists {
 			log.Error().Msgf("Workflow %s : Input mapping for parameter %s not found", w.id, mapping.ParamName)
 			return nil, fmt.Errorf("input mapping for parameter %s not found", mapping.ParamName)

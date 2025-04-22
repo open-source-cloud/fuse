@@ -1,0 +1,50 @@
+name: Sum and Rand with Branch
+graph:
+  id: sum-rand-branch
+  root:
+    id: debug-nil
+    provider:
+      package: fuse.io/workflows/internal/debug
+      node: fuse.io/workflows/internal/debug/nil
+  nodes:
+    - id: logic-rand-1
+      provider:
+        package: fuse.io/workflows/internal/logic
+        node: fuse.io/workflows/internal/logic/rand
+      edge:
+        id: 01965ddc-8890-7eed-a894-6fbabbf8681f
+
+    - id: logic-rand-2
+      provider:
+        package: fuse.io/workflows/internal/logic
+        node: fuse.io/workflows/internal/logic/rand
+      edge:
+        id: 01965ddc-8890-76ca-8c0b-e65655437777
+
+    - id: logic-rand-3
+      provider:
+        package: fuse.io/workflows/internal/logic
+        node: fuse.io/workflows/internal/logic/rand
+      edge:
+        id: 01965e1b-a954-7bde-ad0b-744b7ba78332
+
+    - id: logic-sum
+      provider:
+        package: fuse.io/workflows/internal/logic
+        node: fuse.io/workflows/internal/logic/sum
+      edge:
+        id: 01965e15-b7fc-7e9b-8ccb-cebb0e3e4d36
+        references:
+          - logic-rand-1
+          - logic-rand-2
+          - logic-rand-3
+      inputs:
+        - source: edge[01965ddc-8890-7eed-a894-6fbabbf8681f]
+          paramName: rand
+          mapping: values
+        - source: edge[01965ddc-8890-76ca-8c0b-e65655437777]
+          paramName: rand
+          mapping: values
+        - source: edge[01965e1b-a954-7bde-ad0b-744b7ba78332]
+          paramName: rand
+          mapping: values
