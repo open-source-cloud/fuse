@@ -127,6 +127,7 @@ func (s *KvTestSuit) TestConcurrentReadWrite() {
 	for i := 0; i < numReaders; i++ {
 		go func(id int) {
 			defer wg.Done()
+			// go:lint
 			r := rand.New(rand.NewSource(time.Now().UnixNano() + int64(id)))
 			for j := 0; j < 1000; j++ {
 				keyID := r.Intn(numKeys)
