@@ -367,7 +367,7 @@ func (s *KvTestSuit) TestWithDotNotation() {
 				// Compare map contents
 				for k, v := range mapVal {
 					s.Contains(actualMap, k, "Map for key %s missing expected key %s", test.key, k)
-					// For simplicity we don't do deep comparisons of nested maps
+					// For simplicity, we don't do deep comparisons of nested maps
 					if innerMap, isMap := v.(map[string]any); isMap {
 						s.IsType(innerMap, actualMap[k], "Types don't match for nested map at %s.%s", test.key, k)
 					} else {
@@ -388,14 +388,183 @@ func (s *KvTestSuit) TestWithDotNotation() {
 	s.Equal(2.1, kv.GetFloat("app.version"))
 
 	// TODO: Test deleting with dot notation
-	//kv.Delete("user.profile.name")
-	//s.Nil(kv.Get("user.profile.name"))
-	//s.NotNil(kv.Get("user.profile"))
+	// kv.Delete("user.profile.name")
+	// s.Nil(kv.Get("user.profile.name"))
+	// s.NotNil(kv.Get("user.profile"))
 
 	// Test overwriting
 	kv.Set("app.settings", "overwritten")
 	s.Equal("overwritten", kv.Get("app.settings"))
 	s.Nil(kv.Get("app.settings.theme.dark")) // This should now be nil as we overwrote the parent
+}
+
+func (s *KvTestSuit) TestDotNotationWithArrays() {
+	kv := store.New()
+
+	// Set up arrays at different nesting levels
+	kv.Set("simple", []string{"a", "b", "c"})
+	kv.Set("numbers", []int{1, 2, 3, 4, 5})
+	kv.Set("mixed", []interface{}{1, "two", true, 4.5})
+
+	// Set up nested structures with arrays
+	kv.Set("user.hobbies", []string{"reading", "coding", "hiking"})
+	kv.Set("user.scores.math", []int{95, 87, 92})
+	kv.Set("user.scores.science", []int{88, 91, 94})
+
+	// Set up an array of objects
+	kv.Set("products", []map[string]interface{}{
+		{"id": 1, "name": "Product 1", "price": 19.99},
+		{"id": 2, "name": "Product 2", "price": 29.99},
+		{"id": 3, "name": "Product 3", "price": 39.99},
+	})
+
+	// Set up a more complex nested structure with arrays
+	kv.Set("app.config.allowedTypes", []string{"jpg", "png", "gif"})
+	kv.Set("app.users", []map[string]interface{}{
+		{
+			"id":   1,
+			"name": "John",
+			"tags": []string{"admin", "active"},
+			"sessions": []map[string]interface{}{
+				{"id": "abc", "lastLogin": "2023-01-01"},
+				{"id": "def", "lastLogin": "2023-01-15"},
+			},
+		},
+		{
+			"id":   2,
+			"name": "Jane",
+			"tags": []string{"user", "active"},
+			"sessions": []map[string]interface{}{
+				{"id": "ghi", "lastLogin": "2023-01-10"},
+			},
+		},
+	})
+
+	// Test multi-dimensional arrays
+	kv.Set("matrix", [][]int{
+		{1, 2, 3},
+		{4, 5, 6},
+		{7, 8, 9},
+	})
+
+	// Test simple array access
+	simpleArray := kv.Get("simple")
+	s.IsType([]string{}, simpleArray)
+	s.Equal([]string{"a", "b", "c"}, simpleArray)
+
+	// Test array index access using dot notation
+	s.Equal("a", kv.Get("simple[0]"))
+	s.Equal("b", kv.Get("simple[1]"))
+	s.Equal("c", kv.Get("simple[2]"))
+	s.Nil(kv.Get("simple.3"))  // Out of bounds
+	s.Nil(kv.Get("simple.-1")) // Negative index
+
+	// Test number array with index access
+	s.Equal(1, kv.Get("numbers[0]"))
+	s.Equal(3, kv.Get("numbers[2]"))
+	s.Equal(5, kv.Get("numbers[4]"))
+
+	// Test typed getters with an array index
+	s.Equal("a", kv.GetStr("simple[0]"))
+	s.Equal(1, kv.GetInt("numbers[0]"))
+	s.Equal(true, kv.GetBool("mixed[2]"))
+	s.Equal(4.5, kv.GetFloat("mixed[3]"))
+
+	// Test nested array access
+	s.Equal("reading", kv.Get("user.hobbies[0]"))
+	s.Equal("hiking", kv.Get("user.hobbies[2]"))
+	s.Equal(95, kv.Get("user.scores.math[0]"))
+	s.Equal(94, kv.Get("user.scores.science[2]"))
+
+	// Test access to an array of objects
+	s.Equal(1, kv.Get("products[0].id"))
+	s.Equal("Product 2", kv.Get("products[1].name"))
+	s.Equal(39.99, kv.Get("products[2].price"))
+
+	// Test deeply nested structures with arrays
+	s.Equal("jpg", kv.Get("app.config.allowedTypes[0]"))
+	s.Equal("gif", kv.Get("app.config.allowedTypes[2]"))
+
+	// Test array of objects with deep nesting
+	s.Equal(1, kv.Get("app.users[0].id"))
+	s.Equal("Jane", kv.Get("app.users[1].name"))
+	s.Equal("admin", kv.Get("app.users[0].tags[0]"))
+	s.Equal("active", kv.Get("app.users[1].tags[1]"))
+
+	// Test multi-level array indexing
+	s.Equal("abc", kv.Get("app.users[0].sessions[0].id"))
+	s.Equal("2023-01-15", kv.Get("app.users[0].sessions[1].lastLogin"))
+	s.Equal("ghi", kv.Get("app.users[1].sessions[0].id"))
+
+	// Test multi-dimensional array access
+	s.Equal(1, kv.Get("matrix[0][0]"))
+	s.Equal(5, kv.Get("matrix[1][1]"))
+	s.Equal(9, kv.Get("matrix[2][2]"))
+
+	kv.Set("products[1].price", 99.99)
+	s.Equal(99.99, kv.Get("products[1].price"))
+
+	kv.Set("app.users[0].tags[1]", "super-admin")
+	s.Equal("super-admin", kv.Get("app.users[0].tags[1]"))
+
+	// Test modifying deep structures
+	kv.Set("app.users[1].sessions[0].lastLogin", "2023-02-01")
+	s.Equal("2023-02-01", kv.Get("app.users[1].sessions[0].lastLogin"))
+
+	// Test adding new elements to existing objects via dot notation
+	kv.Set("products[1].inStock", true)
+	s.Equal(true, kv.Get("products[1].inStock"))
+
+	// Test boundary cases
+	kv.Set("empty", []string{})
+	s.Nil(kv.Get("empty.0"))
+
+	// Test with non-array values
+	kv.Set("scalar", "value")
+	s.Nil(kv.Get("scalar[0].a"))
+
+	// Test overwriting array elements with objects
+	kv.Set("numbers[2]", map[string]interface{}{"value": 42})
+	s.Equal(42, kv.Get("numbers[2].value"))
+
+	// Test creating arrays via indexed notation
+	kv.Set("newArray[0]", "first")
+	kv.Set("newArray[1]", "second")
+
+	// Test with very large indices
+	s.Nil(kv.Get("simple[999]"))
+
+	// Test with a string that looks like an index but isn't a valid index
+	kv.Set("keyWithDot", "value")
+	kv.Set("keyWithDot.123abc", "another value")
+	s.Equal("another value", kv.Get("keyWithDot.123abc"))
+
+	// Test nested indices after a modified array
+	kv.Set("nestedArrays", []interface{}{
+		[]int{1, 2, 3},
+		[]string{"a", "b", "c"},
+	})
+	s.Equal(2, kv.Get("nestedArrays[0][1]"))
+	s.Equal("b", kv.Get("nestedArrays[1][1]"))
+
+	// Modify a nested array and test again
+	kv.Set("nestedArrays[1][1]", "MODIFIED")
+	s.Equal("MODIFIED", kv.Get("nestedArrays[1][1]"))
+
+	// Test with mixed map and array access
+	kv.Set("complexMix", map[string]interface{}{
+		"users": []map[string]interface{}{
+			{"name": "Alice", "scores": []int{90, 85, 88}},
+			{"name": "Bob", "scores": []int{78, 92, 86}},
+		},
+	})
+	s.Equal("Alice", kv.Get("complexMix.users[0].name"))
+	s.Equal(85, kv.Get("complexMix.users[0].scores[1]"))
+	s.Equal(86, kv.Get("complexMix.users[1].scores[2]"))
+
+	// Update nested values
+	kv.Set("complexMix.users[1].scores[0]", 100)
+	s.Equal(100, kv.Get("complexMix.users[1].scores[0]"))
 }
 
 // @@ Benchmark @@
