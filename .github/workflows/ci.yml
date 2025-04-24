@@ -15,7 +15,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.21'
+        go-version: '1.24'
         check-latest: true
         cache: true
         cache-dependency-path: |
@@ -34,6 +34,9 @@ jobs:
 
     - name: Run tests
       run: make test
+
+    - name: Run tests benchmark
+      run: make test-benchmark
 
     - name: Run linter
       run: make lint

@@ -9,6 +9,9 @@ run:
 test:
 	$(GOTESTSUM) --junitfile test-report.xml --format testdox -- ./pkg/... ./internal/...
 
+test-benchmark:
+	go test -bench=. -benchmem ./...
+
 build:
 	go build -o bin/fuse cmd/fuse/main.go
 
