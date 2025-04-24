@@ -127,7 +127,7 @@ func (s *KvTestSuit) TestConcurrentReadWrite() {
 	for i := 0; i < numReaders; i++ {
 		go func(id int) {
 			defer wg.Done()
-			// go:lint
+			// nolint:gosec
 			r := rand.New(rand.NewSource(time.Now().UnixNano() + int64(id)))
 			for j := 0; j < 1000; j++ {
 				keyID := r.Intn(numKeys)
@@ -143,6 +143,7 @@ func (s *KvTestSuit) TestConcurrentReadWrite() {
 	for i := 0; i < numWriters; i++ {
 		go func(id int) {
 			defer wg.Done()
+			// nolint:gosec
 			r := rand.New(rand.NewSource(time.Now().UnixNano() + int64(id+100)))
 			for j := 0; j < 1000; j++ {
 				keyID := r.Intn(numKeys)
@@ -173,6 +174,7 @@ func (s *KvTestSuit) TestConcurrentMixedOperations() {
 	for i := 0; i < numGoroutines; i++ {
 		go func(id int) {
 			defer wg.Done()
+			// nolint:gosec
 			r := rand.New(rand.NewSource(time.Now().UnixNano() + int64(id)))
 
 			for j := 0; j < 1000; j++ {
@@ -221,6 +223,7 @@ func (s *KvTestSuit) TestTypedConcurrentAccess() {
 	for i := 0; i < numGoroutines; i++ {
 		go func(id int) {
 			defer wg.Done()
+			// nolint:gosec
 			r := rand.New(rand.NewSource(time.Now().UnixNano() + int64(id)))
 
 			for j := 0; j < 500; j++ {
@@ -402,6 +405,7 @@ func BenchmarkConcurrentOperations(b *testing.B) {
 			b.ResetTimer()
 
 			b.RunParallel(func(pb *testing.PB) {
+				// nolint:gosec
 				r := rand.New(rand.NewSource(time.Now().UnixNano()))
 				i := 0
 				for pb.Next() {
