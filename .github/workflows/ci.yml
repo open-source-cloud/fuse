@@ -36,7 +36,7 @@ jobs:
       run: make test
 
     - name: Run tests benchmark
-      run: go test -bench=. -benchmem ./...
+      run: make test-benchmark
 
     - name: Run linter
       run: make lint
