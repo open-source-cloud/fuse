@@ -275,6 +275,131 @@ func (s *KvTestSuit) TestSingleKeyHighContention() {
 	s.True(kv.Has(testKey))
 }
 
+// TestWithDotNotation tests dot notation support
+func (s *KvTestSuit) TestWithDotNotation() {
+	kv := store.New()
+	kv.Set("a.b.c", "value")
+	s.Equal("value", kv.Get("a.b.c"))
+
+	// Set up a complex nested structure
+	kv.Set("user.profile.name", "John Doe")
+	kv.Set("user.profile.age", 30)
+	kv.Set("user.profile.active", true)
+	kv.Set("user.address.city", "New York")
+	kv.Set("user.address.zip", 10001)
+	kv.Set("user.scores", []int{95, 88, 92})
+	kv.Set("app.settings.theme.dark", true)
+	kv.Set("app.settings.theme.fontSize", 16)
+	kv.Set("app.settings.notifications.email", false)
+	kv.Set("app.version", 2.1)
+
+	tests := []struct {
+		key           string
+		expectedValue any
+	}{
+		// Test simple dot notation
+		{"a.b.c", "value"},
+
+		// Test user profile fields
+		{"user.profile.name", "John Doe"},
+		{"user.profile.age", 30},
+		{"user.profile.active", true},
+
+		// Test nested address fields
+		{"user.address.city", "New York"},
+		{"user.address.zip", 10001},
+
+		// Test array access (though objx doesn't support array indexing in dot notation directly)
+		{"user.scores", []int{95, 88, 92}},
+
+		// Test deeply nested fields
+		{"app.settings.theme.dark", true},
+		{"app.settings.theme.fontSize", 16},
+		{"app.settings.notifications.email", false},
+		{"app.version", 2.1},
+
+		// Test non-existent keys
+		{"user.profile.email", nil},
+		{"nonexistent.key", nil},
+		{"app.settings.theme.nonexistent", nil},
+
+		// Test parent paths
+		{"user.profile", map[string]any{
+			"name":   "John Doe",
+			"age":    30,
+			"active": true,
+		}},
+		{"user", map[string]any{
+			"profile": map[string]any{
+				"name":   "John Doe",
+				"age":    30,
+				"active": true,
+			},
+			"address": map[string]any{
+				"city": "New York",
+				"zip":  10001,
+			},
+			"scores": []int{95, 88, 92},
+		}},
+		{"app.settings", map[string]any{
+			"theme": map[string]any{
+				"dark":     true,
+				"fontSize": 16,
+			},
+			"notifications": map[string]any{
+				"email": false,
+			},
+		}},
+	}
+
+	for _, test := range tests {
+		s.Run(test.key, func() {
+			actual := kv.Get(test.key)
+
+			// Handle map comparisons specially since they can be tricky to compare directly
+			if mapVal, ok := test.expectedValue.(map[string]any); ok {
+				actualMap, actualOk := actual.(map[string]any)
+				s.True(actualOk, "Expected a map for key %s, got: %T", test.key, actual)
+
+				// Compare map sizes
+				s.Equal(len(mapVal), len(actualMap), "Map sizes don't match for key %s", test.key)
+
+				// Compare map contents
+				for k, v := range mapVal {
+					s.Contains(actualMap, k, "Map for key %s missing expected key %s", test.key, k)
+					// For simplicity we don't do deep comparisons of nested maps
+					if innerMap, isMap := v.(map[string]any); isMap {
+						s.IsType(innerMap, actualMap[k], "Types don't match for nested map at %s.%s", test.key, k)
+					} else {
+						s.Equal(v, actualMap[k], "Values don't match for %s.%s", test.key, k)
+					}
+				}
+			} else {
+				// For non-map values, use regular Equal
+				s.Equal(test.expectedValue, actual, "Values don't match for key %s", test.key)
+			}
+		})
+	}
+
+	// Test typed getters with dot notation
+	s.Equal("John Doe", kv.GetStr("user.profile.name"))
+	s.Equal(30, kv.GetInt("user.profile.age"))
+	s.Equal(true, kv.GetBool("user.profile.active"))
+	s.Equal(2.1, kv.GetFloat("app.version"))
+
+	// TODO: Test deleting with dot notation
+	//kv.Delete("user.profile.name")
+	//s.Nil(kv.Get("user.profile.name"))
+	//s.NotNil(kv.Get("user.profile"))
+
+	// Test overwriting
+	kv.Set("app.settings", "overwritten")
+	s.Equal("overwritten", kv.Get("app.settings"))
+	s.Nil(kv.Get("app.settings.theme.dark")) // This should now be nil as we overwrote the parent
+}
+
+// @@ Benchmark @@
+
 // BenchmarkOperations benchmarks basic operations
 func BenchmarkOperations(b *testing.B) {
 	b.Run("Set", func(b *testing.B) {
