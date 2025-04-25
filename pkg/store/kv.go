@@ -24,11 +24,11 @@ func New() *KV {
 	}
 }
 
-// Delete deletes a key from the store
-func (k *KV) Delete(key string) {
+// Clear clears the store
+func (k *KV) Clear() {
 	k.mu.Lock()
 	defer k.mu.Unlock()
-	delete(k.data, key)
+	k.data = objx.New(make(map[string]any))
 }
 
 // Has checks if a key exists in the store

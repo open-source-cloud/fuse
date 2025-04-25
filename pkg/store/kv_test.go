@@ -46,11 +46,6 @@ func (s *KvTestSuit) TestBasicOperations() {
 	// Test Has
 	s.True(kv.Has("string"))
 	s.False(kv.Has("nonexistent"))
-
-	// Test Delete
-	kv.Delete("string")
-	s.Nil(kv.Get("string"))
-	s.False(kv.Has("string"))
 }
 
 // TestTypedGetters tests the typed getter methods
@@ -190,12 +185,6 @@ func (s *KvTestSuit) TestConcurrentMixedOperations() {
 					kv.Set(key, fmt.Sprintf("thread-%d-value-%d", id, j))
 				case 2: // Has
 					_ = kv.Has(key)
-				case 3: // Delete
-					kv.Delete(key)
-					// Recreate key to ensure we don't run out of keys
-					if r.Intn(2) == 0 {
-						kv.Set(key, fmt.Sprintf("recreated-%d", j))
-					}
 				}
 			}
 		}(i)
@@ -456,8 +445,8 @@ func (s *KvTestSuit) TestDotNotationWithArrays() {
 	s.Equal("a", kv.Get("simple[0]"))
 	s.Equal("b", kv.Get("simple[1]"))
 	s.Equal("c", kv.Get("simple[2]"))
-	s.Nil(kv.Get("simple.3"))  // Out of bounds
-	s.Nil(kv.Get("simple.-1")) // Negative index
+	s.Nil(kv.Get("simple[3]"))  // Out of bounds
+	s.Nil(kv.Get("simple[-1]")) // Negative index
 
 	// Test number array with index access
 	s.Equal(1, kv.Get("numbers[0]"))
@@ -517,7 +506,7 @@ func (s *KvTestSuit) TestDotNotationWithArrays() {
 
 	// Test boundary cases
 	kv.Set("empty", []string{})
-	s.Nil(kv.Get("empty.0"))
+	s.Nil(kv.Get("empty[0]"))
 
 	// Test with non-array values
 	kv.Set("scalar", "value")
@@ -567,6 +556,140 @@ func (s *KvTestSuit) TestDotNotationWithArrays() {
 	s.Equal(100, kv.Get("complexMix.users[1].scores[0]"))
 }
 
+func (s *KvTestSuit) TestDotNotationWithMaps() {
+	kv := store.New()
+
+	// Set up a simple map
+	kv.Set("config", map[string]interface{}{
+		"port":    8080,
+		"host":    "localhost",
+		"debug":   true,
+		"timeout": 30.5,
+	})
+
+	// Set up nested maps
+	kv.Set("database", map[string]interface{}{
+		"primary": map[string]interface{}{
+			"host":     "db.example.com",
+			"port":     5432,
+			"username": "admin",
+			"password": "secret",
+			"settings": map[string]interface{}{
+				"maxConnections": 100,
+				"timeout":        5.0,
+				"ssl":            true,
+			},
+		},
+		"replica": map[string]interface{}{
+			"host":     "replica.example.com",
+			"port":     5432,
+			"username": "reader",
+			"password": "readonly",
+		},
+	})
+
+	// Test direct access to map properties
+	s.Equal(8080, kv.Get("config.port"))
+	s.Equal("localhost", kv.Get("config.host"))
+	s.Equal(true, kv.Get("config.debug"))
+	s.Equal(30.5, kv.Get("config.timeout"))
+
+	// Test nested map access
+	s.Equal("db.example.com", kv.Get("database.primary.host"))
+	s.Equal(5432, kv.Get("database.primary.port"))
+	s.Equal("admin", kv.Get("database.primary.username"))
+	s.Equal("secret", kv.Get("database.primary.password"))
+
+	// Test deeply nested map access
+	s.Equal(100, kv.Get("database.primary.settings.maxConnections"))
+	s.Equal(5.0, kv.Get("database.primary.settings.timeout"))
+	s.Equal(true, kv.Get("database.primary.settings.ssl"))
+
+	// Test access to the second nested map
+	s.Equal("replica.example.com", kv.Get("database.replica.host"))
+	s.Equal("reader", kv.Get("database.replica.username"))
+
+	// Test typed getters with map access
+	s.Equal("localhost", kv.GetStr("config.host"))
+	s.Equal(8080, kv.GetInt("config.port"))
+	s.Equal(true, kv.GetBool("config.debug"))
+	s.Equal(30.5, kv.GetFloat("config.timeout"))
+
+	// Test modifying nested map values
+	kv.Set("database.primary.port", 3306)
+	s.Equal(3306, kv.Get("database.primary.port"))
+
+	kv.Set("database.primary.settings.maxConnections", 200)
+	s.Equal(200, kv.Get("database.primary.settings.maxConnections"))
+
+	// Test adding new properties to existing maps
+	kv.Set("config.newSetting", "value")
+	s.Equal("value", kv.Get("config.newSetting"))
+
+	kv.Set("database.primary.settings.newOption", false)
+	s.Equal(false, kv.Get("database.primary.settings.newOption"))
+
+	// Test creating new nested maps via dot notation
+	kv.Set("newMap.nested.deeply.value", 42)
+	s.Equal(42, kv.Get("newMap.nested.deeply.value"))
+
+	// Test overwriting a map with a scalar value
+	kv.Set("database.replica", "overwritten")
+	s.Equal("overwritten", kv.Get("database.replica"))
+	s.Nil(kv.Get("database.replica.host")) // Should now be nil since parent was overwritten
+
+	// Test mixing map and array notation
+	kv.Set("servers", map[string]interface{}{
+		"production": []map[string]interface{}{
+			{"host": "prod1.example.com", "region": "us-east"},
+			{"host": "prod2.example.com", "region": "us-west"},
+		},
+		"staging": []map[string]interface{}{
+			{"host": "stage.example.com", "region": "eu-central"},
+		},
+	})
+
+	s.Equal("prod1.example.com", kv.Get("servers.production[0].host"))
+	s.Equal("us-west", kv.Get("servers.production[1].region"))
+	s.Equal("eu-central", kv.Get("servers.staging[0].region"))
+
+	// Test modifying values in mixed map/array structures
+	kv.Set("servers.production[0].host", "new-prod1.example.com")
+	s.Equal("new-prod1.example.com", kv.Get("servers.production[0].host"))
+
+	// Test boundary cases
+	s.Nil(kv.Get("config.nonexistent"))
+	s.Nil(kv.Get("database.primary.nonexistent"))
+	s.Nil(kv.Get("nonexistent.path"))
+
+	// Test with a complex nested structure containing different data types
+	kv.Set("complex", map[string]interface{}{
+		"string": "value",
+		"int":    42,
+		"bool":   true,
+		"float":  3.14,
+		"array":  []int{1, 2, 3},
+		"map": map[string]interface{}{
+			"nested": "nested_value",
+		},
+		"mixedArray": []interface{}{
+			"string",
+			42,
+			map[string]interface{}{"key": "value"},
+		},
+	})
+
+	s.Equal("value", kv.Get("complex.string"))
+	s.Equal(42, kv.Get("complex.int"))
+	s.Equal(true, kv.Get("complex.bool"))
+	s.Equal(3.14, kv.Get("complex.float"))
+	s.Equal([]int{1, 2, 3}, kv.Get("complex.array"))
+	s.Equal("nested_value", kv.Get("complex.map.nested"))
+	s.Equal("string", kv.Get("complex.mixedArray[0]"))
+	s.Equal(42, kv.Get("complex.mixedArray[1]"))
+	s.Equal("value", kv.Get("complex.mixedArray[2].key"))
+}
+
 // @@ Benchmark @@
 
 // BenchmarkOperations benchmarks basic operations
@@ -599,21 +722,6 @@ func BenchmarkOperations(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			kv.Has(fmt.Sprintf("key-%d", i%1000))
-		}
-	})
-
-	b.Run("Delete", func(b *testing.B) {
-		kv := store.New()
-		keys := make([]string, b.N)
-		// Prepare keys
-		for i := 0; i < b.N; i++ {
-			key := fmt.Sprintf("key-%d", i)
-			keys[i] = key
-			kv.Set(key, i)
-		}
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			kv.Delete(keys[i])
 		}
 	})
 }
