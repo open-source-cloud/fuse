@@ -9,6 +9,7 @@ import (
 	"time"
 )
 
+// InitLogger initializes logging library
 func InitLogger() {
 	projectRoot, err := os.Getwd()
 	if err != nil {

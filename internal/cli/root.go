@@ -18,7 +18,7 @@ var rootCmd = &cobra.Command{
 	Short:         "FUSE Workflow Engine application server",
 	SilenceErrors: false,
 	SilenceUsage:  false,
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+	PersistentPreRun: func(_ *cobra.Command, _ []string) {
 		level, err := zerolog.ParseLevel(strings.ToLower(loglevel))
 		if err != nil {
 			log.Error().Msgf("Invalid log level: %s", loglevel)
