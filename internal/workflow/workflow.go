@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"fmt"
+	"github.com/open-source-cloud/fuse/internal/audit"
 	"regexp"
 	"strings"
 
@@ -72,19 +73,11 @@ func (w *workflowWorker) Stop() {
 func (w *workflowWorker) DoWork(ctx actor.Context) actor.WorkerStatus {
 	select {
 	case <-ctx.Done():
-		log.Info().
-			Str("workflow", w.id).
-			Any("state", w.state).
-			Msg("Stopping")
+		audit.Info().WorkflowState(w.id, w.state).Msg("Stopping")
 		return actor.WorkerEnd
 
 	case msg := <-w.mailbox.ReceiveC():
-		log.Info().
-			Str("workflow", w.id).
-			Any("msg", msg.Type()).
-			Any("data", msg.Data()).
-			Msg("Message received")
-
+		audit.Info().WorkflowMessage(w.id, msg.Type(), msg.Data()).Msg("Message received")
 		w.handleMessage(ctx, msg)
 		return actor.WorkerContinue
 	}
@@ -93,9 +86,9 @@ func (w *workflowWorker) DoWork(ctx actor.Context) actor.WorkerStatus {
 func (w *workflowWorker) SendMessage(ctx Context, msg Message) {
 	err := w.mailbox.Send(ctx, msg)
 	if err != nil {
-		log.Error().
+		audit.Error().
+			Workflow(w.id).
 			Err(err).
-			Str("workflow", w.id).
 			Msg("Failed to send message to Workflow")
 	}
 	w.mailbox.Start()
@@ -111,18 +104,8 @@ func (w *workflowWorker) handleMessage(ctx Context, msg Message) {
 	case MessageContinueWorkflow:
 		currentNodeCount := len(w.currentNode)
 		if currentNodeCount == 0 {
-			log.Error().
-				Str("workflow", w.id).
-				Msg("No current node")
+			audit.Error().Workflow(w.id).Msg("No current node")
 			return
-		}
-
-		currentNodeLogLabel := "node"
-		var currentNodeIDs any
-		currentNodeIDs = w.currentNode[0]
-		if currentNodeCount > 1 {
-			currentNodeLogLabel = "nodes"
-			currentNodeIDs = w.currentNode
 		}
 
 		outputEdges := map[string]graph.Edge{}
@@ -135,10 +118,7 @@ func (w *workflowWorker) handleMessage(ctx Context, msg Message) {
 		var output workflow.NodeOutputData
 		switch len(outputEdges) {
 		case 0:
-			log.Info().
-				Str("workflow", w.id).
-				Any(currentNodeLogLabel, currentNodeIDs).
-				Msg("No output edges")
+			audit.Info().Workflow(w.id).Nodes(w.currentNode).Msg("No output edges")
 			w.state = StateFinished
 			ctx.Done()
 			return
@@ -158,10 +138,7 @@ func (w *workflowWorker) handleMessage(ctx Context, msg Message) {
 
 	default:
 		// Handle unknown message types
-		log.Warn().
-			Str("workflow", w.id).
-			Any("msg", msg.Type()).
-			Msg("Received unknown message type")
+		audit.Warn().WorkflowMessage(w.id, msg.Type(), msg.Data()).Msg("Unknown message type")
 	}
 }
 
@@ -170,18 +147,10 @@ func (w *workflowWorker) executeNode(node graph.Node, rawInputData any) workflow
 	w.currentNode = []graph.Node{node}
 	result, _ := node.NodeRef().Execute(input)
 
+	audit.Info().Workflow(w.id).NodeInputOutput(node.ID(), input, result.Map()).Msg("node executed")
+
 	var output workflow.NodeOutput
 	_, isAsync := result.Async()
-	log.Info().
-		Str("workflow", w.id).
-		Str("node", node.ID()).
-		Any("input", input).
-		Any("output", map[string]any{
-			"async":  isAsync,
-			"status": result.Output().Status(),
-			"data":   result.Output().Data(),
-		}).
-		Msg("node executed")
 	if !isAsync {
 		output = result.Output()
 		if output.Status() == workflow.NodeOutputStatusSuccess {
@@ -189,16 +158,7 @@ func (w *workflowWorker) executeNode(node graph.Node, rawInputData any) workflow
 		}
 		w.state = StateError
 	} else {
-		log.Warn().
-			Str("workflow", w.id).
-			Str("node", node.ID()).
-			Any("input", input).
-			Any("output", map[string]any{
-				"async":  isAsync,
-				"status": result.Output().Status(),
-				"data":   result.Output().Data(),
-			}).
-			Msg("node is async (TODO)")
+		audit.Warn().Workflow(w.id).NodeInputOutput(node.ID(), input, result.Map()).Msg("node is async (TODO)")
 	}
 
 	return nil
@@ -214,18 +174,9 @@ func (w *workflowWorker) executeParallelNodes(outputEdges map[string]graph.Edge,
 		w.currentNode = append(w.currentNode, node)
 		result, _ := node.NodeRef().Execute(input)
 
+		audit.Info().Workflow(w.id).NodeInputOutput(node.ID(), input, result.Map()).Msg("node executed")
 		var output workflow.NodeOutput
 		_, isAsync := result.Async()
-		log.Info().
-			Str("workflow", w.id).
-			Str("node", node.ID()).
-			Any("input", input).
-			Any("output", map[string]any{
-				"async":  isAsync,
-				"status": result.Output().Status(),
-				"data":   result.Output().Data(),
-			}).
-			Msg("node executed")
 		if !isAsync {
 			output = result.Output()
 			if output.Status() == workflow.NodeOutputStatusSuccess {
@@ -235,12 +186,7 @@ func (w *workflowWorker) executeParallelNodes(outputEdges map[string]graph.Edge,
 				break
 			}
 		} else {
-			log.Warn().
-				Str("workflow", w.id).
-				Str("node", node.ID()).
-				Any("input", input).
-				Any("output", result).
-				Msg("node is async (TODO)")
+			audit.Warn().Workflow(w.id).NodeInputOutput(node.ID(), input, result.Map()).Msg("node is async (TODO)")
 		}
 	}
 
