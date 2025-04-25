@@ -4,6 +4,7 @@ package workflow
 type NodeResult interface {
 	Async() (chan NodeOutput, bool)
 	Output() NodeOutput
+	Map() map[string]any
 }
 
 // NewNodeResult returns a new node result that describes the result of a SYNC node execution with output
@@ -42,4 +43,12 @@ func (r *nodeResult) Async() (chan NodeOutput, bool) {
 
 func (r *nodeResult) Output() NodeOutput {
 	return r.output
+}
+
+func (r *nodeResult) Map() map[string]any {
+	return map[string]any{
+		"async":  r.asyncChan != nil,
+		"status": r.Output().Status(),
+		"data":   r.Output().Data(),
+	}
 }
