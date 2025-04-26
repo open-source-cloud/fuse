@@ -68,7 +68,7 @@ func Trace() *Event {
 
 // Debug debug level logging
 func Debug() *Event {
-	return &Event{log.Info()}
+	return &Event{log.Debug()}
 }
 
 // Info info level logging
