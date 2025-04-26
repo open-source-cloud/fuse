@@ -13,16 +13,16 @@ const (
 // Message defines a message interface
 type Message interface {
 	Type() MessageType
-	Data() any
+	Data() map[string]any
 }
 
 type message struct {
 	msgType MessageType
-	data    any
+	data    map[string]any
 }
 
 // NewMessage returns a new Message object with type and data
-func NewMessage(msgType MessageType, data any) Message {
+func NewMessage(msgType MessageType, data map[string]any) Message {
 	return &message{
 		msgType: msgType,
 		data:    data,
@@ -33,6 +33,6 @@ func (m *message) Type() MessageType {
 	return m.msgType
 }
 
-func (m *message) Data() any {
+func (m *message) Data() map[string]any {
 	return m.data
 }

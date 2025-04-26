@@ -62,9 +62,9 @@ func (n *SumNode) Metadata() workflow.NodeMetadata {
 }
 
 // Execute executes the sum node and returns the sum of the values
-func (n *SumNode) Execute(input workflow.NodeInput) (workflow.NodeResult, error) {
+func (n *SumNode) Execute(input *workflow.NodeInput) (workflow.NodeResult, error) {
 	sum := 0
-	values := input["values"].([]any)
+	values := input.Get("values").([]any)
 	for _, value := range values {
 		intValue, _ := value.(int)
 		sum += intValue

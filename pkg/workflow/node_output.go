@@ -11,7 +11,7 @@ const (
 type NodeOutputStatus string
 
 // NodeOutputData node output data type
-type NodeOutputData any
+type NodeOutputData map[string]any
 
 // NodeOutput node output interface that should provide status and data accessors
 type NodeOutput interface {

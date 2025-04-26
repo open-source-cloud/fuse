@@ -4,5 +4,5 @@ package workflow
 type Node interface {
 	ID() string
 	Metadata() NodeMetadata
-	Execute(input NodeInput) (NodeResult, error)
+	Execute(input *NodeInput) (NodeResult, error)
 }

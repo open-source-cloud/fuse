@@ -47,7 +47,7 @@ func (n *RandNode) Metadata() workflow.NodeMetadata {
 }
 
 // Execute executes the rand node and returns a random number
-func (n *RandNode) Execute(_ workflow.NodeInput) (workflow.NodeResult, error) {
+func (n *RandNode) Execute(_ *workflow.NodeInput) (workflow.NodeResult, error) {
 	randomNumberBig, err := rand.Int(rand.Reader, big.NewInt(1000))
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate random number: %w", err)
