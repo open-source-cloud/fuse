@@ -2,6 +2,8 @@ package store_test
 
 import (
 	"fmt"
+	"github.com/open-source-cloud/fuse/pkg/uuid"
+	"github.com/rs/zerolog/log"
 	"math/rand"
 	"sync"
 	"testing"
@@ -387,6 +389,7 @@ func (s *KvTestSuit) TestWithDotNotation() {
 	s.Nil(kv.Get("app.settings.theme.dark")) // This should now be nil as we overwrote the parent
 }
 
+// TestDotNotationWithArrays tests the use of dot notation and indexed access for handling arrays and nested data structures.
 func (s *KvTestSuit) TestDotNotationWithArrays() {
 	kv := store.New()
 
@@ -556,6 +559,7 @@ func (s *KvTestSuit) TestDotNotationWithArrays() {
 	s.Equal(100, kv.Get("complexMix.users[1].scores[0]"))
 }
 
+// TestDotNotationWithMaps tests the use of dot notation and map access for handling maps and nested data structures.
 func (s *KvTestSuit) TestDotNotationWithMaps() {
 	kv := store.New()
 
@@ -688,6 +692,65 @@ func (s *KvTestSuit) TestDotNotationWithMaps() {
 	s.Equal("string", kv.Get("complex.mixedArray[0]"))
 	s.Equal(42, kv.Get("complex.mixedArray[1]"))
 	s.Equal("value", kv.Get("complex.mixedArray[2].key"))
+}
+
+// TestWithUUID validates the storage and retrieval of UUID keys and values in a key-value store, including nested structures.
+func (s *KvTestSuit) TestWithUUID() {
+	kv := store.New()
+
+	id := uuid.V7()
+
+	kv.Set("id", id)
+	s.Equal(id, kv.Get("id"))
+
+	nestedID := uuid.V7()
+	kv.Set("nested.id", nestedID)
+	s.Equal(nestedID, kv.Get("nested.id"))
+
+	mapVal := map[string]any{
+		nestedID: uuid.V7(),
+	}
+	uuidInKey := fmt.Sprintf("nested.%s", nestedID)
+	kv.Set(uuidInKey, mapVal)
+	s.Equal(mapVal, kv.Get(uuidInKey))
+
+	uuidInKeys := []string{
+		uuid.V7(),
+		uuid.V7(),
+		uuid.V7(),
+		uuid.V7(),
+	}
+	for _, uuidValue := range uuidInKeys {
+		uuidInKeysNested := []string{
+			uuid.V7(),
+			uuid.V7(),
+			uuid.V7(),
+			uuid.V7(),
+		}
+		for _, uuidValueNested := range uuidInKeysNested {
+			kv.Set(fmt.Sprintf("nested.%s.%s", uuidValue, uuidValueNested), uuidValueNested)
+			s.Equal(uuidValueNested, kv.Get(fmt.Sprintf("nested.%s.%s", uuidValue, uuidValueNested)))
+		}
+	}
+
+	log.Print(kv.Raw())
+}
+
+// TestMapForNodeWorkflow validates the correctness of storing and retrieving nested maps using dot notation in the KV store.
+func (s *KvTestSuit) TestMapForNodeWorkflow() {
+	kv := store.New()
+
+	edges := []string{uuid.V7(), uuid.V7(), uuid.V7(), uuid.V7(), uuid.V7()}
+	for _, edgeID := range edges {
+		// nolint:gosec
+		randVal := rand.Int()
+		kv.Set(fmt.Sprintf("edges.%s.rand", edgeID), randVal)
+	}
+
+	for _, edgeID := range edges {
+		randVal := kv.Get(fmt.Sprintf("edges.%s.rand", edgeID))
+		s.NotNil(randVal)
+	}
 }
 
 // @@ Benchmark @@

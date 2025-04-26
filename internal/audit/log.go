@@ -12,7 +12,7 @@ type Event struct {
 	*zerolog.Event
 }
 
-// Workflow log a workflow ID
+// Workflow logs a workflow ID
 func (e *Event) Workflow(id string) *Event {
 	e.Event = e.Str("workflow", id)
 	return e
@@ -68,7 +68,7 @@ func Trace() *Event {
 
 // Debug debug level logging
 func Debug() *Event {
-	return &Event{log.Debug()}
+	return &Event{log.Info()}
 }
 
 // Info info level logging

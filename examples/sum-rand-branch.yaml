@@ -39,12 +39,12 @@ graph:
           - logic-rand-2
           - logic-rand-3
       inputs:
-        - source: edge[01965ddc-8890-7eed-a894-6fbabbf8681f]
+        - source: edges.01965ddc-8890-7eed-a894-6fbabbf8681f
           paramName: rand
           mapping: values
-        - source: edge[01965ddc-8890-76ca-8c0b-e65655437777]
+        - source: edges.01965ddc-8890-76ca-8c0b-e65655437777
           paramName: rand
           mapping: values
-        - source: edge[01965e1b-a954-7bde-ad0b-744b7ba78332]
+        - source: edges.01965e1b-a954-7bde-ad0b-744b7ba78332
           paramName: rand
           mapping: values

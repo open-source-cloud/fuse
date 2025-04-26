@@ -37,6 +37,6 @@ func (n *NilNode) Metadata() workflow.NodeMetadata {
 }
 
 // Execute executes the nil node
-func (n *NilNode) Execute(_ workflow.NodeInput) (workflow.NodeResult, error) {
+func (n *NilNode) Execute(_ *workflow.NodeInput) (workflow.NodeResult, error) {
 	return workflow.NewNodeResult(workflow.NodeOutputStatusSuccess, nil), nil
 }

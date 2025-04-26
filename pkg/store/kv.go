@@ -2,6 +2,7 @@
 package store
 
 import (
+	"encoding/json"
 	"sync"
 
 	"github.com/stretchr/objx"
@@ -22,6 +23,27 @@ func New() *KV {
 	return &KV{
 		data: data,
 	}
+}
+
+// Init initializes a new KV store from rawData, converting the input map to a thread-safe key-value store.
+// It returns a pointer to the initialized KV store or an error if the initialization fails.
+func Init(rawData map[string]any) (*KV, error) {
+	rawJSON, err := json.Marshal(rawData)
+	if err != nil {
+		return nil, err
+	}
+	data, err := objx.FromJSON(string(rawJSON))
+	if err != nil {
+		return nil, err
+	}
+	return &KV{
+		data: data,
+	}, nil
+}
+
+// Raw returns the underlying map[string]any representing all key-value pairs in the store without any modifications.
+func (k *KV) Raw() map[string]any {
+	return k.data
 }
 
 // Clear clears the store
@@ -50,9 +72,6 @@ func (k *KV) Get(key string) any {
 	k.mu.RLock()
 	defer k.mu.RUnlock()
 	val := k.data.Get(key)
-	if val == nil {
-		return nil
-	}
 	return val.Data()
 }
 
@@ -61,9 +80,6 @@ func (k *KV) GetStr(key string) string {
 	k.mu.RLock()
 	defer k.mu.RUnlock()
 	val := k.data.Get(key)
-	if val == nil {
-		return ""
-	}
 	return val.Str()
 }
 
@@ -72,9 +88,6 @@ func (k *KV) GetInt(key string) int {
 	k.mu.RLock()
 	defer k.mu.RUnlock()
 	val := k.data.Get(key)
-	if val == nil {
-		return 0
-	}
 	return val.Int()
 }
 
@@ -83,9 +96,6 @@ func (k *KV) GetBool(key string) bool {
 	k.mu.RLock()
 	defer k.mu.RUnlock()
 	val := k.data.Get(key)
-	if val == nil {
-		return false
-	}
 	return val.Bool()
 }
 
@@ -94,8 +104,14 @@ func (k *KV) GetFloat(key string) float64 {
 	k.mu.RLock()
 	defer k.mu.RUnlock()
 	val := k.data.Get(key)
-	if val == nil {
-		return 0
-	}
 	return val.Float64()
+}
+
+// GetIntSlice retrieves the value associated with the specified key as a slice of integers.
+// Returns nil if the key does not exist or the value is not a slice of integers.
+func (k *KV) GetIntSlice(key string) []int {
+	k.mu.RLock()
+	defer k.mu.RUnlock()
+	val := k.data.Get(key)
+	return val.IntSlice()
 }
