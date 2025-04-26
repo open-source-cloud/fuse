@@ -703,14 +703,14 @@ func (s *KvTestSuit) TestWithUUID() {
 	kv.Set("id", id)
 	s.Equal(id, kv.Get("id"))
 
-	nestedId := uuid.V7()
-	kv.Set("nested.id", nestedId)
-	s.Equal(nestedId, kv.Get("nested.id"))
+	nestedID := uuid.V7()
+	kv.Set("nested.id", nestedID)
+	s.Equal(nestedID, kv.Get("nested.id"))
 
 	mapVal := map[string]any{
-		nestedId: uuid.V7(),
+		nestedID: uuid.V7(),
 	}
-	uuidInKey := fmt.Sprintf("nested.%s", nestedId)
+	uuidInKey := fmt.Sprintf("nested.%s", nestedID)
 	kv.Set(uuidInKey, mapVal)
 	s.Equal(mapVal, kv.Get(uuidInKey))
 
@@ -741,13 +741,14 @@ func (s *KvTestSuit) TestMapForNodeWorkflow() {
 	kv := store.New()
 
 	edges := []string{uuid.V7(), uuid.V7(), uuid.V7(), uuid.V7(), uuid.V7()}
-	for _, edgeId := range edges {
+	for _, edgeID := range edges {
+		// nolint:gosec
 		randVal := rand.Int()
-		kv.Set(fmt.Sprintf("edges.%s.rand", edgeId), randVal)
+		kv.Set(fmt.Sprintf("edges.%s.rand", edgeID), randVal)
 	}
 
-	for _, edgeId := range edges {
-		randVal := kv.Get(fmt.Sprintf("edges.%s.rand", edgeId))
+	for _, edgeID := range edges {
+		randVal := kv.Get(fmt.Sprintf("edges.%s.rand", edgeID))
 		s.NotNil(randVal)
 	}
 }

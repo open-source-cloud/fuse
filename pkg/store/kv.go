@@ -25,12 +25,14 @@ func New() *KV {
 	}
 }
 
+// Init initializes a new KV store from rawData, converting the input map to a thread-safe key-value store.
+// It returns a pointer to the initialized KV store or an error if the initialization fails.
 func Init(rawData map[string]any) (*KV, error) {
-	rawJson, err := json.Marshal(rawData)
+	rawJSON, err := json.Marshal(rawData)
 	if err != nil {
 		return nil, err
 	}
-	data, err := objx.FromJSON(string(rawJson))
+	data, err := objx.FromJSON(string(rawJSON))
 	if err != nil {
 		return nil, err
 	}
@@ -39,6 +41,7 @@ func Init(rawData map[string]any) (*KV, error) {
 	}, nil
 }
 
+// Raw returns the underlying map[string]any representing all key-value pairs in the store without any modifications.
 func (k *KV) Raw() map[string]any {
 	return k.data
 }
