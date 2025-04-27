@@ -47,21 +47,21 @@ func (g *Graph) FindNode(nodeID string) (graph.Node, error) {
 }
 
 // AddNode adds a node to the graph
-func (g *Graph) AddNode(parentNodeID string, edgeID string, node graph.Node) error {
+func (g *Graph) AddNode(parentNodeID string, edgeID string, node graph.Node, condition *graph.EdgeCondition) error {
 	parentNode, err := g.FindNode(parentNodeID)
 	if err != nil {
 		return err
 	}
-	newEdge := NewEdge(edgeID, parentNode, node)
+	newEdge := NewEdge(edgeID, parentNode, node, condition)
 	parentNode.AddOutputEdge(edgeID, newEdge)
 	node.AddInputEdge(newEdge)
 	return nil
 }
 
 // AddNodeMultipleParents adds a node to the graph with multiple parents
-func (g *Graph) AddNodeMultipleParents(parentNodeIDs []string, edgeID string, node graph.Node) error {
-	for _, parentNodeID := range parentNodeIDs {
-		err := g.AddNode(parentNodeID, edgeID, node)
+func (g *Graph) AddNodeMultipleParents(parentNodeIDs []graph.ParentNodeWithCondition, edgeID string, node graph.Node) error {
+	for _, parent := range parentNodeIDs {
+		err := g.AddNode(parent.NodeID, edgeID, node, parent.Condition)
 		if err != nil {
 			return err
 		}

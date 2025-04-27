@@ -115,6 +115,9 @@ func (w *workflowWorker) handleMessage(ctx Context, msg Message) {
 		for _, node := range w.currentNode {
 			nodeOutputEdges := node.OutputEdges()
 			for k, edge := range nodeOutputEdges {
+				if edge.IsConditional() {
+					audit.Error().Err(fmt.Errorf("conditional edges not supported")).Msg("Conditional edge")
+				}
 				outputEdges[k] = edge
 			}
 		}

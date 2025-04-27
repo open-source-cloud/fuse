@@ -44,13 +44,22 @@ func (n *IfNode) Metadata() workflow.NodeMetadata {
 		},
 		// output
 		workflow.OutputMetadata{
-			Parameters: workflow.Parameters{},
+			Parameters:        workflow.Parameters{},
+			ConditionalOutput: true,
 			Edges: []workflow.OutputEdgeMetadata{
 				{
-					Name: "true",
+					Name: "condition-true",
+					ConditionalEdge: workflow.ConditionalEdgeMetadata{
+						Condition: "result",
+						Value:     true,
+					},
 				},
 				{
-					Name: "false",
+					Name: "condition-false",
+					ConditionalEdge: workflow.ConditionalEdgeMetadata{
+						Condition: "result",
+						Value:     false,
+					},
 				},
 			},
 		},

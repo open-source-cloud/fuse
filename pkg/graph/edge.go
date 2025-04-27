@@ -2,8 +2,17 @@
 package graph
 
 // Edge describes a graph's edge
-type Edge interface {
-	ID() string
-	From() Node
-	To() Node
-}
+type (
+	EdgeCondition struct {
+		Name  string
+		Value any
+	}
+
+	Edge interface {
+		ID() string
+		IsConditional() bool
+		Condition() *EdgeCondition
+		From() Node
+		To() Node
+	}
+)

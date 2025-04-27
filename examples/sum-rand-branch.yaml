@@ -35,9 +35,9 @@ graph:
       edge:
         id: 01965e15-b7fc-7e9b-8ccb-cebb0e3e4d36
         references:
-          - logic-rand-1
-          - logic-rand-2
-          - logic-rand-3
+          - node: logic-rand-1
+          - node: logic-rand-2
+          - node: logic-rand-3
       inputs:
         - source: edges
           origin: 01965ddc-8890-7eed-a894-6fbabbf8681f.rand
@@ -56,7 +56,7 @@ graph:
       edge:
         id: 01967474-ed78-73b8-a01f-275498bdc2c6
         references:
-          - logic-sum
+          - node: logic-sum
       inputs:
         - source: schema
           origin: sum > 1500
@@ -64,3 +64,26 @@ graph:
         - source: edges
           origin: sum
           mapping: sum
+
+    - id: nil-true
+      provider:
+        package: fuse.io/workflows/internal/debug
+        node: fuse.io/workflows/internal/debug/nil
+      edge:
+        id: 01967737-9174-7abb-83af-1fc93c6a54bf
+        references:
+          - node: if-conditional
+            conditional:
+              name: condition-true
+              value: true
+    - id: nil-false
+      provider:
+        package: fuse.io/workflows/internal/debug
+        node: fuse.io/workflows/internal/debug/nil
+      edge:
+        id: 01967738-9b23-7973-8096-af24ffc82f0f
+        references:
+          - node: if-conditional
+            conditional:
+              name: condition-false
+              value: false

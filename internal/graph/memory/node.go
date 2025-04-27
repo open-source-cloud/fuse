@@ -61,6 +61,10 @@ func (n *Node) OutputEdges() map[string]graph.Edge {
 	return n.outputEdges
 }
 
+func (n *Node) IsOutputConditional() bool {
+	return n.NodeRef().Metadata().Output().ConditionalOutput
+}
+
 // AddInputEdge adds an input edge
 func (n *Node) AddInputEdge(edge graph.Edge) {
 	n.inputEdges = append(n.inputEdges, edge)

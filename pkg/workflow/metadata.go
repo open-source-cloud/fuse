@@ -35,8 +35,9 @@ type InputMetadata struct {
 }
 
 type OutputMetadata struct {
-	Parameters Parameters
-	Edges      []OutputEdgeMetadata
+	Parameters        Parameters
+	ConditionalOutput bool
+	Edges             []OutputEdgeMetadata
 }
 
 // InputEdgeMetadata represents edge configuration for a node
@@ -45,10 +46,16 @@ type InputEdgeMetadata struct {
 	Parameters Parameters
 }
 
+type ConditionalEdgeMetadata struct {
+	Condition any
+	Value     any
+}
+
 type OutputEdgeMetadata struct {
-	Name       string
-	Count      int
-	Parameters Parameters
+	Name            string
+	ConditionalEdge ConditionalEdgeMetadata
+	Count           int
+	Parameters      Parameters
 }
 
 // Parameters type for a collection of Parameter schemas

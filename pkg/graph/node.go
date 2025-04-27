@@ -22,6 +22,7 @@ type (
 		Config() NodeConfig
 		InputEdges() []Edge
 		OutputEdges() map[string]Edge
+		IsOutputConditional() bool
 		AddInputEdge(edge Edge)
 		AddOutputEdge(edgeID string, edge Edge)
 	}
