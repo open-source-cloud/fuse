@@ -2,8 +2,8 @@
 package workflow
 
 import (
+	"github.com/open-source-cloud/fuse/internal/audit"
 	"github.com/open-source-cloud/fuse/pkg/uuid"
-	"github.com/rs/zerolog/log"
 	"github.com/vladopajic/go-actor/actor"
 )
 
@@ -41,16 +41,16 @@ func (e *engine) DoWork(ctx actor.Context) actor.WorkerStatus {
 		for _, workflowActor := range e.workflows {
 			workflowActor.Stop()
 		}
-		log.Info().Msg("Stopping engine")
+		audit.Info().Msg("Stopping engine")
 		return actor.WorkerEnd
 
 	case msg := <-e.externalMessagesChan:
-		log.Info().Msgf("received external engineMessage: %s", msg)
+		audit.Info().EngineMessage(msg.Type(), msg.Data()).Msg("received external engineMessage")
 		e.handleMessage(ctx, msg)
 		return actor.WorkerContinue
 
 	case msg := <-e.mailbox.ReceiveC():
-		log.Info().Msgf("received engineMessage: %s", msg)
+		audit.Info().Any("msg", msg).Msg("received engineMessage")
 		return actor.WorkerContinue
 	}
 }
@@ -76,16 +76,16 @@ func (e *engine) handleMessage(ctx actor.Context, msg EngineMessage) {
 	case EngineMessageStartWorkflow:
 		schemaID, ok := msg.Data().(string)
 		if !ok {
-			log.Error().Msg("Invalid engineMessage data")
+			audit.Error().Msg("Invalid engineMessage data")
 			return
 		}
 		workflowSchema, ok := e.schemas[schemaID]
 		if !ok {
-			log.Error().Msgf("Schema with ID %s not found", schemaID)
+			audit.Error().Schema(schemaID).Msg("Schema not found")
 			return
 		}
 		newWorkflowUUID := uuid.V7()
-		log.Info().Msgf("Start new workflow with ID %s from schema ID %s", newWorkflowUUID, schemaID)
+		audit.Info().Workflow(newWorkflowUUID).Schema(schemaID).Msg("Start new workflow")
 		workflowActor := NewWorkflow(newWorkflowUUID, workflowSchema)
 		workflowActor.Start()
 		e.workflows[newWorkflowUUID] = workflowActor
@@ -95,6 +95,6 @@ func (e *engine) handleMessage(ctx actor.Context, msg EngineMessage) {
 		)
 
 	default:
-		log.Warn().Msgf("Unhandled engine engineMessage type: %s", msg.Type())
+		audit.Warn().Any("msgType", msg.Type()).Msg("Unhandled engine engineMessage type")
 	}
 }

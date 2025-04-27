@@ -26,7 +26,7 @@ func (n *SumNode) ID() string {
 func (n *SumNode) Metadata() workflow.NodeMetadata {
 	return workflow.NewNodeMetadata(
 		// input
-		workflow.InputOutputMetadata{
+		workflow.InputMetadata{
 			Parameters: workflow.Parameters{
 				"values": workflow.ParameterSchema{
 					Name:        "values",
@@ -37,13 +37,12 @@ func (n *SumNode) Metadata() workflow.NodeMetadata {
 					Default:     []int{},
 				},
 			},
-			Edges: workflow.EdgeMetadata{
-				Count:      workflow.EdgesUnlimited,
+			Edges: workflow.InputEdgeMetadata{
 				Parameters: workflow.Parameters{},
 			},
 		},
 		// output
-		workflow.InputOutputMetadata{
+		workflow.OutputMetadata{
 			Parameters: workflow.Parameters{
 				"result": workflow.ParameterSchema{
 					Name:        "sum",
@@ -52,10 +51,6 @@ func (n *SumNode) Metadata() workflow.NodeMetadata {
 					Description: "Result of the sum",
 					Default:     0,
 				},
-			},
-			Edges: workflow.EdgeMetadata{
-				Count:      workflow.EdgesUnlimited,
-				Parameters: workflow.Parameters{},
 			},
 		},
 	)

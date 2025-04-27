@@ -2,51 +2,64 @@ package workflow
 
 // NodeMetadata describes the interface for a node's Metadata
 type NodeMetadata interface {
-	Input() InputOutputMetadata
-	Output() InputOutputMetadata
+	Input() InputMetadata
+	Output() OutputMetadata
 }
 
 type nodeMetadata struct {
-	input  InputOutputMetadata
-	output InputOutputMetadata
+	input  InputMetadata
+	output OutputMetadata
 }
 
 // NewNodeMetadata creates a new NodeMetadata type object
-func NewNodeMetadata(input InputOutputMetadata, output InputOutputMetadata) NodeMetadata {
+func NewNodeMetadata(input InputMetadata, output OutputMetadata) NodeMetadata {
 	return &nodeMetadata{
 		input:  input,
 		output: output,
 	}
 }
 
-func (n *nodeMetadata) Input() InputOutputMetadata {
+func (n *nodeMetadata) Input() InputMetadata {
 	return n.input
 }
 
-func (n *nodeMetadata) Output() InputOutputMetadata {
+func (n *nodeMetadata) Output() OutputMetadata {
 	return n.output
 }
 
-// InputOutputMetadata represents one Input or Output Metadata descriptor
-type InputOutputMetadata struct {
-	Parameters Parameters
-	Edges      EdgeMetadata
+// InputMetadata represents one Input or Output Metadata descriptor
+type InputMetadata struct {
+	CustomParameters bool
+	Parameters       Parameters
+	Edges            InputEdgeMetadata
 }
 
-// EdgeMetadata represents edge configuration for a node
-type EdgeMetadata struct {
-	RouteName  string
-	Count      EdgeCount
+// OutputMetadata represents the output metadata for a node
+type OutputMetadata struct {
+	Parameters        Parameters
+	ConditionalOutput bool
+	Edges             map[string]OutputEdgeMetadata
+}
+
+// InputEdgeMetadata represents edge configuration for a node
+type InputEdgeMetadata struct {
+	Count      int
 	Parameters Parameters
 }
 
-// EdgeCount represents the type for an EdgeCount "enum"
-type EdgeCount int
+// ConditionalEdgeMetadata represents additional metadata for a conditional edge
+type ConditionalEdgeMetadata struct {
+	Condition string
+	Value     any
+}
 
-const (
-	// EdgesUnlimited unlimited edges
-	EdgesUnlimited EdgeCount = -1
-)
+// OutputEdgeMetadata represents an output edge metadata configuration
+type OutputEdgeMetadata struct {
+	Name            string
+	ConditionalEdge ConditionalEdgeMetadata
+	Count           int
+	Parameters      Parameters
+}
 
 // Parameters type for a collection of Parameter schemas
 type Parameters map[string]ParameterSchema

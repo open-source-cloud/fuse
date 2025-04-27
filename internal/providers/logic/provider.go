@@ -7,8 +7,8 @@ import (
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 )
 
-// LogicProviderID is the ID of the logic node provider
-const LogicProviderID = "fuse.io/workflows/internal/logic"
+// ProviderID is the ID of the logic node provider
+const ProviderID = "fuse.io/workflows/internal/logic"
 
 // NodeProvider is a logic node provider
 type NodeProvider struct {
@@ -20,12 +20,13 @@ type NodeProvider struct {
 // NewNodeProvider creates a new logic node provider
 func NewNodeProvider() workflow.NodeProvider {
 	nodeProvider := &NodeProvider{
-		id:    LogicProviderID,
+		id:    ProviderID,
 		nodes: make(map[string]workflow.Node),
 	}
 
 	nodeProvider.nodes[SumNodeID] = NewSumNode()
 	nodeProvider.nodes[RandNodeID] = NewRandNode()
+	nodeProvider.nodes[IfNodeID] = NewIfNode()
 
 	return nodeProvider
 }
@@ -35,7 +36,7 @@ func (np *NodeProvider) ID() string {
 	return np.id
 }
 
-// Nodes returns all nodes in the provider
+// Nodes return all nodes in the provider
 func (np *NodeProvider) Nodes() []workflow.Node {
 	values := make([]workflow.Node, 0, len(np.nodes))
 	for _, node := range np.nodes {

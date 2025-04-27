@@ -61,6 +61,11 @@ func (n *Node) OutputEdges() map[string]graph.Edge {
 	return n.outputEdges
 }
 
+// IsOutputConditional returns true if output is conditional, false otherwise
+func (n *Node) IsOutputConditional() bool {
+	return n.NodeRef().Metadata().Output().ConditionalOutput
+}
+
 // AddInputEdge adds an input edge
 func (n *Node) AddInputEdge(edge graph.Edge) {
 	n.inputEdges = append(n.inputEdges, edge)
@@ -84,10 +89,10 @@ func (c *NodeConfig) InputMapping() []graph.NodeInputMapping {
 }
 
 // AddInputMapping adds an input mapping
-func (c *NodeConfig) AddInputMapping(source string, paramName string, mapping string) {
+func (c *NodeConfig) AddInputMapping(source string, origin string, mapping string) {
 	c.inputMapping = append(c.inputMapping, graph.NodeInputMapping{
-		Source:    source,
-		ParamName: paramName,
-		Mapping:   mapping,
+		Source:  source,
+		Origin:  origin,
+		Mapping: mapping,
 	})
 }

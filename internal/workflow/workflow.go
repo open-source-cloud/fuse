@@ -113,9 +113,20 @@ func (w *workflowWorker) handleMessage(ctx Context, msg Message) {
 
 		outputEdges := map[string]graph.Edge{}
 		for _, node := range w.currentNode {
+			outputMetadata := node.NodeRef().Metadata().Output()
 			nodeOutputEdges := node.OutputEdges()
 			for k, edge := range nodeOutputEdges {
-				outputEdges[k] = edge
+				if edge.IsConditional() && outputMetadata.ConditionalOutput {
+					inputData := msg.Data()
+					edgeMetadata := outputMetadata.Edges[edge.Condition().Name]
+					if edge.Condition().Value == inputData[edgeMetadata.ConditionalEdge.Condition] {
+						outputEdges[k] = edge
+					} else {
+						audit.Debug().Workflow(w.id).Msg("Conditional edge not met")
+					}
+				} else {
+					outputEdges[k] = edge
+				}
 			}
 		}
 		switch len(outputEdges) {
@@ -171,13 +182,13 @@ func (w *workflowWorker) executeNode(node graph.Node, rawInputData map[string]an
 		return nil, err
 	}
 
-	audit.Info().Workflow(w.id).NodeInputOutput(node.ID(), input, result.Map()).Msg("node executed")
+	audit.Info().Workflow(w.id).NodeInputOutput(node.ID(), input.Raw(), result.Map()).Msg("node executed")
 
 	var output workflow.NodeOutput
 	_, isAsync := result.Async()
 
 	if isAsync {
-		audit.Warn().Workflow(w.id).NodeInputOutput(node.ID(), input, result.Map()).Msg("node is async (TODO)")
+		audit.Warn().Workflow(w.id).NodeInputOutput(node.ID(), input.Raw(), result.Map()).Msg("node is async (TODO)")
 		return nil, fmt.Errorf("node async not implemented yet")
 	}
 
@@ -259,38 +270,58 @@ func (w *workflowWorker) createNodeInput(node graph.Node, rawInputData map[strin
 
 	for i, mapping := range nodeConfig.InputMapping() {
 		audit.Debug().Workflow(w.id).Node(node.ID()).Msgf("NodeConfig.%d.Mapping.Source: %v", i, mapping.Source)
-		audit.Debug().Workflow(w.id).Node(node.ID()).Msgf("NodeConfig.%d.Mapping.ParamName: %v", i, mapping.ParamName)
+		audit.Debug().Workflow(w.id).Node(node.ID()).Msgf("NodeConfig.%d.Mapping.Origin: %v", i, mapping.Origin)
 		audit.Debug().Workflow(w.id).Node(node.ID()).Msgf("NodeConfig.%d.Mapping.Mapping: %v", i, mapping.Mapping)
 
 		paramSchema, exists := inputSchema.Parameters[mapping.Mapping]
-		audit.Debug().Workflow(w.id).Node(node.ID()).Msgf("NodeMetadata.Schema.Exists: %v", exists)
-		audit.Debug().Workflow(w.id).Node(node.ID()).Msgf("NodeMetadata.Schema.ParamSchema.Name: %v", paramSchema.Name)
-		audit.Debug().Workflow(w.id).Node(node.ID()).Msgf("NodeMetadata.Schema.ParamSchema.Type: %v", paramSchema.Type)
-		audit.Debug().Workflow(w.id).Node(node.ID()).Msgf("NodeMetadata.Schema.ParamSchema.Required: %v", paramSchema.Required)
+		audit.Debug().Workflow(w.id).Node(node.ID()).
+			Msgf("NodeMetadata.Schema.Exists: %v; CustomParameters: %v", exists, inputSchema.CustomParameters)
+		audit.Debug().Workflow(w.id).Node(node.ID()).
+			Msgf("NodeMetadata.Schema.ParamSchema.Name: %v", paramSchema.Name)
+		audit.Debug().Workflow(w.id).Node(node.ID()).
+			Msgf("NodeMetadata.Schema.ParamSchema.Type: %v", paramSchema.Type)
+		audit.Debug().Workflow(w.id).Node(node.ID()).
+			Msgf("NodeMetadata.Schema.ParamSchema.Required: %v", paramSchema.Required)
 
-		if !exists {
-			audit.Error().Workflow(w.id).Node(node.ID()).Msgf("Workflow %s : Input mapping for parameter %s not found", w.id, mapping.ParamName)
-			return nil, fmt.Errorf("input mapping for parameter %s not found", mapping.ParamName)
+		isCustomParameter := inputSchema.CustomParameters && !exists
+		if !isCustomParameter && !exists {
+			audit.Error().Workflow(w.id).Node(node.ID()).
+				Str("source", mapping.Source).Str("origin", mapping.Origin).Msg("Input mapping for source.origin not found")
+			return nil, fmt.Errorf("input mapping for source.origin %s.%s not found", mapping.Source, mapping.Origin)
 		}
 
-		inputKey := fmt.Sprintf("%s.%s", mapping.Source, mapping.ParamName)
-		audit.Debug().Workflow(w.id).Node(node.ID()).Msgf("inputKey: %v", inputKey)
-		rawValue := inputStore.Get(inputKey)
-		if rawValue == nil {
-			audit.Error().Workflow(w.id).Node(node.ID()).Msgf("Workflow %s : Input mapping for parameter %s not found", w.id, mapping.ParamName)
-			return nil, fmt.Errorf("input mapping for parameter %s not found", mapping.ParamName)
+		var rawValue any
+		if mapping.Source == "schema" {
+			rawValue = mapping.Origin
+		} else {
+			inputKey := mapping.Origin
+			if len(node.InputEdges()) > 1 {
+				inputKey = fmt.Sprintf("%s.%s", mapping.Source, mapping.Origin)
+			}
+			audit.Debug().Workflow(w.id).Node(node.ID()).Msgf("inputKey: %v", inputKey)
+			rawValue = inputStore.Get(inputKey)
+			if rawValue == nil {
+				audit.Error().Workflow(w.id).Node(node.ID()).
+					Str("inputKey", mapping.Source).Msg("Input value for source not found")
+				return nil, fmt.Errorf("input value for inputKey %s not found", inputKey)
+			}
 		}
 
-		audit.Debug().Workflow(w.id).Node(node.ID()).Msgf("InputStore.rawValue: %v", rawValue)
+		audit.Debug().Workflow(w.id).Node(node.ID()).Any("rawValue", rawValue).Msg("InputStore.rawValue")
 
 		isArray := strings.HasPrefix(paramSchema.Type, "[]")
-		paramValue, err := typeschema.ParseValue(paramSchema.Type, rawValue)
-		if err != nil {
-			audit.Error().Workflow(w.id).Node(node.ID()).Err(err).Msgf("Workflow %s : Failed to parse input value", w.id)
-			return nil, err
+		var paramValue any
+		if isCustomParameter {
+			paramValue = rawValue
+		} else {
+			paramValue, err = typeschema.ParseValue(paramSchema.Type, rawValue)
+			if err != nil {
+				audit.Error().Workflow(w.id).Node(node.ID()).Err(err).Msg("Failed to parse input value")
+				return nil, err
+			}
 		}
 
-		audit.Debug().Workflow(w.id).Node(node.ID()).Msgf("NodeMetadata.Schema.ParamValueParsed: %v", paramValue)
+		audit.Debug().Workflow(w.id).Node(node.ID()).Any("paramValue", paramValue).Msg("NodeMetadata.Schema.ParamValueParsed")
 
 		// TODO: Add validation based on the paramSchema before set
 

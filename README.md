@@ -1,4 +1,4 @@
-# FUSE (Utility for Stateful Events)
+# FUSE (FUSE Utility for Stateful Events)
 
 A flexible and extensible workflow engine for building end-to-end automations and tasks.
 
