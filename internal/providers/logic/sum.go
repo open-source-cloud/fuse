@@ -52,7 +52,6 @@ func (n *SumNode) Metadata() workflow.NodeMetadata {
 					Default:     0,
 				},
 			},
-			Edges: []workflow.OutputEdgeMetadata{},
 		},
 	)
 }

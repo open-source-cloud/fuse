@@ -113,12 +113,20 @@ func (w *workflowWorker) handleMessage(ctx Context, msg Message) {
 
 		outputEdges := map[string]graph.Edge{}
 		for _, node := range w.currentNode {
+			outputMetadata := node.NodeRef().Metadata().Output()
 			nodeOutputEdges := node.OutputEdges()
 			for k, edge := range nodeOutputEdges {
-				if edge.IsConditional() {
-					audit.Error().Err(fmt.Errorf("conditional edges not supported")).Msg("Conditional edge")
+				if edge.IsConditional() && outputMetadata.ConditionalOutput {
+					inputData := msg.Data()
+					edgeMetadata := outputMetadata.Edges[edge.Condition().Name]
+					if edge.Condition().Value == inputData[edgeMetadata.ConditionalEdge.Condition] {
+						outputEdges[k] = edge
+					} else {
+						audit.Debug().Workflow(w.id).Msg("Conditional edge not met")
+					}
+				} else {
+					outputEdges[k] = edge
 				}
-				outputEdges[k] = edge
 			}
 		}
 		switch len(outputEdges) {

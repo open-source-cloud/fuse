@@ -37,7 +37,7 @@ type InputMetadata struct {
 type OutputMetadata struct {
 	Parameters        Parameters
 	ConditionalOutput bool
-	Edges             []OutputEdgeMetadata
+	Edges             map[string]OutputEdgeMetadata
 }
 
 // InputEdgeMetadata represents edge configuration for a node
@@ -47,7 +47,7 @@ type InputEdgeMetadata struct {
 }
 
 type ConditionalEdgeMetadata struct {
-	Condition any
+	Condition string
 	Value     any
 }
 

@@ -41,7 +41,6 @@ func (n *RandNode) Metadata() workflow.NodeMetadata {
 					Description: "Generated random number",
 				},
 			},
-			Edges: []workflow.OutputEdgeMetadata{},
 		},
 	)
 }
