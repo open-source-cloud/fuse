@@ -12,6 +12,11 @@ type Event struct {
 	*zerolog.Event
 }
 
+func (e *Event) Schema(id string) *Event {
+	e.Event = e.Event.Str("schema", id)
+	return e
+}
+
 // Workflow logs a workflow ID
 func (e *Event) Workflow(id string) *Event {
 	e.Event = e.Str("workflow", id)
@@ -21,6 +26,12 @@ func (e *Event) Workflow(id string) *Event {
 // WorkflowState log a workflow ID and state
 func (e *Event) WorkflowState(id string, state any) *Event {
 	e.Event = e.Event.Str("workflow", id).Any("state", state)
+	return e
+}
+
+// EngineMessage log an engine message
+func (e *Event) EngineMessage(msgType any, msgData any) *Event {
+	e.Event = e.Event.Any("msg", msgType).Any("data", msgData)
 	return e
 }
 

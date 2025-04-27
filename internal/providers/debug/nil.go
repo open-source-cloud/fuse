@@ -25,14 +25,8 @@ func (n *NilNode) ID() string {
 // Metadata returns the metadata of the nil node
 func (n *NilNode) Metadata() workflow.NodeMetadata {
 	return workflow.NewNodeMetadata(
-		workflow.InputOutputMetadata{
-			Parameters: workflow.Parameters{},
-			Edges:      workflow.EdgeMetadata{},
-		},
-		workflow.InputOutputMetadata{
-			Parameters: workflow.Parameters{},
-			Edges:      workflow.EdgeMetadata{},
-		},
+		workflow.InputMetadata{},
+		workflow.OutputMetadata{},
 	)
 }
 

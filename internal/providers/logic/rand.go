@@ -30,9 +30,9 @@ func (n *RandNode) ID() string {
 func (n *RandNode) Metadata() workflow.NodeMetadata {
 	return workflow.NewNodeMetadata(
 		// input
-		workflow.InputOutputMetadata{},
+		workflow.InputMetadata{},
 		// output
-		workflow.InputOutputMetadata{
+		workflow.OutputMetadata{
 			Parameters: workflow.Parameters{
 				"rand": workflow.ParameterSchema{
 					Name:        "rand",
@@ -41,7 +41,7 @@ func (n *RandNode) Metadata() workflow.NodeMetadata {
 					Description: "Generated random number",
 				},
 			},
-			Edges: workflow.EdgeMetadata{},
+			Edges: []workflow.OutputEdgeMetadata{},
 		},
 	)
 }

@@ -7,8 +7,8 @@ import (
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 )
 
-// DebugProviderID is the ID of the debug node provider
-const DebugProviderID = "fuse.io/workflows/internal/debug"
+// ProviderID is the ID of the debug node provider
+const ProviderID = "fuse.io/workflows/internal/debug"
 
 // NodeProvider is a debug node provider
 type NodeProvider struct {
@@ -30,7 +30,7 @@ func NewNodeProvider() workflow.NodeProvider {
 
 // ID returns the ID of the NodeProvider
 func (np *NodeProvider) ID() string {
-	return DebugProviderID
+	return ProviderID
 }
 
 // Nodes returns all nodes in the provider

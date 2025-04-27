@@ -6,14 +6,14 @@ import "github.com/open-source-cloud/fuse/pkg/workflow"
 type (
 	// NodeInputMapping provides the structure for node input mapping
 	NodeInputMapping struct {
-		Source    string
-		ParamName string
-		Mapping   string
+		Source  string
+		Origin  string
+		Mapping string
 	}
 	// NodeConfig describes a Node's configuration
 	NodeConfig interface {
 		InputMapping() []NodeInputMapping
-		AddInputMapping(source string, paramName string, mapping string)
+		AddInputMapping(source string, origin string, mapping string)
 	}
 	// Node describes an executable Node object
 	Node interface {

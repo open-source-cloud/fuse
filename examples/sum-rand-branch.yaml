@@ -39,12 +39,28 @@ graph:
           - logic-rand-2
           - logic-rand-3
       inputs:
-        - source: edges.01965ddc-8890-7eed-a894-6fbabbf8681f
-          paramName: rand
+        - source: edges
+          origin: 01965ddc-8890-7eed-a894-6fbabbf8681f.rand
           mapping: values
-        - source: edges.01965ddc-8890-76ca-8c0b-e65655437777
-          paramName: rand
+        - source: edges
+          origin: 01965ddc-8890-76ca-8c0b-e65655437777.rand
           mapping: values
-        - source: edges.01965e1b-a954-7bde-ad0b-744b7ba78332
-          paramName: rand
+        - source: edges
+          origin: 01965e1b-a954-7bde-ad0b-744b7ba78332.rand
           mapping: values
+
+    - id: if-conditional
+      provider:
+        package: fuse.io/workflows/internal/logic
+        node: fuse.io/workflows/internal/logic/if
+      edge:
+        id: 01967474-ed78-73b8-a01f-275498bdc2c6
+        references:
+          - logic-sum
+      inputs:
+        - source: schema
+          origin: sum > 1500
+          mapping: expression
+        - source: edges
+          origin: sum
+          mapping: sum

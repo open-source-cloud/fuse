@@ -41,9 +41,9 @@ type (
 	}
 	// InputDef is the definition of an input
 	InputDef struct {
-		Source    string `json:"source" yaml:"source"`
-		ParamName string `json:"paramName" yaml:"paramName"`
-		Mapping   string `json:"mapping" yaml:"mapping"`
+		Source  string `json:"source" yaml:"source"`
+		Origin  string `json:"origin" yaml:"origin"`
+		Mapping string `json:"mapping" yaml:"mapping"`
 	}
 )
 
@@ -99,9 +99,9 @@ func createGraphDef(graphDef GraphDef, providerRegistry *providers.Registry) (gr
 	if len(rootDef.Inputs) > 0 {
 		for _, input := range rootDef.Inputs {
 			log.Debug().Msgf("rootNode.Inputs.input.Source: %s", input.Source)
-			log.Debug().Msgf("rootNode.Inputs.input.ParamName: %s", input.ParamName)
+			log.Debug().Msgf("rootNode.Inputs.input.Origin: %s", input.Origin)
 			log.Debug().Msgf("rootNode.Inputs.input.Mapping: %s", input.Mapping)
-			rootNodeConfig.AddInputMapping(input.Source, input.ParamName, input.Mapping)
+			rootNodeConfig.AddInputMapping(input.Source, input.Origin, input.Mapping)
 		}
 	}
 
@@ -136,9 +136,9 @@ func createGraphDef(graphDef GraphDef, providerRegistry *providers.Registry) (gr
 		if len(nodeDef.Inputs) > 0 {
 			for _, input := range nodeDef.Inputs {
 				log.Debug().Msgf("nodeDef.Inputs.input.Source: %s", input.Source)
-				log.Debug().Msgf("nodeDef.Inputs.input.ParamName: %s", input.ParamName)
+				log.Debug().Msgf("nodeDef.Inputs.input.Origin: %s", input.Origin)
 				log.Debug().Msgf("nodeDef.Inputs.input.Mapping: %s", input.Mapping)
-				nodeConfig.AddInputMapping(input.Source, input.ParamName, input.Mapping)
+				nodeConfig.AddInputMapping(input.Source, input.Origin, input.Mapping)
 			}
 		}
 
