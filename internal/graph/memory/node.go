@@ -61,6 +61,7 @@ func (n *Node) OutputEdges() map[string]graph.Edge {
 	return n.outputEdges
 }
 
+// IsOutputConditional returns true if output is conditional, false otherwise
 func (n *Node) IsOutputConditional() bool {
 	return n.NodeRef().Metadata().Output().ConditionalOutput
 }

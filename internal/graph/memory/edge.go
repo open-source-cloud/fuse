@@ -27,10 +27,12 @@ func (e *Edge) ID() string {
 	return e.id
 }
 
+// IsConditional returns true if this edge has a conditional
 func (e *Edge) IsConditional() bool {
 	return e.condition != nil
 }
 
+// Condition returns the edge conditional
 func (e *Edge) Condition() *graph.EdgeCondition {
 	return e.condition
 }

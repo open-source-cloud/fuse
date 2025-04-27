@@ -1,13 +1,14 @@
 // Package graph provides a graph interface
 package graph
 
-// Graph is the interface for a graph
 type (
+	// ParentNodeWithCondition represents a parent node with a condition to be added
 	ParentNodeWithCondition struct {
 		NodeID    string
 		Condition *EdgeCondition
 	}
 
+	// Graph is the interface for a graph
 	Graph interface {
 		Root() Node
 		FindNode(nodeID string) (Node, error)

@@ -12,8 +12,9 @@ type Event struct {
 	*zerolog.Event
 }
 
+// Schema logs a Workflow Schema ID
 func (e *Event) Schema(id string) *Event {
-	e.Event = e.Event.Str("schema", id)
+	e.Event = e.Str("schema", id)
 	return e
 }
 

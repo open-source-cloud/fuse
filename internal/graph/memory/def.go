@@ -34,10 +34,12 @@ type (
 		ID     string `json:"package" yaml:"package"`
 		NodeID string `json:"node" yaml:"node"`
 	}
+	// EdgeRefDefConditional is the definition of a conditional edge
 	EdgeRefDefConditional struct {
 		Name  string `json:"name" yaml:"name"`
 		Value any    `json:"value" yaml:"value"`
 	}
+	// EdgeRefDef represents an edge with a potencial condition
 	EdgeRefDef struct {
 		NodeID      string                 `json:"node" yaml:"node"`
 		Conditional *EdgeRefDefConditional `json:"conditional,omitempty" yaml:"conditional,omitempty"`
