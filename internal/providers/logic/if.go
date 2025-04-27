@@ -6,25 +6,25 @@ import (
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 )
 
-// IfNodeID is the ID of the sum node
+// IfNodeID is the ID of the if node
 const IfNodeID = "fuse.io/workflows/internal/logic/if"
 
-// IfNode is a sum node
+// IfNode is a if node
 type IfNode struct {
 	workflow.Node
 }
 
-// NewIfNode creates a new sum node
+// NewIfNode creates a new if node
 func NewIfNode() workflow.Node {
 	return &IfNode{}
 }
 
-// ID returns the ID of the sum node
+// ID returns the ID of the if node
 func (n *IfNode) ID() string {
 	return IfNodeID
 }
 
-// Metadata returns the metadata of the sum node
+// Metadata returns the metadata of the if node
 func (n *IfNode) Metadata() workflow.NodeMetadata {
 	return workflow.NewNodeMetadata(
 		// input
