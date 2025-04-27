@@ -130,7 +130,7 @@ func createGraphDef(graphDef GraphDef, providerRegistry *providers.Registry) (gr
 		log.Debug().Msgf("nodeDef.Provider.ID: %s", nodeDef.Provider.ID)
 		log.Debug().Msgf("nodeDef.Provider.NodeID: %s", nodeDef.Provider.NodeID)
 		log.Debug().Msgf("nodeDef.Edge.ID: %s", nodeDef.Edge.ID)
-		log.Debug().Msgf("nodeDef.Edge.NodeParentRefs: %s", nodeDef.Edge.NodeParentRefs)
+		log.Debug().Msgf("nodeDef.Edge.NodeParentRefs: %v", nodeDef.Edge.NodeParentRefs)
 
 		nodeProvider, err := providerRegistry.Get(nodeDef.Provider.ID)
 		if err != nil {
