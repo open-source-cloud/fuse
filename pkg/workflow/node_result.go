@@ -2,7 +2,7 @@ package workflow
 
 // NodeResult the node result interface that describes the result of a node execution
 type NodeResult interface {
-	Async() (chan NodeOutput, bool)
+	Async() (<-chan NodeOutput, bool)
 	Output() NodeOutput
 	Map() map[string]any
 }
@@ -22,7 +22,7 @@ func NewNodeResult(status NodeOutputStatus, data NodeOutputData) NodeResult {
 }
 
 // NewNodeResultAsync returns a new node result that describes the result of an ASYNC node execution
-func NewNodeResultAsync(asyncChan chan NodeOutput) NodeResult {
+func NewNodeResultAsync(asyncChan <-chan NodeOutput) NodeResult {
 	return &nodeResult{
 		asyncChan: asyncChan,
 		output:    nil,
@@ -30,11 +30,11 @@ func NewNodeResultAsync(asyncChan chan NodeOutput) NodeResult {
 }
 
 type nodeResult struct {
-	asyncChan chan NodeOutput
+	asyncChan <-chan NodeOutput
 	output    NodeOutput
 }
 
-func (r *nodeResult) Async() (chan NodeOutput, bool) {
+func (r *nodeResult) Async() (<-chan NodeOutput, bool) {
 	if r.asyncChan != nil {
 		return r.asyncChan, true
 	}
@@ -46,9 +46,15 @@ func (r *nodeResult) Output() NodeOutput {
 }
 
 func (r *nodeResult) Map() map[string]any {
+	var status NodeOutputStatus
+	var data NodeOutputData
+	if r.Output() != nil {
+		status = r.Output().Status()
+		data = r.Output().Data()
+	}
 	return map[string]any{
 		"async":  r.asyncChan != nil,
-		"status": r.Output().Status(),
-		"data":   r.Output().Data(),
+		"status": status,
+		"data":   data,
 	}
 }

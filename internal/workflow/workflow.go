@@ -97,7 +97,7 @@ func (w *workflowWorker) handleMessage(ctx Context, msg Message) {
 	switch msg.Type() {
 	case MessageStartWorkflow:
 		rootNode := w.schema.RootNode()
-		output, err := w.executeNode(rootNode, msg.Data())
+		output, err := w.executeNode(ctx, rootNode, msg.Data())
 		if err != nil {
 			audit.Error().Workflow(w.id).Err(err).Msg("Failed to execute root node")
 			w.state = StateError
@@ -142,15 +142,17 @@ func (w *workflowWorker) handleMessage(ctx Context, msg Message) {
 				break
 			}
 			//goland:noinspection ALL
-			output, err := w.executeNode(edge.To(), msg.Data())
+			output, err := w.executeNode(ctx, edge.To(), msg.Data())
 			if err != nil {
 				audit.Error().Workflow(w.id).Err(err).Msg("Failed to execute root node")
 				w.state = StateError
 				return
 			}
-			w.SendMessage(ctx, NewMessage(MessageContinueWorkflow, output))
+			if output != nil {
+				w.SendMessage(ctx, NewMessage(MessageContinueWorkflow, output))
+			}
 		default:
-			output, err := w.executeParallelNodes(outputEdges, msg.Data())
+			output, err := w.executeParallelNodes(ctx, outputEdges, msg.Data())
 			if err != nil {
 				audit.Error().Workflow(w.id).Err(err).Msg("Failed to execute root node")
 				w.state = StateError
@@ -165,7 +167,7 @@ func (w *workflowWorker) handleMessage(ctx Context, msg Message) {
 	}
 }
 
-func (w *workflowWorker) executeNode(node graph.Node, rawInputData map[string]any) (workflow.NodeOutputData, error) {
+func (w *workflowWorker) executeNode(ctx Context, node graph.Node, rawInputData map[string]any) (workflow.NodeOutputData, error) {
 	input, err := w.createNodeInput(node, rawInputData)
 	if err != nil {
 		audit.Error().Workflow(w.id).Err(err).Msg("Failed to create node input")
@@ -185,11 +187,16 @@ func (w *workflowWorker) executeNode(node graph.Node, rawInputData map[string]an
 	audit.Info().Workflow(w.id).NodeInputOutput(node.ID(), input.Raw(), result.Map()).Msg("node executed")
 
 	var output workflow.NodeOutput
-	_, isAsync := result.Async()
+	async, isAsync := result.Async()
 
 	if isAsync {
-		audit.Warn().Workflow(w.id).NodeInputOutput(node.ID(), input.Raw(), result.Map()).Msg("node is async (TODO)")
-		return nil, fmt.Errorf("node async not implemented yet")
+		go func() {
+			done := <-async
+			if done.Status() == workflow.NodeOutputStatusSuccess {
+				w.SendMessage(ctx, NewMessage(MessageContinueWorkflow, done.Data()))
+			}
+		}()
+		return nil, nil
 	}
 
 	output = result.Output()
@@ -198,12 +205,11 @@ func (w *workflowWorker) executeNode(node graph.Node, rawInputData map[string]an
 	}
 
 	w.state = StateError
-
 	// TODO: Improve error handling
 	return nil, fmt.Errorf("node failed with output %v", output.Data())
 }
 
-func (w *workflowWorker) executeParallelNodes(outputEdges map[string]graph.Edge, rawInputData map[string]any) (workflow.NodeOutputData, error) {
+func (w *workflowWorker) executeParallelNodes(ctx Context, outputEdges map[string]graph.Edge, rawInputData map[string]any) (workflow.NodeOutputData, error) {
 	aggregatedOutput := store.New()
 
 	w.currentNode = make([]graph.Node, 0, len(outputEdges))
@@ -284,9 +290,9 @@ func (w *workflowWorker) createNodeInput(node graph.Node, rawInputData map[strin
 			Msgf("NodeMetadata.Schema.ParamSchema.Required: %v", paramSchema.Required)
 
 		isCustomParameter := inputSchema.CustomParameters && !exists
-		if !isCustomParameter && !exists {
+		if mapping.Source != "schema" && !isCustomParameter && !exists {
 			audit.Error().Workflow(w.id).Node(node.ID()).
-				Str("source", mapping.Source).Str("origin", mapping.Origin).Msg("Input mapping for source.origin not found")
+				Str("source", mapping.Source).Any("origin", mapping.Origin).Msg("Input mapping for source.origin not found")
 			return nil, fmt.Errorf("input mapping for source.origin %s.%s not found", mapping.Source, mapping.Origin)
 		}
 
@@ -294,7 +300,7 @@ func (w *workflowWorker) createNodeInput(node graph.Node, rawInputData map[strin
 		if mapping.Source == "schema" {
 			rawValue = mapping.Origin
 		} else {
-			inputKey := mapping.Origin
+			inputKey := mapping.Origin.(string)
 			if len(node.InputEdges()) > 1 {
 				inputKey = fmt.Sprintf("%s.%s", mapping.Source, mapping.Origin)
 			}
@@ -311,7 +317,7 @@ func (w *workflowWorker) createNodeInput(node graph.Node, rawInputData map[strin
 
 		isArray := strings.HasPrefix(paramSchema.Type, "[]")
 		var paramValue any
-		if isCustomParameter {
+		if mapping.Source == "schema" || isCustomParameter {
 			paramValue = rawValue
 		} else {
 			paramValue, err = typeschema.ParseValue(paramSchema.Type, rawValue)

@@ -27,6 +27,7 @@ func NewNodeProvider() workflow.NodeProvider {
 	nodeProvider.nodes[SumNodeID] = NewSumNode()
 	nodeProvider.nodes[RandNodeID] = NewRandNode()
 	nodeProvider.nodes[IfNodeID] = NewIfNode()
+	nodeProvider.nodes[TimerNodeID] = NewTimerNode()
 
 	return nodeProvider
 }

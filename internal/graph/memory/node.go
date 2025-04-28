@@ -89,7 +89,7 @@ func (c *NodeConfig) InputMapping() []graph.NodeInputMapping {
 }
 
 // AddInputMapping adds an input mapping
-func (c *NodeConfig) AddInputMapping(source string, origin string, mapping string) {
+func (c *NodeConfig) AddInputMapping(source string, origin any, mapping string) {
 	c.inputMapping = append(c.inputMapping, graph.NodeInputMapping{
 		Source:  source,
 		Origin:  origin,
