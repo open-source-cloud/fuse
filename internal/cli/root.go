@@ -53,4 +53,5 @@ func init() {
 		"Log level (debug, info, warn, error)",
 	)
 	rootCmd.AddCommand(workflowCmd)
+	rootCmd.AddCommand(serverCmd)
 }
