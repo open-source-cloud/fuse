@@ -52,7 +52,7 @@ type (
 	// InputDef is the definition of an input
 	InputDef struct {
 		Source  string `json:"source" yaml:"source"`
-		Origin  string `json:"origin" yaml:"origin"`
+		Origin  any    `json:"origin" yaml:"origin"`
 		Mapping string `json:"mapping" yaml:"mapping"`
 	}
 )

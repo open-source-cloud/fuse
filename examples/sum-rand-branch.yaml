@@ -6,13 +6,27 @@ graph:
     provider:
       package: fuse.io/workflows/internal/debug
       node: fuse.io/workflows/internal/debug/nil
+
   nodes:
+    - id: logic-timer
+      provider:
+        package: fuse.io/workflows/internal/logic
+        node: fuse.io/workflows/internal/logic/timer
+      edge:
+        id: 019679f3-f808-7be9-a565-a2e8c13d906a
+      inputs:
+        - source: schema
+          origin: 3000
+          mapping: timer
+
     - id: logic-rand-1
       provider:
         package: fuse.io/workflows/internal/logic
         node: fuse.io/workflows/internal/logic/rand
       edge:
         id: 01965ddc-8890-7eed-a894-6fbabbf8681f
+        references:
+          - node: logic-timer
 
     - id: logic-rand-2
       provider:
@@ -20,6 +34,8 @@ graph:
         node: fuse.io/workflows/internal/logic/rand
       edge:
         id: 01965ddc-8890-76ca-8c0b-e65655437777
+        references:
+          - node: logic-timer
 
     - id: logic-rand-3
       provider:
@@ -27,6 +43,8 @@ graph:
         node: fuse.io/workflows/internal/logic/rand
       edge:
         id: 01965e1b-a954-7bde-ad0b-744b7ba78332
+        references:
+          - node: logic-timer
 
     - id: logic-sum
       provider:
@@ -48,6 +66,7 @@ graph:
         - source: edges
           origin: 01965e1b-a954-7bde-ad0b-744b7ba78332.rand
           mapping: values
+
 
     - id: if-conditional
       provider:
