@@ -42,7 +42,7 @@ func (e *Edge) From() graph.Node {
 	return e.from
 }
 
-// To returns the edge to node
+// To return the edge to node
 func (e *Edge) To() graph.Node {
 	return e.to
 }

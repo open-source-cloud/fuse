@@ -12,4 +12,9 @@ bin/
 
 # OS specific files
 .DS_Store
-Thumbs.db 
+Thumbs.db
+
+# All envs are not allowed (only .env.example)
+.env
+.env.*
+!.env.example
