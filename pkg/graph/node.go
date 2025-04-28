@@ -3,6 +3,11 @@ package graph
 
 import "github.com/open-source-cloud/fuse/pkg/workflow"
 
+const (
+	// InputSourceSchema represents the input source as "schema"
+	InputSourceSchema = "schema"
+)
+
 type (
 	// NodeInputMapping provides the structure for node input mapping
 	NodeInputMapping struct {

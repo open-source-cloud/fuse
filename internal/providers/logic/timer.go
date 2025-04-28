@@ -43,6 +43,7 @@ func (n *TimerNode) Metadata() workflow.NodeMetadata {
 	)
 }
 
+// Execute executes timer node
 func (n *TimerNode) Execute(input *workflow.NodeInput) (workflow.NodeResult, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	duration := time.Duration(input.Get("timer").(int)) * time.Millisecond
