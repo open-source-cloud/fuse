@@ -1,9 +1,8 @@
 package cli
 
 import (
-	"fmt"
-	"github.com/gofiber/fiber/v3"
-	"github.com/open-source-cloud/fuse/internal/handlers"
+	"github.com/open-source-cloud/fuse/internal/database"
+	"github.com/open-source-cloud/fuse/internal/server"
 	"github.com/spf13/cobra"
 )
 
@@ -21,14 +20,25 @@ func init() {
 }
 
 func serverRunner(_ *cobra.Command, _ []string) error {
-	healthHandler := handlers.NewHealthCheckHandler()
+	config, err := server.NewConfig()
+	if err != nil {
+		return err
+	}
 
-	app := fiber.New(fiber.Config{
-		Immutable:     true,
-		StrictRouting: true,
-	})
+	if err := config.Validate(); err != nil {
+		return err
+	}
 
-	app.Get("/health-check", healthHandler.Handle)
+	db, err := database.NewClient(config.Database.Host, config.Database.Port, config.Database.User, config.Database.Pass, config.Database.TLS)
+	if err != nil {
+		return err
+	}
 
-	return app.Listen(fmt.Sprintf(":%s", port))
+	if err := db.Ping(); err != nil {
+		return err
+	}
+
+	sv := server.NewServer(config, db)
+
+	return sv.Start(port)
 }

@@ -1,15 +1,26 @@
 services:
   arangodb:
     image: arangodb:latest
+    container_name: fuse-arangodb
+    restart: unless-stopped
     environment:
-      - ARANGO_ROOT_PASSWORD=rootpassword
+      - ARANGO_ROOT_PASSWORD=${DB_PASS:-rootpassword}
     ports:
       - "8529:8529"
     volumes:
       - arangodb_data:/var/lib/arangodb3
       - arangodb_apps:/var/lib/arangodb3-apps
-    restart: unless-stopped
+    networks:
+      - fuse-network
 
 volumes:
   arangodb_data:
+    driver: local
   arangodb_apps:
+    driver: local
+
+networks:
+  fuse-network:
+    external: true
+    name: fuse-network
+    driver: bridge
