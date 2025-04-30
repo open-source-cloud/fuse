@@ -18,8 +18,8 @@ type ArangoClient struct {
 // NewClient creates a new database client
 func NewClient(host, port, user, pass string, tls bool) (*ArangoClient, error) {
 	// TODO: Support TLS and async connections
-	var skipVerify bool = true
-	var protocol string = "http"
+	var skipVerify = true
+	var protocol = "http"
 	if tls {
 		protocol = "https"
 		skipVerify = false
