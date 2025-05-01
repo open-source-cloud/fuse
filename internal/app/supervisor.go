@@ -1,3 +1,4 @@
+// Package app supervisor actor
 package app
 
 import (
@@ -11,6 +12,7 @@ import (
 	"github.com/vladopajic/go-actor/actor"
 )
 
+// Supervisor app supervisor interface
 type Supervisor interface {
 	actormodel.SupervisorMessenger
 	actor.Actor
@@ -29,9 +31,10 @@ type supervisor struct {
 	providerRegistry *providers.Registry
 }
 
+// NewSupervisor creates a new app supervisor
 func NewSupervisor(config *config.Config) Supervisor {
 	app := &supervisor{
-		cfg: config,
+		cfg:     config,
 		mailbox: actor.NewMailbox[actormodel.Message](),
 	}
 	app.baseActor = actor.New(app)
@@ -57,6 +60,7 @@ func (a *supervisor) DoWork(ctx actor.Context) actor.WorkerStatus {
 	case msg := <-a.mailbox.ReceiveC():
 		audit.Info().ActorMessage(msg).Msg("received appMessage")
 		switch msg.Type() {
+		case "temp":
 		default:
 			audit.Warn().ActorMessage(msg).Msg("Unhandled a message")
 		}
@@ -132,7 +136,7 @@ func (a *supervisor) SendMessageTo(receiver actormodel.MessageReceiver, ctx acto
 			audit.Error().Err(err).Msg("Failed to send message")
 		}
 		a.mailbox.Start()
-	case actormodel.HttpServer:
+	case actormodel.HTTPServer:
 		a.server.SendMessage(ctx, msg)
 	case actormodel.WorkflowEngine:
 		a.engine.SendMessage(ctx, msg)

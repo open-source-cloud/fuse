@@ -1,3 +1,4 @@
+// Package server http server package
 package server
 
 import "github.com/open-source-cloud/fuse/internal/actormodel"

@@ -1,3 +1,4 @@
+// Package enginemsg Workflow Engine actor messages
 package enginemsg
 
 import "github.com/open-source-cloud/fuse/internal/actormodel"

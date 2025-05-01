@@ -1,6 +1,10 @@
+// Package actormodel actor model helpers
 package actormodel
 
+// MessageType actor message type
 type MessageType string
+
+// MessageData actor message data type
 type MessageData map[string]any
 
 // Message defines a message interface
@@ -9,6 +13,7 @@ type Message interface {
 	Data() MessageData
 }
 
+// Str gets a string from message data
 func (d MessageData) Str(key string) string {
 	val, ok := d[key]
 	if !ok {

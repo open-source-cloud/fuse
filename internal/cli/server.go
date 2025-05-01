@@ -37,7 +37,7 @@ func serverRunner(_ *cobra.Command, _ []string) error {
 	appSupervisor := app.NewSupervisor(cfg)
 	appSupervisor.Start()
 	appSupervisor.SendMessageTo(
-		actormodel.HttpServer,
+		actormodel.HTTPServer,
 		context.Background(),
 		actormodel.NewMessage(servermsg.StartListening, nil),
 	)

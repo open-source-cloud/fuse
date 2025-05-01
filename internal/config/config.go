@@ -1,4 +1,4 @@
-// Package server (API server)
+// Package config App config
 package config
 
 import (
@@ -30,6 +30,7 @@ type (
 		TLS    bool   `env:"DB_TLS" `
 	}
 
+	// ServerConfig http server config
 	ServerConfig struct {
 		Run  bool
 		Port string `env:"SERVER_PORT"`

@@ -1,3 +1,4 @@
+// Package workflowmsg workflow actor messages
 package workflowmsg
 
 import "github.com/open-source-cloud/fuse/internal/actormodel"
@@ -8,4 +9,3 @@ const (
 	// Continue a message that continues a workflow execution
 	Continue actormodel.MessageType = "workflow:continue"
 )
-
