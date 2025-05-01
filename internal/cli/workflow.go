@@ -1,12 +1,17 @@
 package cli
 
 import (
+	"context"
+	"github.com/open-source-cloud/fuse/internal/actormodel"
+	"github.com/open-source-cloud/fuse/internal/app"
+	"github.com/open-source-cloud/fuse/internal/config"
+	"github.com/open-source-cloud/fuse/internal/workflow"
+	"github.com/open-source-cloud/fuse/internal/workflow/enginemsg"
+	"github.com/open-source-cloud/fuse/pkg/uuid"
 	"os"
 
 	"github.com/open-source-cloud/fuse/internal/graph/memory"
 	"github.com/open-source-cloud/fuse/internal/providers"
-	"github.com/open-source-cloud/fuse/internal/workflow"
-	"github.com/open-source-cloud/fuse/pkg/uuid"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
@@ -31,10 +36,21 @@ func init() {
 // Then adds the schema to the engine and sends a start message to the engine.
 // Then waits for the engine to finish and returns the result.
 func workflowRunner(_ *cobra.Command, _ []string) error {
-	engine := workflow.NewEngine()
+	cfg, err := config.NewConfig()
+	if err != nil {
+		return err
+	}
+
+	if err = cfg.Validate(); err != nil {
+		return err
+	}
+
+	cfg.Server.Run = true
+
+	appSupervisor := app.NewSupervisor(cfg)
+	appSupervisor.Start()
 
 	providerRegistry := providers.NewRegistry()
-
 	// nolint:gosec
 	// We are ok with reading the file here because we are in the CLI
 	yamlSpec, err := os.ReadFile(workflowConfigYamlPath)
@@ -49,14 +65,16 @@ func workflowRunner(_ *cobra.Command, _ []string) error {
 
 	log.Info().Msgf("schema created: %s", schemaDef.Name)
 
-	engine.Start()
-
 	schema := workflow.LoadSchema(uuid.V7(), graph)
-	engine.AddSchema(schema)
-	engine.SendMessage(workflow.NewEngineMessage(workflow.EngineMessageStartWorkflow, schema.ID()))
+	appSupervisor.AddSchema(schema)
+	appSupervisor.SendMessageTo(
+		actormodel.WorkflowEngine,
+		context.Background(),
+		actormodel.NewMessage(enginemsg.StartWorkflow, map[string]any{"schema_id": schema.ID()}),
+	)
 
 	quitOnCtrlC()
-	engine.Stop()
+	appSupervisor.Stop()
 
 	return nil
 }

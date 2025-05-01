@@ -1,5 +1,5 @@
-// Package server (API server)
-package server
+// Package config App config
+package config
 
 import (
 	"github.com/caarlos0/env/v11"
@@ -15,6 +15,7 @@ type (
 	// Config represents the application configuration, including the app name and database configuration.
 	Config struct {
 		Name     string `env:"APP_NAME"`
+		Server   ServerConfig
 		Database DatabaseConfig
 	}
 
@@ -27,6 +28,12 @@ type (
 		Pass   string `env:"DB_PASS"`
 		Name   string `env:"DB_NAME"`
 		TLS    bool   `env:"DB_TLS" `
+	}
+
+	// ServerConfig http server config
+	ServerConfig struct {
+		Run  bool
+		Port string
 	}
 )
 

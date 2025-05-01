@@ -2,8 +2,10 @@ package workflow
 
 import (
 	"fmt"
+	"github.com/open-source-cloud/fuse/internal/actormodel"
 	"github.com/open-source-cloud/fuse/internal/audit"
 	"github.com/open-source-cloud/fuse/internal/typeschema"
+	"github.com/open-source-cloud/fuse/internal/workflow/workflowmsg"
 	"github.com/open-source-cloud/fuse/pkg/graph"
 	"github.com/open-source-cloud/fuse/pkg/store"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
@@ -31,12 +33,12 @@ type Context actor.Context
 // Workflow describes the interface for a Workflow actor
 type Workflow interface {
 	actor.Actor
-	SendMessage(ctx Context, msg Message)
+	SendMessage(ctx Context, msg actormodel.Message)
 }
 
 type workflowWorker struct {
 	baseActor   actor.Actor
-	mailbox     actor.Mailbox[Message]
+	mailbox     actor.Mailbox[actormodel.Message]
 	id          string
 	schema      Schema
 	data        map[string]any
@@ -47,7 +49,7 @@ type workflowWorker struct {
 // NewWorkflow creates a new workflow actor worker
 func NewWorkflow(id string, schema Schema) Workflow {
 	worker := &workflowWorker{
-		mailbox:     actor.NewMailbox[Message](),
+		mailbox:     actor.NewMailbox[actormodel.Message](),
 		id:          id,
 		schema:      schema,
 		data:        make(map[string]any),
@@ -76,7 +78,7 @@ func (w *workflowWorker) DoWork(ctx actor.Context) actor.WorkerStatus {
 		return actor.WorkerEnd
 
 	case msg := <-w.mailbox.ReceiveC():
-		audit.Info().WorkflowMessage(w.id, msg.Type(), msg.Data()).Msg("Message received")
+		audit.Info().WorkflowMessage(w.id, msg).Msg("Message received")
 		if err := w.handleMessage(ctx, msg); err != nil {
 			audit.Info().WorkflowState(w.id, w.state).Msg("Stopped")
 			return actor.WorkerEnd
@@ -85,7 +87,7 @@ func (w *workflowWorker) DoWork(ctx actor.Context) actor.WorkerStatus {
 	}
 }
 
-func (w *workflowWorker) SendMessage(ctx Context, msg Message) {
+func (w *workflowWorker) SendMessage(ctx Context, msg actormodel.Message) {
 	err := w.mailbox.Send(ctx, msg)
 	if err != nil {
 		audit.Error().
@@ -96,9 +98,9 @@ func (w *workflowWorker) SendMessage(ctx Context, msg Message) {
 	w.mailbox.Start()
 }
 
-func (w *workflowWorker) handleMessage(ctx Context, msg Message) error {
+func (w *workflowWorker) handleMessage(ctx Context, msg actormodel.Message) error {
 	switch msg.Type() {
-	case MessageStartWorkflow:
+	case workflowmsg.Start:
 		rootNode := w.schema.RootNode()
 		output, err := w.executeNode(ctx, rootNode, msg.Data())
 		if err != nil {
@@ -106,8 +108,8 @@ func (w *workflowWorker) handleMessage(ctx Context, msg Message) error {
 			w.state = StateError
 			return err
 		}
-		w.SendMessage(ctx, NewMessage(MessageContinueWorkflow, output))
-	case MessageContinueWorkflow:
+		w.SendMessage(ctx, actormodel.NewMessage(workflowmsg.Continue, actormodel.MessageData(output)))
+	case workflowmsg.Continue:
 		currentNodeCount := len(w.currentNode)
 		if currentNodeCount == 0 {
 			err := fmt.Errorf("no current node")
@@ -152,7 +154,7 @@ func (w *workflowWorker) handleMessage(ctx Context, msg Message) error {
 				return err
 			}
 			if output != nil {
-				w.SendMessage(ctx, NewMessage(MessageContinueWorkflow, output))
+				w.SendMessage(ctx, actormodel.NewMessage(workflowmsg.Continue, actormodel.MessageData(output)))
 			}
 		default:
 			output, err := w.executeParallelNodes(ctx, outputEdges, msg.Data())
@@ -161,12 +163,12 @@ func (w *workflowWorker) handleMessage(ctx Context, msg Message) error {
 				w.state = StateError
 				return err
 			}
-			w.SendMessage(ctx, NewMessage(MessageContinueWorkflow, output))
+			w.SendMessage(ctx, actormodel.NewMessage(workflowmsg.Continue, actormodel.MessageData(output)))
 		}
 
 	default:
 		// Handle unknown message types
-		audit.Warn().WorkflowMessage(w.id, msg.Type(), msg.Data()).Msg("Unknown message type")
+		audit.Warn().WorkflowMessage(w.id, msg).Msg("Unknown message type")
 		return fmt.Errorf("unknown message type %s", msg.Type())
 	}
 
@@ -199,7 +201,7 @@ func (w *workflowWorker) executeNode(ctx Context, node graph.Node, rawInputData 
 		go func() {
 			done := <-async
 			if done.Status() == workflow.NodeOutputStatusSuccess {
-				w.SendMessage(ctx, NewMessage(MessageContinueWorkflow, done.Data()))
+				w.SendMessage(ctx, actormodel.NewMessage(workflowmsg.Continue, actormodel.MessageData(done.Data())))
 			}
 		}()
 		return nil, nil
@@ -281,7 +283,7 @@ func (w *workflowWorker) executeParallelNodes(ctx Context, outputEdges map[strin
 			}
 			asyncCount--
 		}
-		w.SendMessage(ctx, NewMessage(MessageContinueWorkflow, aggregatedOutput.Raw()))
+		w.SendMessage(ctx, actormodel.NewMessage(workflowmsg.Continue, actormodel.MessageData(aggregatedOutput.Raw())))
 	}()
 
 	return nil, nil

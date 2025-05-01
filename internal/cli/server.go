@@ -1,8 +1,11 @@
 package cli
 
 import (
-	"github.com/open-source-cloud/fuse/internal/database"
-	"github.com/open-source-cloud/fuse/internal/server"
+	"context"
+	"github.com/open-source-cloud/fuse/internal/actormodel"
+	"github.com/open-source-cloud/fuse/internal/app"
+	"github.com/open-source-cloud/fuse/internal/config"
+	"github.com/open-source-cloud/fuse/internal/server/servermsg"
 	"github.com/spf13/cobra"
 )
 
@@ -16,29 +19,30 @@ var serverCmd = &cobra.Command{
 }
 
 func init() {
-	serverCmd.Flags().StringVarP(&port, "port", "p", "4567", "Port to listen on for HTTP requests")
+	serverCmd.Flags().StringVarP(&port, "port", "p", "", "Port to listen on for HTTP requests")
 }
 
 func serverRunner(_ *cobra.Command, _ []string) error {
-	config, err := server.NewConfig()
+	cfg, err := config.NewConfig()
 	if err != nil {
 		return err
 	}
 
-	if err := config.Validate(); err != nil {
+	if err = cfg.Validate(); err != nil {
 		return err
 	}
 
-	db, err := database.NewClient(config.Database.Host, config.Database.Port, config.Database.User, config.Database.Pass, config.Database.TLS)
-	if err != nil {
-		return err
-	}
+	cfg.Server.Run = true
+	cfg.Server.Port = port
 
-	if err := db.Ping(); err != nil {
-		return err
-	}
+	appSupervisor := app.NewSupervisor(cfg)
+	appSupervisor.Start()
+	appSupervisor.SendMessageTo(
+		actormodel.HTTPServer,
+		context.Background(),
+		actormodel.NewMessage(servermsg.StartListening, nil),
+	)
 
-	sv := server.NewServer(config, db)
-
-	return sv.Start(port)
+	quitOnCtrlC()
+	return nil
 }
