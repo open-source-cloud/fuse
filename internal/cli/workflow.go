@@ -65,8 +65,6 @@ func workflowRunner(_ *cobra.Command, _ []string) error {
 
 	log.Info().Msgf("schema created: %s", schemaDef.Name)
 
-	appSupervisor.Start()
-
 	schema := workflow.LoadSchema(uuid.V7(), graph)
 	appSupervisor.AddSchema(schema)
 	appSupervisor.SendMessageTo(

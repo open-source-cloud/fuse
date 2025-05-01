@@ -19,7 +19,11 @@ func (d MessageData) Str(key string) string {
 	if !ok {
 		return ""
 	}
-	return val.(string)
+	retval, ok := val.(string)
+	if !ok {
+		return ""
+	}
+	return retval
 }
 
 type message struct {
