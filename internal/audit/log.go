@@ -2,6 +2,7 @@
 package audit
 
 import (
+	"github.com/open-source-cloud/fuse/internal/actormodel"
 	"github.com/open-source-cloud/fuse/pkg/graph"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -30,16 +31,17 @@ func (e *Event) WorkflowState(id string, state any) *Event {
 	return e
 }
 
-// EngineMessage log an engine message
-func (e *Event) EngineMessage(msgType any, msgData any) *Event {
-	e.Event = e.Event.Any("msg", msgType).Any("data", msgData)
+// ActorMessage log an actor message
+func (e *Event) ActorMessage(msg actormodel.Message) *Event {
+	e.Event = e.Event.Any("msg", map[string]any{
+		"type":   msg.Type(),
+		"data": msg.Data(),
+	})
 	return e
 }
 
-// WorkflowMessage log a workflow ID and message
-func (e *Event) WorkflowMessage(workflowID string, msgType any, msgData any) *Event {
-	e.Event = e.Event.Str("workflow", workflowID).Any("msg", msgType).Any("data", msgData)
-	return e
+func (e *Event) WorkflowMessage(workflowID string, msg actormodel.Message) *Event {
+	return e.Workflow(workflowID).ActorMessage(msg)
 }
 
 // Node log a node
