@@ -33,7 +33,7 @@ type (
 	// ServerConfig http server config
 	ServerConfig struct {
 		Run  bool
-		Port string `env:"SERVER_PORT"`
+		Port string
 	}
 )
 

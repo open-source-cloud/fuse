@@ -19,7 +19,7 @@ var serverCmd = &cobra.Command{
 }
 
 func init() {
-	serverCmd.Flags().StringVarP(&port, "port", "p", "4567", "Port to listen on for HTTP requests")
+	serverCmd.Flags().StringVarP(&port, "port", "p", "", "Port to listen on for HTTP requests")
 }
 
 func serverRunner(_ *cobra.Command, _ []string) error {
@@ -33,6 +33,7 @@ func serverRunner(_ *cobra.Command, _ []string) error {
 	}
 
 	cfg.Server.Run = true
+	cfg.Server.Port = port
 
 	appSupervisor := app.NewSupervisor(cfg)
 	appSupervisor.Start()
