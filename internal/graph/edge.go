@@ -1,4 +1,3 @@
-// Package memory provides a memory graph implementation
 package graph
 
 import "github.com/open-source-cloud/fuse/pkg/graph"

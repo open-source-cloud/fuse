@@ -1,3 +1,4 @@
+// Package graph provides a graph definition based on a JSON schema
 package graph
 
 import (

@@ -1,4 +1,3 @@
-// Package memory provides a memory graph implementation
 package graph
 
 import (
@@ -7,7 +6,7 @@ import (
 	"github.com/open-source-cloud/fuse/pkg/graph"
 )
 
-// Graph is a memory graph
+// Graph is a memory graph following the JSON schema spec
 type Graph struct {
 	root graph.Node
 }

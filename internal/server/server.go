@@ -95,5 +95,9 @@ func (s *server) listen() error {
 // registerHandlers registers the handlers for the server.
 func (s *server) registerHandlers() {
 	healthHandler := handlers.NewHealthCheckHandler(s.db)
+	schemaHandler := handlers.NewSchemaHandler()
+
 	s.fiberApp.Get("/health-check", healthHandler.Handle)
+
+	s.fiberApp.Get("/v1/schemas", schemaHandler.Handle)
 }

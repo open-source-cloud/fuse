@@ -9,7 +9,7 @@ import (
 )
 
 type (
-	// Node is a memory graph node
+	// Node is a memory graph node following the spec
 	Node struct {
 		graph.Node
 		id           string

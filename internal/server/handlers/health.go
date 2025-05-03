@@ -20,6 +20,7 @@ func NewHealthCheckHandler(db *database.ArangoClient) *HealthCheckHandler {
 }
 
 // Handle handles HTTP requests for health check endpoints and sends a response using Fiber's context.
+// GET /health-check
 func (hc *HealthCheckHandler) Handle(ctx fiber.Ctx) error {
 	var dbStatus = "ok"
 	if err := hc.db.Ping(); err != nil {
