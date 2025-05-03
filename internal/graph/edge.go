@@ -1,5 +1,5 @@
 // Package memory provides a memory graph implementation
-package memory
+package graph
 
 import "github.com/open-source-cloud/fuse/pkg/graph"
 

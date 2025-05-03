@@ -5,12 +5,12 @@ import (
 	"github.com/open-source-cloud/fuse/internal/actormodel"
 	"github.com/open-source-cloud/fuse/internal/app"
 	"github.com/open-source-cloud/fuse/internal/config"
+	"github.com/open-source-cloud/fuse/internal/graph"
 	"github.com/open-source-cloud/fuse/internal/workflow"
 	"github.com/open-source-cloud/fuse/internal/workflow/enginemsg"
 	"github.com/open-source-cloud/fuse/pkg/uuid"
 	"os"
 
-	"github.com/open-source-cloud/fuse/internal/graph/memory"
 	"github.com/open-source-cloud/fuse/internal/providers"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -58,7 +58,7 @@ func workflowRunner(_ *cobra.Command, _ []string) error {
 		return err
 	}
 
-	schemaDef, graph, err := memory.CreateSchemaFromYaml(yamlSpec, providerRegistry)
+	schemaDef, graph, err := graph.CreateSchemaFromYaml(yamlSpec, providerRegistry)
 	if err != nil {
 		return err
 	}

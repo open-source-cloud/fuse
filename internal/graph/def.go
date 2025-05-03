@@ -1,8 +1,9 @@
-package memory
+package graph
 
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/open-source-cloud/fuse/internal/audit"
 
 	"github.com/open-source-cloud/fuse/internal/providers"
 	"github.com/open-source-cloud/fuse/pkg/graph"
@@ -11,13 +12,14 @@ import (
 )
 
 type (
-	// SchemaDef is the definition of a schema
-	SchemaDef struct {
-		Name  string   `json:"name" yaml:"name"`
-		Graph GraphDef `json:"graph" yaml:"graph"`
+	// Workflow is the definition of a workflow schema
+	Workflow struct {
+		Name    string `json:"name" yaml:"name"`
+		Graph   Schema `json:"schema" yaml:"schema"`
+		Version string `json:"version" yaml:"version"`
 	}
-	// GraphDef is the definition of a graph
-	GraphDef struct {
+	// Schema is the definition of a graph
+	Schema struct {
 		ID    string    `json:"id" yaml:"id"`
 		Root  NodeDef   `json:"root" yaml:"root"`
 		Nodes []NodeDef `json:"nodes" yaml:"nodes"`
@@ -58,46 +60,46 @@ type (
 )
 
 // CreateSchemaFromYaml creates a schema from a YAML file
-func CreateSchemaFromYaml(yamlSpec []byte, providerRegistry *providers.Registry) (*SchemaDef, graph.Graph, error) {
-	var schemaDef SchemaDef
-	err := yaml.Unmarshal(yamlSpec, &schemaDef)
+func CreateSchemaFromYaml(yamlSpec []byte, providerRegistry *providers.Registry) (*Workflow, graph.Graph, error) {
+	var workflowDef Workflow
+	err := yaml.Unmarshal(yamlSpec, &workflowDef)
 	if err != nil {
 		return nil, nil, err
 	}
-	graphDef, err := createGraphDef(schemaDef.Graph, providerRegistry)
+	graphDef, err := createGraphDef(workflowDef.Graph, providerRegistry)
 	if err != nil {
 		return nil, nil, err
 	}
-	return &schemaDef, graphDef, nil
+	return &workflowDef, graphDef, nil
 }
 
 // CreateSchemaFromJSON creates a schema from a JSON file
-func CreateSchemaFromJSON(jsonSpec []byte, providerRegistry *providers.Registry) (*SchemaDef, graph.Graph, error) {
-	var schemaDef SchemaDef
-	err := json.Unmarshal(jsonSpec, &schemaDef)
+func CreateSchemaFromJSON(jsonSpec []byte, providerRegistry *providers.Registry) (*Workflow, graph.Graph, error) {
+	var workflowDef Workflow
+	err := json.Unmarshal(jsonSpec, &workflowDef)
 	if err != nil {
 		return nil, nil, err
 	}
-	graphDef, err := createGraphDef(schemaDef.Graph, providerRegistry)
+	graphDef, err := createGraphDef(workflowDef.Graph, providerRegistry)
 	if err != nil {
 		return nil, nil, err
 	}
-	return &schemaDef, graphDef, nil
+	return &workflowDef, graphDef, nil
 }
 
 // createGraphDef creates a graph from a graph definition
-func createGraphDef(graphDef GraphDef, providerRegistry *providers.Registry) (graph.Graph, error) {
-	log.Info().Msgf("Create newGraph from definition: %s", graphDef.ID)
+func createGraphDef(graphDef Schema, providerRegistry *providers.Registry) (graph.Graph, error) {
+	audit.Debug().Msgf("create newGraph from definition: %s", graphDef.ID)
 
 	rootNodeProvider, err := providerRegistry.Get(graphDef.Root.Provider.ID)
 	if err != nil {
-		log.Error().Msgf("error getting root node provider: %s", err)
+		audit.Error().Msgf("error getting node provider package %s for schema %s, err=%v", graphDef.Root.Provider.ID, graphDef.ID, err)
 		return nil, err
 	}
 
 	rootWorkflowNode, err := rootNodeProvider.GetNode(graphDef.Root.Provider.NodeID)
 	if err != nil {
-		log.Error().Msgf("error getting root workflow node: %s", err)
+		audit.Error().Msgf("error getting node provider %s for schema %s, err=%v", graphDef.Root.Provider.ID, graphDef.ID, err)
 		return nil, err
 	}
 
@@ -108,15 +110,15 @@ func createGraphDef(graphDef GraphDef, providerRegistry *providers.Registry) (gr
 
 	if len(rootDef.Inputs) > 0 {
 		for _, input := range rootDef.Inputs {
-			log.Debug().Msgf("rootNode.Inputs.input.Source: %s", input.Source)
-			log.Debug().Msgf("rootNode.Inputs.input.Origin: %s", input.Origin)
-			log.Debug().Msgf("rootNode.Inputs.input.Mapping: %s", input.Mapping)
+			audit.Debug().Msgf("rootNode.Inputs.input.Source: %s", input.Source)
+			audit.Debug().Msgf("rootNode.Inputs.input.Origin: %s", input.Origin)
+			audit.Debug().Msgf("rootNode.Inputs.input.Mapping: %s", input.Mapping)
 			rootNodeConfig.AddInputMapping(input.Source, input.Origin, input.Mapping)
 		}
 	}
 
-	log.Debug().Msgf("root node created")
-	log.Debug().Msgf("rootNode.ID: %s", rootNode.ID())
+	audit.Debug().Msgf("root node created")
+	audit.Debug().Msgf("rootNode.ID: %s", rootNode.ID())
 
 	newGraph := NewGraph(rootNode)
 
@@ -125,12 +127,12 @@ func createGraphDef(graphDef GraphDef, providerRegistry *providers.Registry) (gr
 	nodesMapRef := make(map[string]*Node)
 
 	for _, nodeDef := range graphDef.Nodes {
-		log.Debug().Msgf("creating node: %s", nodeDef.ID)
-		log.Debug().Msgf("nodeDef.ID: %s", nodeDef.ID)
-		log.Debug().Msgf("nodeDef.Provider.ID: %s", nodeDef.Provider.ID)
-		log.Debug().Msgf("nodeDef.Provider.NodeID: %s", nodeDef.Provider.NodeID)
-		log.Debug().Msgf("nodeDef.Edge.ID: %s", nodeDef.Edge.ID)
-		log.Debug().Msgf("nodeDef.Edge.NodeParentRefs: %v", nodeDef.Edge.NodeParentRefs)
+		audit.Debug().Msgf("creating node: %s", nodeDef.ID)
+		audit.Debug().Msgf("nodeDef.ID: %s", nodeDef.ID)
+		audit.Debug().Msgf("nodeDef.Provider.ID: %s", nodeDef.Provider.ID)
+		audit.Debug().Msgf("nodeDef.Provider.NodeID: %s", nodeDef.Provider.NodeID)
+		audit.Debug().Msgf("nodeDef.Edge.ID: %s", nodeDef.Edge.ID)
+		audit.Debug().Msgf("nodeDef.Edge.NodeParentRefs: %v", nodeDef.Edge.NodeParentRefs)
 
 		nodeProvider, err := providerRegistry.Get(nodeDef.Provider.ID)
 		if err != nil {
@@ -145,9 +147,9 @@ func createGraphDef(graphDef GraphDef, providerRegistry *providers.Registry) (gr
 		nodeConfig := NewNodeConfig()
 		if len(nodeDef.Inputs) > 0 {
 			for _, input := range nodeDef.Inputs {
-				log.Debug().Msgf("nodeDef.Inputs.input.Source: %s", input.Source)
-				log.Debug().Msgf("nodeDef.Inputs.input.Origin: %s", input.Origin)
-				log.Debug().Msgf("nodeDef.Inputs.input.Mapping: %s", input.Mapping)
+				audit.Debug().Msgf("nodeDef.Inputs.input.Source: %s", input.Source)
+				audit.Debug().Msgf("nodeDef.Inputs.input.Origin: %s", input.Origin)
+				audit.Debug().Msgf("nodeDef.Inputs.input.Mapping: %s", input.Mapping)
 				nodeConfig.AddInputMapping(input.Source, input.Origin, input.Mapping)
 			}
 		}
@@ -160,7 +162,7 @@ func createGraphDef(graphDef GraphDef, providerRegistry *providers.Registry) (gr
 		case 0:
 			err = addNodeToParent(newGraph, node, rootNode, nodeDef.Edge.ID, nil)
 			if err != nil {
-				log.Error().Msgf("error adding node %s to root node %s: %s", nodeDef.ID, rootNode.ID(), err)
+				audit.Error().Msgf("error adding node %s to root node %s: %s", nodeDef.ID, rootNode.ID(), err)
 				return nil, err
 			}
 		// One parent, add to parent
@@ -168,12 +170,12 @@ func createGraphDef(graphDef GraphDef, providerRegistry *providers.Registry) (gr
 			nodeParentRef := nodeDef.Edge.NodeParentRefs[0]
 			nodeRef := nodesMapRef[nodeParentRef.NodeID]
 			if nodeRef == nil {
-				log.Error().Msgf("node %s not found", nodeParentRef.NodeID)
+				audit.Error().Msgf("node %s not found", nodeParentRef.NodeID)
 				return nil, fmt.Errorf("node %s not found", nodeParentRef.NodeID)
 			}
 			err = addNodeToParent(newGraph, node, nodeRef, nodeDef.Edge.ID, nodeParentRef.Conditional)
 			if err != nil {
-				log.Error().Msgf("error adding node %s to parent node %s: %s", nodeDef.ID, nodesMapRef[nodeParentRef.NodeID].ID(), err)
+				audit.Error().Msgf("error adding node %s to parent node %s: %s", nodeDef.ID, nodesMapRef[nodeParentRef.NodeID].ID(), err)
 				return nil, err
 			}
 		// Multiple parents, add to all parents
@@ -185,15 +187,14 @@ func createGraphDef(graphDef GraphDef, providerRegistry *providers.Registry) (gr
 			for i, nodeParentRef := range nodeDef.Edge.NodeParentRefs {
 				parent := nodesMapRef[nodeParentRef.NodeID]
 				if parent == nil {
-					log.Error().Msgf("node %s not found", nodeParentRef.NodeID)
+					audit.Error().Msgf("node %s not found", nodeParentRef.NodeID)
 					return nil, fmt.Errorf("node %s not found", nodeParentRef.NodeID)
 				}
 				condition := getEdgeCondition(nodeParentRef.Conditional)
 				parents[i] = graph.ParentNodeWithCondition{NodeID: parent.ID(), Condition: condition}
 			}
-			err = addNodeToMultipleParents(newGraph, node, parents, nodeDef.Edge.ID)
-			if err != nil {
-				log.Error().Msgf("error adding node %s to parent nodes %v: %s", nodeDef.ID, nodeDef.Edge.NodeParentRefs, err)
+			if err := addNodeToMultipleParents(newGraph, node, parents, nodeDef.Edge.ID); err != nil {
+				audit.Error().Msgf("error adding node %s to parent nodes %v: %s", nodeDef.ID, nodeDef.Edge.NodeParentRefs, err)
 				return nil, err
 			}
 		}
