@@ -1,9 +1,8 @@
-package memory
+package graph
 
 import (
 	"encoding/json"
 	"fmt"
-
 	"github.com/open-source-cloud/fuse/internal/providers"
 	"github.com/open-source-cloud/fuse/pkg/graph"
 	"github.com/rs/zerolog/log"

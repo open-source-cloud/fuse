@@ -1,16 +1,48 @@
+// Package graph provides a memory graph implementation
 package graph
 
-type (
-	// Edge represents the schema for an edge in a graph with an ID, source, destination, and optional metadata.
-	Edge struct {
-		ID          string         `json:"id" yaml:"id"`
-		From        string         `json:"from" yaml:"from"`
-		To          string         `json:"to" yaml:"to"`
-		Conditional *EdgeCondition `json:"conditional,omitempty" yaml:"conditional,omitempty"`
+import "github.com/open-source-cloud/fuse/pkg/graph"
+
+// Edge is a memory graph edge
+type Edge struct {
+	graph.Edge
+	id        string
+	condition *graph.EdgeCondition
+	from      graph.Node
+	to        graph.Node
+}
+
+// NewEdge creates and returns a new edge with the specified from and to nodes.
+func NewEdge(id string, from graph.Node, to graph.Node, condition *graph.EdgeCondition) graph.Edge {
+	return &Edge{
+		id:        id,
+		condition: condition,
+		from:      from,
+		to:        to,
 	}
-	// EdgeCondition represents a conditional configuration with a name and its associated value.
-	EdgeCondition struct {
-		Name  string `json:"name" yaml:"name"`
-		Value any    `json:"value" yaml:"value"`
-	}
-)
+}
+
+// ID returns the edge ID
+func (e *Edge) ID() string {
+	return e.id
+}
+
+// IsConditional returns true if this edge has a conditional
+func (e *Edge) IsConditional() bool {
+	return e.condition != nil
+}
+
+// Condition returns the edge conditional
+func (e *Edge) Condition() *graph.EdgeCondition {
+	return e.condition
+}
+
+// From returns the edge from node
+func (e *Edge) From() graph.Node {
+	return e.from
+}
+
+// To return the edge to node
+func (e *Edge) To() graph.Node {
+	return e.to
+}
