@@ -1,9 +1,8 @@
-package memory
+package graph
 
 import (
 	"encoding/json"
 	"fmt"
-
 	"github.com/open-source-cloud/fuse/internal/providers"
 	"github.com/open-source-cloud/fuse/pkg/graph"
 	"github.com/rs/zerolog/log"
@@ -13,11 +12,11 @@ import (
 type (
 	// SchemaDef is the definition of a schema
 	SchemaDef struct {
-		Name  string   `json:"name" yaml:"name"`
-		Graph GraphDef `json:"graph" yaml:"graph"`
+		Name  string `json:"name" yaml:"name"`
+		Graph Def    `json:"graph" yaml:"graph"`
 	}
-	// GraphDef is the definition of a graph
-	GraphDef struct {
+	// Def is the definition of a graph
+	Def struct {
 		ID    string    `json:"id" yaml:"id"`
 		Root  NodeDef   `json:"root" yaml:"root"`
 		Nodes []NodeDef `json:"nodes" yaml:"nodes"`
@@ -86,7 +85,7 @@ func CreateSchemaFromJSON(jsonSpec []byte, providerRegistry *providers.Registry)
 }
 
 // createGraphDef creates a graph from a graph definition
-func createGraphDef(graphDef GraphDef, providerRegistry *providers.Registry) (graph.Graph, error) {
+func createGraphDef(graphDef Def, providerRegistry *providers.Registry) (graph.Graph, error) {
 	log.Info().Msgf("Create newGraph from definition: %s", graphDef.ID)
 
 	rootNodeProvider, err := providerRegistry.Get(graphDef.Root.Provider.ID)

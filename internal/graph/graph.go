@@ -1,5 +1,5 @@
-// Package memory provides a memory graph implementation
-package memory
+// Package graph provides a memory graph implementation
+package graph
 
 import (
 	"fmt"

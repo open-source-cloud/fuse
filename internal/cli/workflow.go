@@ -10,7 +10,7 @@ import (
 	"github.com/open-source-cloud/fuse/pkg/uuid"
 	"os"
 
-	"github.com/open-source-cloud/fuse/internal/graph/memory"
+	"github.com/open-source-cloud/fuse/internal/graph"
 	"github.com/open-source-cloud/fuse/internal/providers"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -58,14 +58,14 @@ func workflowRunner(_ *cobra.Command, _ []string) error {
 		return err
 	}
 
-	schemaDef, graph, err := memory.CreateSchemaFromYaml(yamlSpec, providerRegistry)
+	schemaDef, g, err := graph.CreateSchemaFromYaml(yamlSpec, providerRegistry)
 	if err != nil {
 		return err
 	}
 
 	log.Info().Msgf("schema created: %s", schemaDef.Name)
 
-	schema := workflow.LoadSchema(uuid.V7(), graph)
+	schema := workflow.LoadSchema(uuid.V7(), g)
 	appSupervisor.AddSchema(schema)
 	appSupervisor.SendMessageTo(
 		actormodel.WorkflowEngine,
