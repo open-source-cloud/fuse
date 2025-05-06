@@ -3,65 +3,72 @@ package graph
 
 import (
 	"fmt"
-
-	"github.com/open-source-cloud/fuse/pkg/graph"
+	"github.com/open-source-cloud/fuse/internal/graph/schema"
 )
 
-// Graph is a memory graph
-type Graph struct {
-	root graph.Node
-}
+type (
+	// ParentNodeWithCondition represents a parent node with a condition to be added
+	ParentNodeWithCondition struct {
+		NodeID    string
+		Condition *schema.EdgeCondition
+		input []schema.InputMapping
+	}
+	// Graph is the interface for a graph
+	Graph interface {
+		Root() Node
+		FindNode(nodeID string) (Node, error)
+		AddNode(parentNodeID string, edgeID string, node Node, condition *schema.EdgeCondition, input []schema.InputMapping) error
+		AddNodeMultipleParents(parentNodeIDs []ParentNodeWithCondition, edgeID string, node Node) error
+	}
+
+	graph struct {
+		root  Node
+		nodes map[string]Node
+		edges map[string]Edge
+	}
+)
 
 // NewGraph creates a new Graph with a root node
-func NewGraph(root graph.Node) *Graph {
-	return &Graph{
+func NewGraph(root Node) Graph {
+	return &graph{
 		root: root,
 	}
 }
 
 // Root returns the root node of the graph
-func (g *Graph) Root() graph.Node {
+func (g *graph) Root() Node {
 	return g.root
 }
 
 // FindNode finds a node by ID
-func (g *Graph) FindNode(nodeID string) (graph.Node, error) {
-	var find func(node graph.Node) graph.Node
-	find = func(node graph.Node) graph.Node {
-		if node.ID() == nodeID {
-			return node
-		}
-		for _, edge := range node.OutputEdges() {
-			result := find(edge.To())
-			if result != nil {
-				return result
-			}
-		}
-		return nil
+func (g *graph) FindNode(nodeID string) (Node, error) {
+	if g.root.ID() == nodeID {
+		return g.root, nil
 	}
-	node := find(g.root)
-	if node == nil {
-		return nil, fmt.Errorf("node %s not found", nodeID)
+
+	if node, ok := g.nodes[nodeID]; ok {
+		return node, nil
 	}
-	return node, nil
+
+	return nil, fmt.Errorf("node %s not found", nodeID)
 }
 
 // AddNode adds a node to the graph
-func (g *Graph) AddNode(parentNodeID string, edgeID string, node graph.Node, condition *graph.EdgeCondition) error {
+func (g *graph) AddNode(parentNodeID string, edgeID string, node Node, condition *schema.EdgeCondition, input []schema.InputMapping) error {
 	parentNode, err := g.FindNode(parentNodeID)
 	if err != nil {
 		return err
 	}
-	newEdge := NewEdge(edgeID, parentNode, node, condition)
+	newEdge := NewEdge(edgeID, parentNode, node, condition, input)
 	parentNode.AddOutputEdge(edgeID, newEdge)
 	node.AddInputEdge(newEdge)
 	return nil
 }
 
 // AddNodeMultipleParents adds a node to the graph with multiple parents
-func (g *Graph) AddNodeMultipleParents(parentNodeIDs []graph.ParentNodeWithCondition, edgeID string, node graph.Node) error {
+func (g *graph) AddNodeMultipleParents(parentNodeIDs []ParentNodeWithCondition, edgeID string, node Node) error {
 	for _, parent := range parentNodeIDs {
-		err := g.AddNode(parent.NodeID, edgeID, node, parent.Condition)
+		err := g.AddNode(parent.NodeID, edgeID, node, parent.Condition, parent.input)
 		if err != nil {
 			return err
 		}

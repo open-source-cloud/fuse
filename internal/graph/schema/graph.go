@@ -14,8 +14,8 @@ type Graph struct {
 	Edges []*Edge `json:"edges" yaml:"edges"`
 }
 
-// CreateFromYaml parses a YAML specification and constructs a Graph object. Returns error if parsing fails.
-func CreateFromYaml(yamlSpec []byte) (*Graph, error) {
+// FromYaml parses a YAML specification and constructs a Graph object. Returns error if parsing fails.
+func FromYaml(yamlSpec []byte) (*Graph, error) {
 	var graph Graph
 	err := yaml.Unmarshal(yamlSpec, &graph)
 	if err != nil {
@@ -24,8 +24,8 @@ func CreateFromYaml(yamlSpec []byte) (*Graph, error) {
 	return &graph, nil
 }
 
-// CreateFromJSON parses a JSON representation of a Graph and returns a Graph instance or an error if parsing fails.
-func CreateFromJSON(jsonSpec []byte) (*Graph, error) {
+// FromJSON parses a JSON representation of a Graph and returns a Graph instance or an error if parsing fails.
+func FromJSON(jsonSpec []byte) (*Graph, error) {
 	var graph Graph
 	err := json.Unmarshal(jsonSpec, &graph)
 	if err != nil {

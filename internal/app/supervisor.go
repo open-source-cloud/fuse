@@ -3,10 +3,11 @@ package app
 
 import (
 	"github.com/open-source-cloud/fuse/internal/actormodel"
+	"github.com/open-source-cloud/fuse/internal/actors"
 	"github.com/open-source-cloud/fuse/internal/audit"
 	"github.com/open-source-cloud/fuse/internal/config"
 	"github.com/open-source-cloud/fuse/internal/database"
-	"github.com/open-source-cloud/fuse/internal/providers"
+	"github.com/open-source-cloud/fuse/internal/packages"
 	"github.com/open-source-cloud/fuse/internal/server"
 	"github.com/open-source-cloud/fuse/internal/workflow"
 	"github.com/vladopajic/go-actor/actor"
@@ -14,7 +15,7 @@ import (
 
 // Supervisor app supervisor interface
 type Supervisor interface {
-	actormodel.SupervisorMessenger
+	actors.SupervisorMessenger
 	actor.Actor
 
 	AddSchema(schema workflow.Schema)
@@ -23,19 +24,19 @@ type Supervisor interface {
 type supervisor struct {
 	baseActor        actor.Actor
 	started          bool
-	mailbox          actor.Mailbox[actormodel.Message]
+	mailbox          actor.Mailbox[actors.Message]
 	cfg              *config.Config
 	db               *database.ArangoClient
 	engine           workflow.Engine
 	server           server.Server
-	providerRegistry *providers.Registry
+	providerRegistry *packages.Registry
 }
 
 // NewSupervisor creates a new app supervisor
 func NewSupervisor(config *config.Config) Supervisor {
 	app := &supervisor{
 		cfg:     config,
-		mailbox: actor.NewMailbox[actormodel.Message](),
+		mailbox: actor.NewMailbox[actors.Message](),
 	}
 	app.baseActor = actor.New(app)
 	return app
@@ -121,24 +122,24 @@ func (a *supervisor) createEngine() {
 }
 
 func (a *supervisor) createProviderRegistry() {
-	a.providerRegistry = providers.NewRegistry()
+	a.providerRegistry = packages.NewRegistry()
 }
 
-func (a *supervisor) SendMessage(ctx actor.Context, msg actormodel.Message) {
-	a.SendMessageTo(actormodel.AppSupervisor, ctx, msg)
+func (a *supervisor) SendMessage(ctx actor.Context, msg actors.Message) {
+	a.SendMessageTo(actors.AppSupervisor, ctx, msg)
 }
 
-func (a *supervisor) SendMessageTo(receiver actormodel.MessageReceiver, ctx actor.Context, msg actormodel.Message) {
+func (a *supervisor) SendMessageTo(receiver actors.MessageReceiver, ctx actor.Context, msg actors.Message) {
 	switch receiver {
-	case actormodel.AppSupervisor:
+	case actors.AppSupervisor:
 		err := a.mailbox.Send(ctx, msg)
 		if err != nil {
 			audit.Error().Err(err).Msg("Failed to send message")
 		}
 		a.mailbox.Start()
-	case actormodel.HTTPServer:
+	case actors.HTTPServer:
 		a.server.SendMessage(ctx, msg)
-	case actormodel.WorkflowEngine:
+	case actors.WorkflowEngine:
 		a.engine.SendMessage(ctx, msg)
 	}
 }

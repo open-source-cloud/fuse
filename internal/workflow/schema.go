@@ -1,8 +1,7 @@
 package workflow
 
-import "github.com/open-source-cloud/fuse/pkg/graph"
+import "github.com/open-source-cloud/fuse/internal/graph"
 
-// Schema describes a workflow schema for execution
 type Schema interface {
 	ID() string
 	RootNode() graph.Node

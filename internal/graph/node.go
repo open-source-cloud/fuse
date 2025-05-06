@@ -3,96 +3,70 @@ package graph
 
 import (
 	"fmt"
-
-	"github.com/open-source-cloud/fuse/pkg/graph"
-	"github.com/open-source-cloud/fuse/pkg/workflow"
+	"github.com/open-source-cloud/fuse/internal/graph/schema"
 )
 
 type (
-	// Node is a memory graph node
-	Node struct {
-		graph.Node
-		id           string
-		workflowNode workflow.Node
-		config       graph.NodeConfig
-		inputEdges   []graph.Edge
-		outputEdges  map[string]graph.Edge
+	// Node describes an executable Node object
+	Node interface {
+		ID() string
+		Schema() *schema.Node
+		InputEdges() []Edge
+		OutputEdges() map[string]Edge
+		IsOutputConditional() bool
+		AddInputEdge(edge Edge)
+		AddOutputEdge(edgeID string, edge Edge)
 	}
-	// NodeConfig is a memory graph node config
-	NodeConfig struct {
-		graph.NodeConfig
-		inputMapping []graph.NodeInputMapping
+
+	// Node is a memory graph node
+	node struct {
+		id          string
+		schema      *schema.Node
+		inputEdges  []Edge
+		outputEdges map[string]Edge
 	}
 )
 
 // NewNode creates a new memory graph node
-func NewNode(uuid string, workflowNode workflow.Node, config graph.NodeConfig) *Node {
-	return &Node{
-		id:           fmt.Sprintf("%s/%s", workflowNode.ID(), uuid),
-		workflowNode: workflowNode,
-		config:       config,
-		inputEdges:   make([]graph.Edge, 0),
-		outputEdges:  make(map[string]graph.Edge),
+func NewNode(uuid string, schemaDef *schema.Node) Node {
+	return &node{
+		id:          fmt.Sprintf("%s/%s", schemaDef.ID, uuid),
+		schema:      schemaDef,
+		inputEdges:  make([]Edge, 0),
+		outputEdges: make(map[string]Edge),
 	}
 }
 
 // ID returns the node ID
-func (n *Node) ID() string {
+func (n *node) ID() string {
 	return n.id
 }
 
-// NodeRef returns the node reference
-func (n *Node) NodeRef() workflow.Node {
-	return n.workflowNode
-}
-
-// Config returns the node config
-func (n *Node) Config() graph.NodeConfig {
-	return n.config
+func (n *node) Schema() *schema.Node {
+	return n.schema
 }
 
 // InputEdges returns the input edges
-func (n *Node) InputEdges() []graph.Edge {
+func (n *node) InputEdges() []Edge {
 	return n.inputEdges
 }
 
 // OutputEdges returns the output edges
-func (n *Node) OutputEdges() map[string]graph.Edge {
+func (n *node) OutputEdges() map[string]Edge {
 	return n.outputEdges
 }
 
 // IsOutputConditional returns true if output is conditional, false otherwise
-func (n *Node) IsOutputConditional() bool {
-	return n.NodeRef().Metadata().Output().ConditionalOutput
+func (n *node) IsOutputConditional() bool {
+	return false
 }
 
 // AddInputEdge adds an input edge
-func (n *Node) AddInputEdge(edge graph.Edge) {
+func (n *node) AddInputEdge(edge Edge) {
 	n.inputEdges = append(n.inputEdges, edge)
 }
 
 // AddOutputEdge adds an output edge
-func (n *Node) AddOutputEdge(edgeID string, edge graph.Edge) {
+func (n *node) AddOutputEdge(edgeID string, edge Edge) {
 	n.outputEdges[edgeID] = edge
-}
-
-// NewNodeConfig creates a new memory graph node config
-func NewNodeConfig() *NodeConfig {
-	return &NodeConfig{
-		inputMapping: make([]graph.NodeInputMapping, 0),
-	}
-}
-
-// InputMapping returns the input mapping
-func (c *NodeConfig) InputMapping() []graph.NodeInputMapping {
-	return c.inputMapping
-}
-
-// AddInputMapping adds an input mapping
-func (c *NodeConfig) AddInputMapping(source string, origin any, mapping string) {
-	c.inputMapping = append(c.inputMapping, graph.NodeInputMapping{
-		Source:  source,
-		Origin:  origin,
-		Mapping: mapping,
-	})
 }
