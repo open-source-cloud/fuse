@@ -6,6 +6,7 @@ import (
 	"ergo.services/ergo/gen"
 	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/open-source-cloud/fuse/internal/actors"
+	"github.com/rs/zerolog/log"
 )
 
 func NewApp(config *config.Config, factory *actors.Factory) (gen.Node, error) {
@@ -49,8 +50,8 @@ func (app *Fuse) Load(_ gen.Node, _ ...any) (gen.ApplicationSpec, error) {
 		Description: "description of this application",
 		Mode:        gen.ApplicationModeTransient,
 		Group: []gen.ApplicationMemberSpec{
-			app.actorFactory.ApplicationMemberSpecFactory(actors.HttpServerActor),
-			app.actorFactory.ApplicationMemberSpecFactory(actors.EngineSupervisor),
+			app.actorFactory.ApplicationMemberSpec(actors.HttpServerActor),
+			app.actorFactory.ApplicationMemberSpec(actors.EngineSupervisor),
 		},
 	}, nil
 }
@@ -60,3 +61,7 @@ func (app *Fuse) Start(_ gen.ApplicationMode) {}
 
 // Terminate invoked once the application stopped
 func (app *Fuse) Terminate(_ error) {}
+
+func (app *Fuse) Test() {
+	log.Info().Msg("test")
+}

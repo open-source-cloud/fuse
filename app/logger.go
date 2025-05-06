@@ -97,9 +97,9 @@ func (l *ergoLogger) Log(message gen.MessageLog) {
 	case gen.MessageLogNetwork:
 		source = color.GreenString("%s-%s", src.Node.CRC32(), src.Peer.CRC32())
 	case gen.MessageLogProcess:
-		source = fmt.Sprintf("%s%s%s", color.BlueString("%s", src.PID), color.GreenString(src.Name.String()), src.Behavior)
+		source = fmt.Sprintf("%s%s", color.BlueString("%s", src.PID), color.GreenString(src.Name.String()))
 	case gen.MessageLogMeta:
-		source = fmt.Sprintf("%s%s%s", color.CyanString("%s", src.Meta), "", src.Behavior)
+		source = fmt.Sprintf("%s", color.CyanString("%s", src.Meta))
 	default:
 		panic(fmt.Sprintf("unknown log source type: %#v", message.Source))
 	}

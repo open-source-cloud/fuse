@@ -2,6 +2,7 @@
 package config
 
 import (
+	"ergo.services/ergo/gen"
 	"github.com/caarlos0/env/v11"
 	"github.com/rs/zerolog/log"
 )
@@ -14,6 +15,7 @@ type (
 		Params   ParamsConfig
 		Server   ServerConfig
 		Database DatabaseConfig
+		WorkflowPID gen.PID
 	}
 
 	// ParamsConfig configuration parameters

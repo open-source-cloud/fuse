@@ -10,15 +10,17 @@ import (
 
 const EngineSupervisor = "engine_supervisor"
 
-func NewEngineSupervisor(cfg *config.Config) gen.ProcessBehavior {
+func NewEngineSupervisor(actorFactory *Factory, cfg *config.Config) gen.ProcessBehavior {
 	return &engineSupervisor{
-		engine: nil,
+		actorFactory: actorFactory,
 		config: cfg,
+		engine: nil,
 	}
 }
 
 type engineSupervisor struct {
 	act.Supervisor
+	actorFactory *Factory
 	config *config.Config
 	engine workflow.Engine
 }
@@ -34,10 +36,7 @@ func (sup *engineSupervisor) Init(_ ...any) (act.SupervisorSpec, error) {
 
 	// add children
 	spec.Children = []act.SupervisorChildSpec{
-		{
-			Name:    "workflow_supervisor",
-			Factory: WorkflowSupervisorFactory,
-		},
+		sup.actorFactory.SupervisorChildSpec(WorkflowSupervisor),
 	}
 
 	// set strategy

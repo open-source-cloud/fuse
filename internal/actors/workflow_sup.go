@@ -3,20 +3,28 @@ package actors
 import (
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
+	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/rs/zerolog/log"
 )
 
-type WorkflowSupervisor struct {
+const WorkflowSupervisor = "workflow_supervisor"
+
+type workflowSupervisor struct {
 	act.Supervisor
+	actorFactory *Factory
+	config       *config.Config
 }
 
-func WorkflowSupervisorFactory() gen.ProcessBehavior {
-	return &WorkflowSupervisor{}
+func NewWorkflowSupervisor(actorFactory *Factory, cfg *config.Config) gen.ProcessBehavior {
+	return &workflowSupervisor{
+		actorFactory: actorFactory,
+		config:       cfg,
+	}
 }
 
 // Init invoked on a spawn Supervisor process. This is a mandatory callback for the implementation
-func (p *WorkflowSupervisor) Init(args ...any) (act.SupervisorSpec, error) {
-	log.Info().Msg("WorkflowSupervisor:Init()")
+func (a *workflowSupervisor) Init(args ...any) (act.SupervisorSpec, error) {
+	log.Info().Msg("workflowSupervisor:Init()")
 
 	var spec act.SupervisorSpec
 
@@ -25,16 +33,15 @@ func (p *WorkflowSupervisor) Init(args ...any) (act.SupervisorSpec, error) {
 
 	// add children
 	spec.Children = []act.SupervisorChildSpec{
-		//{
-		//	Name:    "workflow_worker",
-		//	Factory: WorkflowWorkerFactory,
-		//},
+		a.actorFactory.SupervisorChildSpec(WorkflowActor),
 	}
 
 	// set strategy
 	spec.Restart.Strategy = act.SupervisorStrategyTransient
 	spec.Restart.Intensity = 1 // How big bursts of restarts you want to tolerate.
 	spec.Restart.Period = 5    // In seconds.
+
+	a.config.WorkflowPID = a.PID()
 
 	return spec, nil
 }
@@ -49,28 +56,24 @@ func (p *WorkflowSupervisor) Init(args ...any) (act.SupervisorSpec, error) {
 // Non-nil value of the returning error will cause termination of this process.
 // To stop this process normally, return gen.TerminateReasonNormal
 // or any other for abnormal termination.
-func (p *WorkflowSupervisor) HandleMessage(from gen.PID, message any) error {
-	p.Log().Info("got message from %s", from)
+func (a *workflowSupervisor) HandleMessage(from gen.PID, message any) error {
+	a.Log().Info("got message from %s", from)
+
 	return nil
 }
 
-// HandleCall invoked if Pool got a synchronous request made with gen.Process.Call(...) and
-// with Priority higher than gen.MessagePriorityNormal. Any other requests are forwarded
-// to the process from the pool.
-// Return nil as a result to handle this request asynchronously and
-// to provide the result later using the gen.Process.SendResponse(...) method.
-func (p *WorkflowSupervisor) HandleCall(from gen.PID, ref gen.Ref, request any) (any, error) {
-	p.Log().Info("got request from %s with reference %s", from, ref)
-	return gen.Atom("pong"), nil
-}
-
 // Terminate invoked on a termination process
-func (p *WorkflowSupervisor) Terminate(reason error) {
-	p.Log().Info("process terminated with reason: %s", reason)
+func (a *workflowSupervisor) Terminate(reason error) {
+	a.Log().Info("process terminated with reason: %s", reason)
 }
 
 // HandleInspect invoked on the request made with gen.Process.Inspect(...)
-func (p *WorkflowSupervisor) HandleInspect(from gen.PID, item ...string) map[string]string {
-	p.Log().Info("process got inspect request from %s", from)
+func (a *workflowSupervisor) HandleInspect(from gen.PID, item ...string) map[string]string {
+	a.Log().Info("process got inspect request from %s", from)
+	return nil
+}
+
+func (a *workflowSupervisor) HandleEvent(event gen.MessageEvent) error {
+	a.Log().Info("received event %s with value: %#v", event.Event, event.Message)
 	return nil
 }

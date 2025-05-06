@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func New(config *config.Config) *fiber.App {
+func New(config *config.Config, messageChan chan<- any) *fiber.App {
 	app := fiber.New(fiber.Config{
 		Immutable: true,
 		StrictRouting: true,
@@ -26,7 +26,7 @@ func New(config *config.Config) *fiber.App {
 		return err
 	})
 
-	app.Get("/", handlers.NewTestHandler().Handle)
+	app.Get("/", handlers.NewTestHandler(messageChan).Handle)
 
 	go func() {
 		err := app.Listen(fmt.Sprintf(":%s", config.Server.Port), fiber.ListenConfig{
