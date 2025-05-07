@@ -5,7 +5,6 @@ import (
 	"ergo.services/ergo/gen"
 	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/open-source-cloud/fuse/internal/workflow"
-	"github.com/rs/zerolog/log"
 )
 
 const EngineSupervisor = "engine_supervisor"
@@ -27,8 +26,6 @@ type engineSupervisor struct {
 
 // Init invoked on a spawn Supervisor process. This is a mandatory callback for the implementation
 func (sup *engineSupervisor) Init(_ ...any) (act.SupervisorSpec, error) {
-	log.Info().Msg("engineSupervisor:Init()")
-
 	var spec act.SupervisorSpec
 
 	// set supervisor type

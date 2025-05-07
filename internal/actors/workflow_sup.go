@@ -4,7 +4,6 @@ import (
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
 	"github.com/open-source-cloud/fuse/app/config"
-	"github.com/rs/zerolog/log"
 )
 
 const WorkflowSupervisor = "workflow_supervisor"
@@ -24,8 +23,6 @@ func NewWorkflowSupervisor(actorFactory *Factory, cfg *config.Config) gen.Proces
 
 // Init invoked on a spawn Supervisor process. This is a mandatory callback for the implementation
 func (a *workflowSupervisor) Init(args ...any) (act.SupervisorSpec, error) {
-	log.Info().Msg("workflowSupervisor:Init()")
-
 	var spec act.SupervisorSpec
 
 	// set supervisor type
@@ -57,7 +54,7 @@ func (a *workflowSupervisor) Init(args ...any) (act.SupervisorSpec, error) {
 // To stop this process normally, return gen.TerminateReasonNormal
 // or any other for abnormal termination.
 func (a *workflowSupervisor) HandleMessage(from gen.PID, message any) error {
-	a.Log().Info("got message from %s", from)
+	a.Log().Info("got message from %s:%s", from, message)
 
 	return nil
 }

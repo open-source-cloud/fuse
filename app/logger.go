@@ -120,8 +120,10 @@ func (l *ergoLogger) Log(message gen.MessageLog) {
 			args = append(args, color.CyanString("%s", message.Args[i]))
 		case gen.Event:
 			args = append(args, color.CyanString("%s", message.Args[i]))
-		default:
+		case gen.Version:
 			args = append(args, message.Args[i])
+		default:
+			args = append(args, color.YellowString("%s", message.Args[i]))
 		}
 	}
 
