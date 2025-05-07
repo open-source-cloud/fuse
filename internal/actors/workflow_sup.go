@@ -23,10 +23,11 @@ func NewWorkflowSupervisor(actorFactory *Factory, cfg *config.Config) gen.Proces
 
 // Init invoked on a spawn Supervisor process. This is a mandatory callback for the implementation
 func (a *workflowSupervisor) Init(args ...any) (act.SupervisorSpec, error) {
+	a.Log().Info("starting process %s", a.PID())
 	var spec act.SupervisorSpec
 
 	// set supervisor type
-	spec.Type = act.SupervisorTypeOneForOne
+	spec.Type = act.SupervisorTypeSimpleOneForOne
 
 	// add children
 	spec.Children = []act.SupervisorChildSpec{
@@ -34,8 +35,9 @@ func (a *workflowSupervisor) Init(args ...any) (act.SupervisorSpec, error) {
 	}
 
 	// set strategy
+	spec.DisableAutoShutdown = true
 	spec.Restart.Strategy = act.SupervisorStrategyTransient
-	spec.Restart.Intensity = 1 // How big bursts of restarts you want to tolerate.
+	spec.Restart.Intensity = 0 // How big bursts of restarts you want to tolerate.
 	spec.Restart.Period = 5    // In seconds.
 
 	a.config.WorkflowPID = a.PID()
