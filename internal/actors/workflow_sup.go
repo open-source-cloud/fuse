@@ -8,12 +8,17 @@ import (
 
 const workflowSupervisorName = "workflow_supervisor"
 
-func NewWorkflowSupervisorFactory(cfg *config.Config, workflowActorFactory *Factory[*WorkflowActor]) *Factory[*WorkflowSupervisor] {
+func NewWorkflowSupervisorFactory(
+	cfg *config.Config,
+	actorRegistry *Registry,
+	workflowActorFactory *Factory[*WorkflowActor],
+) *Factory[*WorkflowSupervisor] {
 	return &Factory[*WorkflowSupervisor]{
 		Name: workflowSupervisorName,
 		Behavior: func() gen.ProcessBehavior {
 			return &WorkflowSupervisor{
 				config:               cfg,
+				actorRegistry:        actorRegistry,
 				workflowActorFactory: workflowActorFactory,
 			}
 		},
@@ -23,6 +28,7 @@ func NewWorkflowSupervisorFactory(cfg *config.Config, workflowActorFactory *Fact
 type WorkflowSupervisor struct {
 	act.Supervisor
 	config               *config.Config
+	actorRegistry        *Registry
 	workflowActorFactory *Factory[*WorkflowActor]
 }
 
@@ -45,7 +51,7 @@ func (a *WorkflowSupervisor) Init(args ...any) (act.SupervisorSpec, error) {
 	spec.Restart.Intensity = 0 // How big bursts of restarts you want to tolerate.
 	spec.Restart.Period = 5    // In seconds.
 
-	a.config.WorkflowPID = a.PID()
+	a.actorRegistry.Register(workflowActorName, a.PID())
 
 	return spec, nil
 }

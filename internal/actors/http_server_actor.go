@@ -9,12 +9,13 @@ import (
 
 const httpServerActorName = "http_server_actor"
 
-func NewHttpServerActorFactory(cfg *config.Config) *Factory[*HttpServerActor] {
+func NewHttpServerActorFactory(cfg *config.Config, actorRegistry *Registry) *Factory[*HttpServerActor] {
 	return &Factory[*HttpServerActor]{
 		Name: httpServerActorName,
 		Behavior: func() gen.ProcessBehavior {
 			return &HttpServerActor{
 				config: cfg,
+				actorRegistry: actorRegistry,
 			}
 		},
 	}
@@ -22,7 +23,8 @@ func NewHttpServerActorFactory(cfg *config.Config) *Factory[*HttpServerActor] {
 
 type HttpServerActor struct {
 	act.Actor
-	config *config.Config
+	config        *config.Config
+	actorRegistry *Registry
 }
 
 func (a *HttpServerActor) Init(args ...any) error {
@@ -42,7 +44,12 @@ func (a *HttpServerActor) Init(args ...any) error {
 func (a *HttpServerActor) HandleMessage(from gen.PID, message any) error {
 	a.Log().Info("got message from %s:%s", from, message)
 
-	err := a.Send(a.config.WorkflowPID, message)
+	pid, err := a.actorRegistry.PIDof(workflowActorName)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to get PID of workflow actor")
+		return err
+	}
+	err = a.Send(pid, message)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to send message")
 		return err

@@ -18,6 +18,7 @@ func Run() {
 			config.New,
 			cli.New,
 			// actors
+			actors.NewRegistry,
 			actors.NewEngineSupervisorFactory,
 			actors.NewHttpServerActorFactory,
 			actors.NewWorkflowSupervisorFactory,
