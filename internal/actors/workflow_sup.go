@@ -6,23 +6,28 @@ import (
 	"github.com/open-source-cloud/fuse/app/config"
 )
 
-const WorkflowSupervisor = "workflow_supervisor"
+const workflowSupervisorName = "workflow_supervisor"
 
-type workflowSupervisor struct {
-	act.Supervisor
-	actorFactory *Factory
-	config       *config.Config
-}
-
-func NewWorkflowSupervisor(actorFactory *Factory, cfg *config.Config) gen.ProcessBehavior {
-	return &workflowSupervisor{
-		actorFactory: actorFactory,
-		config:       cfg,
+func NewWorkflowSupervisorFactory(cfg *config.Config, workflowActorFactory *Factory[*WorkflowActor]) *Factory[*WorkflowSupervisor] {
+	return &Factory[*WorkflowSupervisor]{
+		Name: workflowSupervisorName,
+		Behavior: func() gen.ProcessBehavior {
+			return &WorkflowSupervisor{
+				config:               cfg,
+				workflowActorFactory: workflowActorFactory,
+			}
+		},
 	}
 }
 
+type WorkflowSupervisor struct {
+	act.Supervisor
+	config               *config.Config
+	workflowActorFactory *Factory[*WorkflowActor]
+}
+
 // Init invoked on a spawn Supervisor process. This is a mandatory callback for the implementation
-func (a *workflowSupervisor) Init(args ...any) (act.SupervisorSpec, error) {
+func (a *WorkflowSupervisor) Init(args ...any) (act.SupervisorSpec, error) {
 	a.Log().Info("starting process %s", a.PID())
 	var spec act.SupervisorSpec
 
@@ -31,7 +36,7 @@ func (a *workflowSupervisor) Init(args ...any) (act.SupervisorSpec, error) {
 
 	// add children
 	spec.Children = []act.SupervisorChildSpec{
-		a.actorFactory.SupervisorChildSpec(WorkflowActor),
+		a.workflowActorFactory.SupervisorChildSpec(),
 	}
 
 	// set strategy
@@ -55,24 +60,24 @@ func (a *workflowSupervisor) Init(args ...any) (act.SupervisorSpec, error) {
 // Non-nil value of the returning error will cause termination of this process.
 // To stop this process normally, return gen.TerminateReasonNormal
 // or any other for abnormal termination.
-func (a *workflowSupervisor) HandleMessage(from gen.PID, message any) error {
+func (a *WorkflowSupervisor) HandleMessage(from gen.PID, message any) error {
 	a.Log().Info("got message from %s:%s", from, message)
 
 	return nil
 }
 
 // Terminate invoked on a termination process
-func (a *workflowSupervisor) Terminate(reason error) {
+func (a *WorkflowSupervisor) Terminate(reason error) {
 	a.Log().Info("process terminated with reason: %s", reason)
 }
 
 // HandleInspect invoked on the request made with gen.Process.Inspect(...)
-func (a *workflowSupervisor) HandleInspect(from gen.PID, item ...string) map[string]string {
+func (a *WorkflowSupervisor) HandleInspect(from gen.PID, item ...string) map[string]string {
 	a.Log().Info("process got inspect request from %s", from)
 	return nil
 }
 
-func (a *workflowSupervisor) HandleEvent(event gen.MessageEvent) error {
+func (a *WorkflowSupervisor) HandleEvent(event gen.MessageEvent) error {
 	a.Log().Info("received event %s with value: %#v", event.Event, event.Message)
 	return nil
 }

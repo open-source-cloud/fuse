@@ -7,25 +7,32 @@ import (
 	"github.com/open-source-cloud/fuse/internal/workflow"
 )
 
-const EngineSupervisor = "engine_supervisor"
+const engineSupervisorName = "engine_supervisor"
 
-func NewEngineSupervisor(actorFactory *Factory, cfg *config.Config) gen.ProcessBehavior {
-	return &engineSupervisor{
-		actorFactory: actorFactory,
-		config: cfg,
-		engine: nil,
+func NewEngineSupervisorFactory(cfg *config.Config, workflowSupervisorFactory *Factory[*WorkflowSupervisor]) *Factory[*EngineSupervisor] {
+	return &Factory[*EngineSupervisor]{
+		Name: engineSupervisorName,
+		Behavior: func() gen.ProcessBehavior {
+			return &EngineSupervisor{
+				config:                    cfg,
+				workflowSupervisorFactory: workflowSupervisorFactory,
+				engine:                    nil,
+			}
+		},
 	}
 }
 
-type engineSupervisor struct {
+type EngineSupervisor struct {
 	act.Supervisor
-	actorFactory *Factory
-	config *config.Config
-	engine workflow.Engine
+	config                    *config.Config
+	workflowSupervisorFactory *Factory[*WorkflowSupervisor]
+	engine                    workflow.Engine
 }
 
 // Init invoked on a spawn Supervisor process. This is a mandatory callback for the implementation
-func (sup *engineSupervisor) Init(_ ...any) (act.SupervisorSpec, error) {
+func (s *EngineSupervisor) Init(_ ...any) (act.SupervisorSpec, error) {
+	s.Log().Info("starting process %s", s.PID())
+
 	var spec act.SupervisorSpec
 
 	// set supervisor type
@@ -33,7 +40,7 @@ func (sup *engineSupervisor) Init(_ ...any) (act.SupervisorSpec, error) {
 
 	// add children
 	spec.Children = []act.SupervisorChildSpec{
-		sup.actorFactory.SupervisorChildSpec(WorkflowSupervisor),
+		s.workflowSupervisorFactory.SupervisorChildSpec(),
 	}
 
 	// set strategy
@@ -50,13 +57,13 @@ func (sup *engineSupervisor) Init(_ ...any) (act.SupervisorSpec, error) {
 
 // HandleChildStart invoked on a successful child process starting if the option EnableHandleChild
 // was enabled in act.SupervisorSpec
-func (sup *engineSupervisor) HandleChildStart(name gen.Atom, pid gen.PID) error {
+func (s *EngineSupervisor) HandleChildStart(name gen.Atom, pid gen.PID) error {
 	return nil
 }
 
 // HandleChildTerminate invoked on a child process termination if the option EnableHandleChild
 // was enabled in act.SupervisorSpec
-func (sup *engineSupervisor) HandleChildTerminate(name gen.Atom, pid gen.PID, reason error) error {
+func (s *EngineSupervisor) HandleChildTerminate(name gen.Atom, pid gen.PID, reason error) error {
 	return nil
 }
 
@@ -64,26 +71,26 @@ func (sup *engineSupervisor) HandleChildTerminate(name gen.Atom, pid gen.PID, re
 // Non-nil value of the returning error will cause termination of this process.
 // To stop this process normally, return gen.TerminateReasonNormal or
 // gen.TerminateReasonShutdown. Any other - for abnormal termination.
-func (sup *engineSupervisor) HandleMessage(from gen.PID, message any) error {
-	sup.Log().Info("supervisor got message from %s", from)
+func (s *EngineSupervisor) HandleMessage(from gen.PID, message any) error {
+	s.Log().Info("supervisor got message from %s", from)
 	return nil
 }
 
 // HandleCall invoked if Supervisor got a synchronous request made with gen.Process.Call(...).
 // Return nil as a result to handle this request asynchronously and
 // to provide the result later using the gen.Process.SendResponse(...) method.
-func (sup *engineSupervisor) HandleCall(from gen.PID, ref gen.Ref, request any) (any, error) {
-	sup.Log().Info("supervisor got request from %s with reference %s", from, ref)
+func (s *EngineSupervisor) HandleCall(from gen.PID, ref gen.Ref, request any) (any, error) {
+	s.Log().Info("supervisor got request from %s with reference %s", from, ref)
 	return gen.Atom("pong"), nil
 }
 
 // Terminate invoked on a termination supervisor process
-func (sup *engineSupervisor) Terminate(reason error) {
-	sup.Log().Info("supervisor terminated with reason: %s", reason)
+func (s *EngineSupervisor) Terminate(reason error) {
+	s.Log().Info("supervisor terminated with reason: %s", reason)
 }
 
 // HandleInspect invoked on the request made with gen.Process.Inspect(...)
-func (sup *engineSupervisor) HandleInspect(from gen.PID, item ...string) map[string]string {
-	sup.Log().Info("supervisor got inspect request from %s", from)
+func (s *EngineSupervisor) HandleInspect(from gen.PID, item ...string) map[string]string {
+	s.Log().Info("supervisor got inspect request from %s", from)
 	return nil
 }

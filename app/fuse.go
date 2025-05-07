@@ -9,7 +9,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func NewApp(config *config.Config, factory *actors.Factory) (gen.Node, error) {
+func NewApp(
+	config *config.Config,
+	engineSupervisorFactory *actors.Factory[*actors.EngineSupervisor],
+	httpServerActorFactory *actors.Factory[*actors.HttpServerActor],
+) (gen.Node, error) {
 	var options gen.NodeOptions
 
 	apps := make([]gen.ApplicationBehavior, 0, 2)
@@ -17,7 +21,8 @@ func NewApp(config *config.Config, factory *actors.Factory) (gen.Node, error) {
 		apps = append(apps, observer.CreateApp(observer.Options{}))
 	}
 	apps = append(apps, &Fuse{
-		actorFactory: factory,
+		engineSupervisorFactory: engineSupervisorFactory,
+		httpServerActorFactory:  httpServerActorFactory,
 	})
 	options.Applications = apps
 
@@ -40,7 +45,8 @@ func NewApp(config *config.Config, factory *actors.Factory) (gen.Node, error) {
 }
 
 type Fuse struct {
-	actorFactory *actors.Factory
+	engineSupervisorFactory *actors.Factory[*actors.EngineSupervisor]
+	httpServerActorFactory  *actors.Factory[*actors.HttpServerActor]
 }
 
 // Load invoked on loading application using the method ApplicationLoad of gen.Node interface.
@@ -50,8 +56,8 @@ func (app *Fuse) Load(_ gen.Node, _ ...any) (gen.ApplicationSpec, error) {
 		Description: "description of this application",
 		Mode:        gen.ApplicationModeTransient,
 		Group: []gen.ApplicationMemberSpec{
-			app.actorFactory.ApplicationMemberSpec(actors.HttpServerActor),
-			app.actorFactory.ApplicationMemberSpec(actors.EngineSupervisor),
+			app.engineSupervisorFactory.ApplicationMemberSpec(),
+			app.httpServerActorFactory.ApplicationMemberSpec(),
 		},
 	}, nil
 }

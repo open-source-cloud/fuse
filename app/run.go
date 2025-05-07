@@ -6,7 +6,6 @@ import (
 	"github.com/open-source-cloud/fuse/app/cli"
 	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/open-source-cloud/fuse/internal/actors"
-	"github.com/open-source-cloud/fuse/internal/workflow"
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
 )
@@ -14,12 +13,17 @@ import (
 func Run() {
 	fx.New(
 		fx.Provide(
+			// configs, loggers, cli
 			NewLogger,
-			actors.NewFactory,
 			config.New,
 			cli.New,
+			// actors
+			actors.NewEngineSupervisorFactory,
+			actors.NewHttpServerActorFactory,
+			actors.NewWorkflowSupervisorFactory,
+			actors.NewWorkflowActorFactory,
+			// apps
 			NewApp,
-			workflow.NewEngine,
 		),
 		fx.Invoke(
 			func(_ zerolog.Logger, _ *cli.Cli, app gen.Node) {},
