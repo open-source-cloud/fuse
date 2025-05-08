@@ -11,7 +11,7 @@ import (
 
 func New(config *config.Config, messageChan chan<- any) *fiber.App {
 	app := fiber.New(fiber.Config{
-		Immutable: true,
+		Immutable:     true,
 		StrictRouting: true,
 	})
 	app.Use(func(c fiber.Ctx) error {
@@ -27,6 +27,7 @@ func New(config *config.Config, messageChan chan<- any) *fiber.App {
 	})
 
 	app.Get("/", handlers.NewTestHandler(messageChan).Handle)
+	app.Post("/api/workflows/executeJSON", handlers.NewWorkflowExecuteJSONHandler(messageChan).Handle)
 
 	go func() {
 		err := app.Listen(fmt.Sprintf(":%s", config.Server.Port), fiber.ListenConfig{

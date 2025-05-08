@@ -5,7 +5,6 @@ import "github.com/rs/zerolog/log"
 
 // Engine Workflow Engine interface
 type Engine interface {
-
 }
 
 type engine struct {
@@ -13,7 +12,7 @@ type engine struct {
 	//supervisor actors.SupervisorMessenger
 	//schemas    map[string]Schema
 	//workflows  map[string]Workflow
-	//mailbox    actor.Mailbox[actors.Message]
+	//mailbox    actor.Mailbox[actors.message]
 	//baseActor  actor.Actor
 }
 
@@ -26,7 +25,7 @@ func NewEngine() Engine {
 //func NewEngine(supervisor actors.SupervisorMessenger) Engine {
 //	worker := &engine{
 //		supervisor: supervisor,
-//		mailbox:    actor.NewMailbox[actors.Message](),
+//		mailbox:    actor.NewMailbox[actors.message](),
 //		schemas:    make(map[string]Schema),
 //		workflows:  make(map[string]Workflow),
 //	}
@@ -63,7 +62,7 @@ func NewEngine() Engine {
 //	e.schemas[schema.ID()] = schema
 //}
 //
-//func (e *engine) handleMessage(ctx actor.Context, msg actors.Message) {
+//func (e *engine) handleMessage(ctx actor.Context, msg actors.message) {
 //	switch msg.Type() {
 //	case enginemsg.StartWorkflow:
 //		schemaID := msg.Data().Str("schema_id")
@@ -91,7 +90,7 @@ func NewEngine() Engine {
 //	}
 //}
 //
-//func (e *engine) SendMessage(ctx actor.Context, msg actors.Message) {
+//func (e *engine) SendMessage(ctx actor.Context, msg actors.message) {
 //	err := e.mailbox.Send(ctx, msg)
 //	if err != nil {
 //		audit.Error().ActorMessage(msg).Err(err).Msg("Failed to send message")

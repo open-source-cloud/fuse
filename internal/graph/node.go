@@ -10,6 +10,7 @@ type (
 	// Node describes an executable Node object
 	Node interface {
 		ID() string
+		FullID() string
 		Schema() *schema.Node
 		InputEdges() []Edge
 		OutputEdges() map[string]Edge
@@ -20,7 +21,6 @@ type (
 
 	// Node is a memory graph node
 	node struct {
-		id          string
 		schema      *schema.Node
 		inputEdges  []Edge
 		outputEdges map[string]Edge
@@ -28,9 +28,8 @@ type (
 )
 
 // NewNode creates a new memory graph node
-func NewNode(uuid string, schemaDef *schema.Node) Node {
+func NewNode(schemaDef *schema.Node) Node {
 	return &node{
-		id:          fmt.Sprintf("%s/%s", schemaDef.ID, uuid),
 		schema:      schemaDef,
 		inputEdges:  make([]Edge, 0),
 		outputEdges: make(map[string]Edge),
@@ -39,7 +38,11 @@ func NewNode(uuid string, schemaDef *schema.Node) Node {
 
 // ID returns the node ID
 func (n *node) ID() string {
-	return n.id
+	return n.schema.ID
+}
+
+func (n *node) FullID() string {
+	return fmt.Sprintf("%s/%s", n.schema.Function, n.schema.ID)
 }
 
 func (n *node) Schema() *schema.Node {

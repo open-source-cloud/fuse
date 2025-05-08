@@ -4,39 +4,39 @@
   "nodes": [
     {
       "id": "debug-nil",
-      "function": "fuse.io/packages/internal/debug/nil"
+      "function": "fuse/pkg/debug/nil"
     },
     {
       "id": "logic-timer",
-      "function": "fuse.io/packages/internal/debug/timer"
+      "function": "fuse/pkg/debug/timer"
     },
     {
       "id": "logic-rand-1",
-      "function": "fuse.io/packages/internal/logic/rand"
+      "function": "fuse/pkg/logic/rand"
     },
     {
       "id": "logic-rand-2",
-      "function": "fuse.io/packages/internal/logic/rand"
+      "function": "fuse/pkg/logic/rand"
     },
     {
       "id": "logic-rand-3",
-      "function": "fuse.io/packages/internal/logic/rand"
+      "function": "fuse/pkg/logic/rand"
     },
     {
       "id": "logic-sum",
-      "function": "fuse.io/packages/internal/logic/sum"
+      "function": "fuse/pkg/logic/sum"
     },
     {
       "id": "if-conditional",
-      "function": "fuse.io/packages/internal/logic/if"
+      "function": "fuse/pkg/logic/if"
     },
     {
       "id": "nil-true",
-      "function": "fuse.io/packages/internal/debug/nil"
+      "function": "fuse/pkg/debug/nil"
     },
     {
       "id": "nil-false",
-      "function": "fuse.io/packages/internal/debug/nil"
+      "function": "fuse/pkg/debug/nil"
     }
   ],
   "edges": [
@@ -47,7 +47,7 @@
       "input": [
         {
           "source": "schema",
-          "variable": 3000,
+          "value": 3000,
           "mapTo": "timer"
         }
       ]

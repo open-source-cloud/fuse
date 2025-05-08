@@ -21,12 +21,12 @@ package workflow
 //// Workflow describes the interface for a Workflow actor
 //type Workflow interface {
 //	actor.Actor
-//	SendMessage(ctx Context, msg actors.Message)
+//	SendMessage(ctx Context, msg actors.message)
 //}
 //
 //type workflowWorker struct {
 //	baseActor   actor.Actor
-//	mailbox     actor.Mailbox[actors.Message]
+//	mailbox     actor.Mailbox[actors.message]
 //	id          string
 //	schema      Schema
 //	data        map[string]any
@@ -37,7 +37,7 @@ package workflow
 //// NewWorkflow creates a new workflow actor worker
 //func NewWorkflow(id string, schema Schema) Workflow {
 //	worker := &workflowWorker{
-//		mailbox:     actor.NewMailbox[actors.Message](),
+//		mailbox:     actor.NewMailbox[actors.message](),
 //		id:          id,
 //		schema:      schema,
 //		data:        make(map[string]any),
@@ -66,7 +66,7 @@ package workflow
 //		return actor.WorkerEnd
 //
 //	case msg := <-w.mailbox.ReceiveC():
-//		audit.Info().WorkflowMessage(w.id, msg).Msg("Message received")
+//		audit.Info().WorkflowMessage(w.id, msg).Msg("message received")
 //		if err := w.handleMessage(ctx, msg); err != nil {
 //			audit.Info().WorkflowState(w.id, w.state).Msg("Stopped")
 //			return actor.WorkerEnd
@@ -75,7 +75,7 @@ package workflow
 //	}
 //}
 //
-//func (w *workflowWorker) SendMessage(ctx Context, msg actors.Message) {
+//func (w *workflowWorker) SendMessage(ctx Context, msg actors.message) {
 //	err := w.mailbox.Send(ctx, msg)
 //	if err != nil {
 //		audit.Error().
@@ -86,7 +86,7 @@ package workflow
 //	w.mailbox.Start()
 //}
 //
-//func (w *workflowWorker) handleMessage(ctx Context, msg actors.Message) error {
+//func (w *workflowWorker) handleMessage(ctx Context, msg actors.message) error {
 //	switch msg.Type() {
 //	case workflowmsg.Start:
 //		rootNode := w.schema.RootNode()

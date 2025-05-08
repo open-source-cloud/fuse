@@ -3,7 +3,9 @@ package actors
 import (
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
+	"github.com/expr-lang/expr/types"
 	"github.com/open-source-cloud/fuse/app/config"
+	"github.com/open-source-cloud/fuse/internal/messaging"
 	"github.com/rs/zerolog/log"
 )
 
@@ -42,13 +44,20 @@ func (a *HttpServerActor) Init(args ...any) error {
 }
 
 func (a *HttpServerActor) HandleMessage(from gen.PID, message any) error {
-	a.Log().Info("got message from %s:%s", from, message)
+	a.Log().Info("got message from %s:%s", from, types.TypeOf(message))
 
-	pid, err := a.actorRegistry.PIDof(workflowActorName)
+	msg, ok := message.(messaging.Message)
+	if !ok {
+		log.Error().Msg("message is not a messaging.Message")
+		return nil
+	}
+
+	pid, err := a.actorRegistry.PIDof(msg.Target)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to get PID of workflow actor")
-		return err
+		return nil
 	}
+
 	err = a.Send(pid, message)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to send message")

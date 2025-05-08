@@ -8,7 +8,7 @@ import (
 )
 
 // PackageID is the ID of the debug function package
-const PackageID = "fuse/internal/logic"
+const PackageID = "fuse/pkg/logic"
 
 // New creates a new Package
 func New() workflow.Package {

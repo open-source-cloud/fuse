@@ -6,6 +6,7 @@ import (
 	"github.com/open-source-cloud/fuse/app/cli"
 	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/open-source-cloud/fuse/internal/actors"
+	"github.com/open-source-cloud/fuse/internal/workflow"
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
 )
@@ -23,6 +24,9 @@ func Run() {
 			actors.NewHttpServerActorFactory,
 			actors.NewWorkflowSupervisorFactory,
 			actors.NewWorkflowActorFactory,
+			// workflow
+			workflow.NewMemorySchemaRepo,
+			workflow.NewEngine,
 			// apps
 			NewApp,
 		),

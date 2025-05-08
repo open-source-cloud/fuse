@@ -17,7 +17,7 @@ type (
 	// InputMapping represents a mapping for node input, including source, origin of data, and target mapping name.
 	InputMapping struct {
 		Source   string `json:"source" yaml:"source"`
-		Variable string `json:"origin,omitempty" yaml:"origin,omitempty"`
+		Variable string `json:"variable,omitempty" yaml:"variable,omitempty"`
 		Value    any    `json:"value,omitempty" yaml:"value,omitempty"`
 		MapTo    string `json:"mapTo" yaml:"mapTo"`
 	}

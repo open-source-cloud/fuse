@@ -3,7 +3,11 @@ package actors
 import (
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
+	"github.com/expr-lang/expr/types"
 	"github.com/open-source-cloud/fuse/app/config"
+	"github.com/open-source-cloud/fuse/internal/graph"
+	"github.com/open-source-cloud/fuse/internal/graph/schema"
+	"github.com/open-source-cloud/fuse/internal/messaging"
 )
 
 const workflowSupervisorName = "workflow_supervisor"
@@ -51,23 +55,38 @@ func (a *WorkflowSupervisor) Init(args ...any) (act.SupervisorSpec, error) {
 	spec.Restart.Intensity = 0 // How big bursts of restarts you want to tolerate.
 	spec.Restart.Period = 5    // In seconds.
 
-	a.actorRegistry.Register(workflowActorName, a.PID())
+	a.actorRegistry.Register(workflowSupervisorName, a.PID())
 
 	return spec, nil
 }
 
-//
-// Methods below are optional, so you can remove those that aren't be used
-//
-
-// HandleMessage invoked if Pool received a message sent with gen.Process.Send(...) and
-// with Priority higher than gen.MessagePriorityNormal. Any other messages are forwarded
-// to the process from the pool.
+// HandleMessage invoked if Supervisor received a message sent with gen.Process.Send(...).
 // Non-nil value of the returning error will cause termination of this process.
-// To stop this process normally, return gen.TerminateReasonNormal
-// or any other for abnormal termination.
+// To stop this process normally, return gen.TerminateReasonNormal or
+// gen.TerminateReasonShutdown. Any other - for abnormal termination.
 func (a *WorkflowSupervisor) HandleMessage(from gen.PID, message any) error {
-	a.Log().Info("got message from %s:%s", from, message)
+	a.Log().Info("got message from %s:%s", from, types.TypeOf(message))
+
+	msg, ok := message.(messaging.Message)
+	if !ok {
+		a.Log().Error("message is not a messaging.Message")
+		return nil
+	}
+	jsonMsg, err := msg.WorkflowExecuteJSONMessage()
+	if err != nil {
+		a.Log().Error("failed to get json message: %s", err)
+		return nil
+	}
+	schemaRef, err := schema.FromJSON(jsonMsg.JsonBytes)
+	if err != nil {
+		a.Log().Error("failed to parse schema: %s", err)
+		return nil
+	}
+	_, err = graph.NewGraphFromSchema(schemaRef)
+	if err != nil {
+		a.Log().Error("failed to create graph from schema: %s", err)
+		return nil
+	}
 
 	return nil
 }
