@@ -8,7 +8,7 @@ import (
 	"github.com/open-source-cloud/fuse/internal/messaging"
 )
 
-const workflowActorName = "workflow_actor"
+const workflowActorName = "workflow"
 
 func NewWorkflowActorFactory(cfg *config.Config) *Factory[*WorkflowActor] {
 	return &Factory[*WorkflowActor]{

@@ -19,13 +19,11 @@ func Run() {
 			config.New,
 			cli.New,
 			// actors
-			actors.NewEngineSupervisorFactory,
 			actors.NewHttpServerActorFactory,
 			actors.NewWorkflowSupervisorFactory,
 			actors.NewWorkflowActorFactory,
 			// workflow
 			workflow.NewMemorySchemaRepo,
-			workflow.NewEngine,
 			// apps
 			NewApp,
 		),

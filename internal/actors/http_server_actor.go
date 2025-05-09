@@ -8,7 +8,7 @@ import (
 	"github.com/open-source-cloud/fuse/internal/messaging"
 )
 
-const httpServerActorName = "http_server_actor"
+const httpServerActorName = "http_server"
 
 func NewHttpServerActorFactory(cfg *config.Config) *Factory[*HttpServerActor] {
 	return &Factory[*HttpServerActor]{

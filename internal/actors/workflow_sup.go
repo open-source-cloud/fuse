@@ -11,7 +11,7 @@ import (
 	"github.com/open-source-cloud/fuse/internal/workflow"
 )
 
-const workflowSupervisorName = "workflow_supervisor"
+const workflowSupervisorName = "workflow_sup"
 
 func NewWorkflowSupervisorFactory(
 	cfg *config.Config,
