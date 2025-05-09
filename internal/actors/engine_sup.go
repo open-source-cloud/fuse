@@ -45,7 +45,7 @@ func (s *EngineSupervisor) Init(_ ...any) (act.SupervisorSpec, error) {
 
 	// set strategy
 	spec.Restart.Strategy = act.SupervisorStrategyTransient
-	spec.Restart.Intensity = 1 // How big bursts of restarts you want to tolerate.
+	spec.Restart.Intensity = 5 // How big bursts of restarts you want to tolerate.
 	spec.Restart.Period = 5    // In seconds.
 
 	return spec, nil

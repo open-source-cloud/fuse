@@ -5,12 +5,13 @@ import "fmt"
 type MessageType string
 
 const (
+	ActorInit MessageType = "actor:init"
+	ChildInit MessageType = "actor:child:init"
 	WorkflowExecuteJSON MessageType = "workflow:executeJson"
 )
 
 type (
 	Message struct {
-		Target string
 		Type   MessageType
 		Data   any
 	}
@@ -20,9 +21,21 @@ type (
 	}
 )
 
-func NewWorkflowExecuteJSONMessage(target string, jsonBytes []byte) Message {
+func NewActorInitMessage() Message {
 	return Message{
-		Target: target,
+		Type:   ActorInit,
+	}
+}
+
+func NewChildInitMessage(data any) Message {
+	return Message{
+		Type:   ChildInit,
+		Data:   data,
+	}
+}
+
+func NewWorkflowExecuteJSONMessage(jsonBytes []byte) Message {
+	return Message{
 		Type:   WorkflowExecuteJSON,
 		Data: WorkflowExecuteJSONMessage{
 			JsonBytes: jsonBytes,

@@ -3,21 +3,19 @@ package actors
 import (
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
-	"github.com/expr-lang/expr/types"
+	"fmt"
 	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/open-source-cloud/fuse/internal/messaging"
-	"github.com/rs/zerolog/log"
 )
 
 const httpServerActorName = "http_server_actor"
 
-func NewHttpServerActorFactory(cfg *config.Config, actorRegistry *Registry) *Factory[*HttpServerActor] {
+func NewHttpServerActorFactory(cfg *config.Config) *Factory[*HttpServerActor] {
 	return &Factory[*HttpServerActor]{
 		Name: httpServerActorName,
 		Behavior: func() gen.ProcessBehavior {
 			return &HttpServerActor{
-				config: cfg,
-				actorRegistry: actorRegistry,
+				config:        cfg,
 			}
 		},
 	}
@@ -26,10 +24,11 @@ func NewHttpServerActorFactory(cfg *config.Config, actorRegistry *Registry) *Fac
 type HttpServerActor struct {
 	act.Actor
 	config        *config.Config
-	actorRegistry *Registry
+	event         gen.Ref
 }
 
-func (a *HttpServerActor) Init(args ...any) error {
+// Init (args ...any)
+func (a *HttpServerActor) Init(_ ...any) error {
 	// get the gen.Log interface using Log method of embedded gen.Process interface
 	a.Log().Info("starting process %s", a.PID())
 
@@ -44,25 +43,23 @@ func (a *HttpServerActor) Init(args ...any) error {
 }
 
 func (a *HttpServerActor) HandleMessage(from gen.PID, message any) error {
-	a.Log().Info("got message from %s:%s", from, types.TypeOf(message))
-
 	msg, ok := message.(messaging.Message)
 	if !ok {
-		log.Error().Msg("message is not a messaging.Message")
+		a.Log().Error("message from %s is not a messaging.Message", from)
+		return fmt.Errorf("message from %s is not a messaging.Message", from)
+	}
+	a.Log().Info("got message from %s - %s", from, msg.Type)
+
+	switch msg.Type {
+	case messaging.WorkflowExecuteJSON:
+		err := a.Send(workflowSupervisorName, message)
+		if err != nil {
+			a.Log().Error("failed to send message to workflow supervisor: %s", err)
+			return err
+		}
 		return nil
 	}
 
-	pid, err := a.actorRegistry.PIDof(msg.Target)
-	if err != nil {
-		log.Error().Err(err).Msg("failed to get PID of workflow actor")
-		return nil
-	}
-
-	err = a.Send(pid, message)
-	if err != nil {
-		log.Error().Err(err).Msg("failed to send message")
-		return err
-	}
 
 	return nil
 }

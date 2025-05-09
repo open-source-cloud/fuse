@@ -6,7 +6,7 @@ import (
 	"ergo.services/ergo/gen"
 	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/open-source-cloud/fuse/internal/actors"
-	"github.com/rs/zerolog/log"
+	"strings"
 )
 
 func NewApp(
@@ -17,13 +17,14 @@ func NewApp(
 	var options gen.NodeOptions
 
 	apps := make([]gen.ApplicationBehavior, 0, 2)
-	if config.Params.ActorObserver {
-		apps = append(apps, observer.CreateApp(observer.Options{}))
-	}
 	apps = append(apps, &Fuse{
+		config:                  config,
 		engineSupervisorFactory: engineSupervisorFactory,
 		httpServerActorFactory:  httpServerActorFactory,
 	})
+	if config.Params.ActorObserver {
+		apps = append(apps, observer.CreateApp(observer.Options{}))
+	}
 	options.Applications = apps
 
 	// disable default logger to get rid of multiple logging to the os.Stdout
@@ -45,6 +46,7 @@ func NewApp(
 }
 
 type Fuse struct {
+	config                  *config.Config
 	engineSupervisorFactory *actors.Factory[*actors.EngineSupervisor]
 	httpServerActorFactory  *actors.Factory[*actors.HttpServerActor]
 }
@@ -52,13 +54,14 @@ type Fuse struct {
 // Load invoked on loading application using the method ApplicationLoad of gen.Node interface.
 func (app *Fuse) Load(_ gen.Node, _ ...any) (gen.ApplicationSpec, error) {
 	return gen.ApplicationSpec{
-		Name:        "fuse",
-		Description: "description of this application",
-		Mode:        gen.ApplicationModeTransient,
+		Name:        "fuse_app",
+		Description: "FUSE application",
 		Group: []gen.ApplicationMemberSpec{
 			app.engineSupervisorFactory.ApplicationMemberSpec(),
 			app.httpServerActorFactory.ApplicationMemberSpec(),
 		},
+		Mode:     gen.ApplicationModeTemporary,
+		LogLevel: parseLogLevel(app.config.Params.LogLevel),
 	}, nil
 }
 
@@ -68,6 +71,25 @@ func (app *Fuse) Start(_ gen.ApplicationMode) {}
 // Terminate invoked once the application stopped
 func (app *Fuse) Terminate(_ error) {}
 
-func (app *Fuse) Test() {
-	log.Info().Msg("test")
+func parseLogLevel(s string) gen.LogLevel {
+	switch strings.ToLower(s) {
+	case "trace":
+		return gen.LogLevelTrace
+	case "debug":
+		return gen.LogLevelDebug
+	case "info":
+		return gen.LogLevelInfo
+	case "warning":
+		return gen.LogLevelWarning
+	case "error":
+		return gen.LogLevelError
+	case "panic":
+		return gen.LogLevelPanic
+	case "disabled":
+		return gen.LogLevelDisabled
+	case "system":
+		return gen.LogLevelSystem
+	default:
+		return gen.LogLevelDefault
+	}
 }

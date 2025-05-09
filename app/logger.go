@@ -8,7 +8,6 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -19,11 +18,6 @@ func NewLogger() zerolog.Logger {
 	projectRoot, err := os.Getwd()
 	if err != nil {
 		projectRoot = ""
-	}
-	modPath := os.Getenv("GOPATH")
-	if modPath == "" {
-		home, _ := os.UserHomeDir()
-		modPath = filepath.Join(home, path.Join("go", "pkg", "mod"))
 	}
 
 	// Initialize logging
@@ -43,10 +37,19 @@ func NewLogger() zerolog.Logger {
 				return ""
 			}
 			relPath := fullPath
-			if strings.HasPrefix(fullPath, modPath) {
-				if rel, err := filepath.Rel(modPath, fullPath); err == nil {
-					relPath = rel
-				}
+			if strings.Contains(fullPath, "@") {
+				relPath = func () string {
+					parts := strings.Split(filepath.ToSlash(fullPath), "/")
+					for i, part := range parts {
+						if strings.Contains(part, "@") {
+							slice := parts[i:]
+							slice[0] = "@" + strings.Split(part, "@")[0]
+							return strings.Join(slice, string(filepath.Separator))
+						}
+					}
+					// If not found, return the original path
+					return fullPath
+				}()
 			} else if rel, err := filepath.Rel(projectRoot, fullPath); err == nil {
 				relPath = rel
 			}
@@ -97,7 +100,13 @@ func (l *ergoLogger) Log(message gen.MessageLog) {
 	case gen.MessageLogNetwork:
 		source = color.GreenString("%s-%s", src.Node.CRC32(), src.Peer.CRC32())
 	case gen.MessageLogProcess:
-		source = fmt.Sprintf("%s%s", color.BlueString("%s", src.PID), color.GreenString(src.Name.String()))
+		var tag string
+		if src.Name.String() == "''" {
+			tag = color.MagentaString(src.Behavior)
+		} else {
+			tag = color.GreenString(src.Name.String())
+		}
+		source = fmt.Sprintf("%s%s", color.BlueString("%s", src.PID), tag)
 	case gen.MessageLogMeta:
 		source = fmt.Sprintf("%s", color.CyanString("%s", src.Meta))
 	default:

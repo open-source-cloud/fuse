@@ -3,18 +3,19 @@ package actors
 import (
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
-	"github.com/expr-lang/expr/types"
+	"fmt"
 	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/open-source-cloud/fuse/internal/graph"
 	"github.com/open-source-cloud/fuse/internal/graph/schema"
 	"github.com/open-source-cloud/fuse/internal/messaging"
+	"github.com/open-source-cloud/fuse/internal/workflow"
 )
 
 const workflowSupervisorName = "workflow_supervisor"
 
 func NewWorkflowSupervisorFactory(
 	cfg *config.Config,
-	actorRegistry *Registry,
+	schemaRepo workflow.SchemaRepo,
 	workflowActorFactory *Factory[*WorkflowActor],
 ) *Factory[*WorkflowSupervisor] {
 	return &Factory[*WorkflowSupervisor]{
@@ -22,8 +23,9 @@ func NewWorkflowSupervisorFactory(
 		Behavior: func() gen.ProcessBehavior {
 			return &WorkflowSupervisor{
 				config:               cfg,
-				actorRegistry:        actorRegistry,
+				schemaRepo:           schemaRepo,
 				workflowActorFactory: workflowActorFactory,
+				workflowActors:       make(map[string]gen.PID),
 			}
 		},
 	}
@@ -31,31 +33,32 @@ func NewWorkflowSupervisorFactory(
 
 type WorkflowSupervisor struct {
 	act.Supervisor
+
 	config               *config.Config
-	actorRegistry        *Registry
+	schemaRepo           workflow.SchemaRepo
 	workflowActorFactory *Factory[*WorkflowActor]
+
+	workflowActors map[string]gen.PID
 }
 
 // Init invoked on a spawn Supervisor process. This is a mandatory callback for the implementation
 func (a *WorkflowSupervisor) Init(args ...any) (act.SupervisorSpec, error) {
 	a.Log().Info("starting process %s", a.PID())
-	var spec act.SupervisorSpec
 
-	// set supervisor type
-	spec.Type = act.SupervisorTypeSimpleOneForOne
-
-	// add children
-	spec.Children = []act.SupervisorChildSpec{
-		a.workflowActorFactory.SupervisorChildSpec(),
+	// supervisor specification
+	spec := act.SupervisorSpec{
+		Type: act.SupervisorTypeSimpleOneForOne,
+		// children
+		Children: []act.SupervisorChildSpec{
+			a.workflowActorFactory.SupervisorChildSpec(),
+		},
+		// strategy
+		Restart: act.SupervisorRestart{
+			Strategy:  act.SupervisorStrategyTransient,
+			Intensity: 5, // How big bursts of restarts you want to tolerate.
+			Period:    5, // In seconds.
+		},
 	}
-
-	// set strategy
-	spec.DisableAutoShutdown = true
-	spec.Restart.Strategy = act.SupervisorStrategyTransient
-	spec.Restart.Intensity = 0 // How big bursts of restarts you want to tolerate.
-	spec.Restart.Period = 5    // In seconds.
-
-	a.actorRegistry.Register(workflowSupervisorName, a.PID())
 
 	return spec, nil
 }
@@ -65,27 +68,33 @@ func (a *WorkflowSupervisor) Init(args ...any) (act.SupervisorSpec, error) {
 // To stop this process normally, return gen.TerminateReasonNormal or
 // gen.TerminateReasonShutdown. Any other - for abnormal termination.
 func (a *WorkflowSupervisor) HandleMessage(from gen.PID, message any) error {
-	a.Log().Info("got message from %s:%s", from, types.TypeOf(message))
-
 	msg, ok := message.(messaging.Message)
 	if !ok {
-		a.Log().Error("message is not a messaging.Message")
-		return nil
+		a.Log().Error("message from %s is not a messaging.Message", from)
+		return fmt.Errorf("message from %s is not a messaging.Message", from)
 	}
-	jsonMsg, err := msg.WorkflowExecuteJSONMessage()
-	if err != nil {
-		a.Log().Error("failed to get json message: %s", err)
-		return nil
-	}
-	schemaRef, err := schema.FromJSON(jsonMsg.JsonBytes)
-	if err != nil {
-		a.Log().Error("failed to parse schema: %s", err)
-		return nil
-	}
-	_, err = graph.NewGraphFromSchema(schemaRef)
-	if err != nil {
-		a.Log().Error("failed to create graph from schema: %s", err)
-		return nil
+	a.Log().Info("got message from %s - %s", from, msg.Type)
+
+	switch msg.Type {
+	case messaging.WorkflowExecuteJSON:
+		jsonMsg, err := msg.WorkflowExecuteJSONMessage()
+		if err != nil {
+			a.Log().Error("failed to get json message: %s", err)
+			return nil
+		}
+		err = a.spawnWorkflowActor(jsonMsg.JsonBytes)
+		if err != nil {
+			a.Log().Error("failed to spawn workflow actor: %s", err)
+			return err
+		}
+	case messaging.ChildInit:
+		schemaID, ok := msg.Data.(string)
+		if !ok {
+			a.Log().Error("failed to get schema ID from message: %s", msg)
+			return fmt.Errorf("failed to get schema ID from message: %s", msg)
+		}
+		a.Log().Info("got child init message from %s for schema ID %s", from, schemaID)
+		a.workflowActors[schemaID] = from
 	}
 
 	return nil
@@ -104,5 +113,28 @@ func (a *WorkflowSupervisor) HandleInspect(from gen.PID, item ...string) map[str
 
 func (a *WorkflowSupervisor) HandleEvent(event gen.MessageEvent) error {
 	a.Log().Info("received event %s with value: %#v", event.Event, event.Message)
+	return nil
+}
+
+func (a *WorkflowSupervisor) spawnWorkflowActor(jsonBytes []byte) error {
+	schemaRef, err := schema.FromJSON(jsonBytes)
+	if err != nil {
+		a.Log().Error("failed to parse schema: %s", err)
+		return err
+	}
+	graphRef, err := graph.NewGraphFromSchema(schemaRef)
+	if err != nil {
+		a.Log().Error("failed to create graph from schema: %s", err)
+		return err
+	}
+
+	workflowSchema := workflow.NewSchema(schemaRef.ID, graphRef)
+	a.schemaRepo.Save(schemaRef.ID, workflowSchema)
+
+	err = a.StartChild(gen.Atom(a.workflowActorFactory.Name), schemaRef.ID)
+	if err != nil {
+		a.Log().Error("failed to spawn child: %s for schema ID %s", err, schemaRef.ID)
+		return err
+	}
 	return nil
 }

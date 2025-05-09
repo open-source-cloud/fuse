@@ -3,7 +3,6 @@ package config
 
 import (
 	"github.com/caarlos0/env/v11"
-	"github.com/rs/zerolog/log"
 )
 
 type (
@@ -18,6 +17,7 @@ type (
 
 	// ParamsConfig configuration parameters
 	ParamsConfig struct {
+		LogLevel      string
 		ActorObserver bool
 	}
 
@@ -42,7 +42,6 @@ type (
 func New() *Config {
 	var config Config
 	if err := env.Parse(&config); err != nil {
-		log.Fatal().Err(err).Msg("failed to parse config")
 		panic(err)
 	}
 	return &config

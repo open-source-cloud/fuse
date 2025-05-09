@@ -4,11 +4,10 @@ package cli
 import (
 	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/rs/zerolog"
-	"os"
-	"strings"
-
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
+	"os"
+	"strings"
 )
 
 var loglevel string
@@ -25,11 +24,10 @@ var rootCmd = &cobra.Command{
 	PersistentPreRun: func(_ *cobra.Command, _ []string) {
 		level, err := zerolog.ParseLevel(strings.ToLower(loglevel))
 		if err != nil {
-			log.Error().Msgf("Invalid log level: %s", loglevel)
 			level = zerolog.InfoLevel // Default fallback
 		}
 		zerolog.SetGlobalLevel(level)
-
+		cfg.Params.LogLevel = loglevel
 		cfg.Params.ActorObserver = observer
 		cfg.Server.Port = port
 	},

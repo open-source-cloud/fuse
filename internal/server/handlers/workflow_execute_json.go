@@ -16,7 +16,7 @@ func NewWorkflowExecuteJSONHandler(messageChan chan<- any) *WorkflowExecuteJSONH
 
 func (h *WorkflowExecuteJSONHandler) Handle(ctx fiber.Ctx) error {
 	rawJSON := ctx.Body()
-	h.messageChan <- messaging.NewWorkflowExecuteJSONMessage("workflow_supervisor", rawJSON)
+	h.messageChan <- messaging.NewWorkflowExecuteJSONMessage(rawJSON)
 
 	return ctx.Status(http.StatusOK).JSON(fiber.Map{})
 }
