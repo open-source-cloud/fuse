@@ -1,8 +1,8 @@
-package schema
+package workflow
 
 type (
-	// Edge represents the schema for an edge in a graph with an ID, source, destination, and optional metadata.
-	Edge struct {
+	// EdgeSchema represents the schema for an edge in a graph with an ID, source, destination, and optional metadata.
+	EdgeSchema struct {
 		ID          string         `json:"id" yaml:"id"`
 		From        string         `json:"from" yaml:"from"`
 		To          string         `json:"to" yaml:"to"`

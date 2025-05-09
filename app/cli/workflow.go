@@ -1,12 +1,15 @@
 package cli
 
 import (
+	"github.com/open-source-cloud/fuse/internal/workflow"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
+	"os"
+	"path"
 )
 
-// workflowConfigYamlPath is the path to the workflow config file
-var workflowConfigYamlPath string
+// workflowSpecFile is the path to the workflow config file
+var workflowSpecFile string
 
 var workflowCmd = &cobra.Command{
 	Use:   "workflow",
@@ -17,7 +20,7 @@ var workflowCmd = &cobra.Command{
 
 // init initializes the workflow command flags
 func init() {
-	workflowCmd.Flags().StringVarP(&workflowConfigYamlPath, "config", "c", "", "Path to the workflow config file")
+	workflowCmd.Flags().StringVarP(&workflowSpecFile, "config", "c", "", "Path to the workflow config file")
 }
 
 // Workflow runner
@@ -26,44 +29,40 @@ func init() {
 // Then waits for the engine to finish and returns the result.
 func workflowRunner(_ *cobra.Command, _ []string) error {
 	log.Info().Msg("workflow cli")
-	//cfg, err := config.NewConfig()
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//if err = cfg.Validate(); err != nil {
-	//	return err
-	//}
-	//
-	//cfg.Server.Run = true
 
-	//appSupervisor := app.NewSupervisor(cfg)
-	//appSupervisor.Start()
-	//
-	//providerRegistry := packages.NewRegistry()
-	//// nolint:gosec
-	//// We are ok with reading the file here because we are in the CLI
-	//yamlSpec, err := os.ReadFile(workflowConfigYamlPath)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//schemaDef, g, err := graph.CreateSchemaFromYaml(yamlSpec, providerRegistry)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//log.Info().Msgf("schema created: %s", schemaDef.Name)
-	//
-	//schema := workflow.LoadSchema(uuid.V7(), g)
-	//appSupervisor.AddSchema(schema)
-	//appSupervisor.SendMessageTo(
-	//	actors.WorkflowEngine,
-	//	context.Background(),
-	//	actors.NewMessage(enginemsg.StartWorkflow, map[string]any{"schema_id": schema.ID()}),
-	//)
+	// We are ok with reading the file here because we are in the CLI
+	spec, err := os.ReadFile(workflowSpecFile)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to read workflow spec file")
+		os.Exit(1)
+	}
 
-	//appSupervisor.Stop()
+	var graph *workflow.Graph
+	specFileExt := path.Ext(workflowSpecFile)
+	switch specFileExt {
+	case ".json":
+		graph, err = workflow.NewGraphFromJSON(spec)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to parse workflow JSON spec file")
+			os.Exit(1)
+		}
+	case ".yaml":
+		graph, err = workflow.NewGraphFromYAML(spec)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to parse workflow YAML spec file")
+			os.Exit(1)
+		}
+
+	default:
+		log.Error().Msg("Unsupported workflow spec file type")
+		os.Exit(1)
+	}
+
+	err = cli.graphRepo.Save(graph)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to save workflow graph")
+		os.Exit(1)
+	}
 
 	return nil
 }

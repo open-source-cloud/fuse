@@ -6,16 +6,18 @@ import (
 	"fmt"
 	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/open-source-cloud/fuse/internal/messaging"
+	"github.com/open-source-cloud/fuse/internal/repos"
 )
 
 const workflowActorName = "workflow"
 
-func NewWorkflowActorFactory(cfg *config.Config) *Factory[*WorkflowActor] {
+func NewWorkflowActorFactory(cfg *config.Config, graphRepo repos.GraphRepo) *Factory[*WorkflowActor] {
 	return &Factory[*WorkflowActor]{
 		Name: workflowActorName,
 		Behavior: func() gen.ProcessBehavior {
 			return &WorkflowActor{
-				config: cfg,
+				config:    cfg,
+				graphRepo: graphRepo,
 			}
 		},
 	}
@@ -24,6 +26,8 @@ func NewWorkflowActorFactory(cfg *config.Config) *Factory[*WorkflowActor] {
 type WorkflowActor struct {
 	act.Actor
 	config           *config.Config
+	graphRepo        repos.GraphRepo
+	workflowID       string
 	workflowSchemaID string
 }
 

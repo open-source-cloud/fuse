@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"github.com/gofiber/fiber/v3"
 	"github.com/open-source-cloud/fuse/app/config"
+	"github.com/open-source-cloud/fuse/internal/repos"
 	"github.com/open-source-cloud/fuse/internal/server/handlers"
 	"github.com/rs/zerolog/log"
 	"time"
 )
 
-func New(config *config.Config, messageChan chan<- any) *fiber.App {
+func New(config *config.Config, graphRepo repos.GraphRepo, messageChan chan<- any) *fiber.App {
 	app := fiber.New(fiber.Config{
 		Immutable:     true,
 		StrictRouting: true,
@@ -26,8 +27,8 @@ func New(config *config.Config, messageChan chan<- any) *fiber.App {
 		return err
 	})
 
-	app.Get("/", handlers.NewTestHandler(messageChan).Handle)
-	app.Post("/api/workflows/executeJSON", handlers.NewWorkflowExecuteJSONHandler(messageChan).Handle)
+	app.Put("/api/workflow/schema", handlers.NewUpsertWorkflowSchemaHandler(graphRepo).Handle)
+	app.Post("/api/workflow", handlers.NewTriggerWorkflowHandler(messageChan).Handle)
 
 	go func() {
 		err := app.Listen(fmt.Sprintf(":%s", config.Server.Port), fiber.ListenConfig{
@@ -40,7 +41,7 @@ func New(config *config.Config, messageChan chan<- any) *fiber.App {
 
 	log.Info().
 		Str("version", fiber.Version).
-		Str("address", fmt.Sprintf(":%s", config.Server.Port)).
+		Str("address", fmt.Sprintf("localhost:%s", config.Server.Port)).
 		Msg("Fiber server starting")
 	return app
 }

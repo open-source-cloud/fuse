@@ -6,16 +6,18 @@ import (
 	"fmt"
 	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/open-source-cloud/fuse/internal/messaging"
+	"github.com/open-source-cloud/fuse/internal/repos"
 )
 
 const httpServerActorName = "http_server"
 
-func NewHttpServerActorFactory(cfg *config.Config) *Factory[*HttpServerActor] {
+func NewHttpServerActorFactory(cfg *config.Config, graphRepo repos.GraphRepo) *Factory[*HttpServerActor] {
 	return &Factory[*HttpServerActor]{
 		Name: httpServerActorName,
 		Behavior: func() gen.ProcessBehavior {
 			return &HttpServerActor{
-				config:        cfg,
+				config:    cfg,
+				graphRepo: graphRepo,
 			}
 		},
 	}
@@ -23,8 +25,8 @@ func NewHttpServerActorFactory(cfg *config.Config) *Factory[*HttpServerActor] {
 
 type HttpServerActor struct {
 	act.Actor
-	config        *config.Config
-	event         gen.Ref
+	config    *config.Config
+	graphRepo repos.GraphRepo
 }
 
 // Init (args ...any)
@@ -32,7 +34,7 @@ func (a *HttpServerActor) Init(_ ...any) error {
 	// get the gen.Log interface using Log method of embedded gen.Process interface
 	a.Log().Info("starting process %s", a.PID())
 
-	metaBehavior := NewHttpServerMeta(a.config)
+	metaBehavior := NewHttpServerMeta(a.config, a.graphRepo)
 	metaID, err := a.SpawnMeta(metaBehavior, gen.MetaOptions{})
 	if err != nil {
 		return err
@@ -59,7 +61,6 @@ func (a *HttpServerActor) HandleMessage(from gen.PID, message any) error {
 		}
 		return nil
 	}
-
 
 	return nil
 }

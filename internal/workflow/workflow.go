@@ -28,14 +28,14 @@ package workflow
 //	baseActor   actor.Actor
 //	mailbox     actor.Mailbox[actors.message]
 //	id          string
-//	schema      Schema
+//	schema      GraphSchema
 //	data        map[string]any
 //	state       State
 //	currentNode []graph.Node
 //}
 //
 //// NewWorkflow creates a new workflow actor worker
-//func NewWorkflow(id string, schema Schema) Workflow {
+//func NewWorkflow(id string, schema GraphSchema) Workflow {
 //	worker := &workflowWorker{
 //		mailbox:     actor.NewMailbox[actors.message](),
 //		id:          id,
@@ -299,13 +299,13 @@ package workflow
 //
 //		paramSchema, exists := inputSchema.Parameters[mapping.Mapping]
 //		audit.Debug().Workflow(w.id).Node(node.ID()).
-//			Msgf("FunctionMetadata.Schema.Exists: %v; CustomParameters: %v", exists, inputSchema.CustomParameters)
+//			Msgf("FunctionMetadata.GraphSchema.Exists: %v; CustomParameters: %v", exists, inputSchema.CustomParameters)
 //		audit.Debug().Workflow(w.id).Node(node.ID()).
-//			Msgf("FunctionMetadata.Schema.ParamSchema.Name: %v", paramSchema.Name)
+//			Msgf("FunctionMetadata.GraphSchema.ParamSchema.Name: %v", paramSchema.Name)
 //		audit.Debug().Workflow(w.id).Node(node.ID()).
-//			Msgf("FunctionMetadata.Schema.ParamSchema.Type: %v", paramSchema.Type)
+//			Msgf("FunctionMetadata.GraphSchema.ParamSchema.Type: %v", paramSchema.Type)
 //		audit.Debug().Workflow(w.id).Node(node.ID()).
-//			Msgf("FunctionMetadata.Schema.ParamSchema.Required: %v", paramSchema.Required)
+//			Msgf("FunctionMetadata.GraphSchema.ParamSchema.Required: %v", paramSchema.Required)
 //
 //		isCustomParameter := inputSchema.CustomParameters && !exists
 //		if mapping.Source != graph.InputSourceSchema && !isCustomParameter && !exists {
@@ -345,7 +345,7 @@ package workflow
 //			}
 //		}
 //
-//		audit.Debug().Workflow(w.id).Node(node.ID()).Any("paramValue", paramValue).Msg("FunctionMetadata.Schema.ParamValueParsed")
+//		audit.Debug().Workflow(w.id).Node(node.ID()).Any("paramValue", paramValue).Msg("FunctionMetadata.GraphSchema.ParamValueParsed")
 //
 //		// TODO: Add validation based on the paramSchema before set
 //

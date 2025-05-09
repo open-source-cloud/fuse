@@ -4,14 +4,16 @@ import (
 	"ergo.services/ergo/gen"
 	"github.com/gofiber/fiber/v3"
 	"github.com/open-source-cloud/fuse/app/config"
+	"github.com/open-source-cloud/fuse/internal/repos"
 	"github.com/open-source-cloud/fuse/internal/server"
 )
 
 const HttpServerMeta = "http_server_meta"
 
-func NewHttpServerMeta(cfg *config.Config) gen.MetaBehavior {
+func NewHttpServerMeta(cfg *config.Config, graphRepo repos.GraphRepo) gen.MetaBehavior {
 	return &httpServerMeta{
 		config:      cfg,
+		graphRepo:   graphRepo,
 		messageChan: make(chan any, 10),
 	}
 }
@@ -19,6 +21,7 @@ func NewHttpServerMeta(cfg *config.Config) gen.MetaBehavior {
 type httpServerMeta struct {
 	gen.MetaProcess
 	config      *config.Config
+	graphRepo  repos.GraphRepo
 	server      *fiber.App
 	messageChan chan any
 }
@@ -38,7 +41,7 @@ func (m *httpServerMeta) Start() error {
 			return
 		}
 	}()
-	m.server = server.New(m.config, m.messageChan)
+	m.server = server.New(m.config, m.graphRepo, m.messageChan)
 
 	for v := range m.messageChan {
 		err := m.Send(m.Parent(), v)

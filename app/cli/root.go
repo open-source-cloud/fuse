@@ -3,6 +3,7 @@ package cli
 
 import (
 	"github.com/open-source-cloud/fuse/app/config"
+	"github.com/open-source-cloud/fuse/internal/repos"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -13,7 +14,7 @@ import (
 var loglevel string
 var observer bool
 var port string
-var cfg *config.Config
+var cli *Cli
 
 // Root command for FUSE Workflow Engine CLI
 var rootCmd = &cobra.Command{
@@ -27,9 +28,9 @@ var rootCmd = &cobra.Command{
 			level = zerolog.InfoLevel // Default fallback
 		}
 		zerolog.SetGlobalLevel(level)
-		cfg.Params.LogLevel = loglevel
-		cfg.Params.ActorObserver = observer
-		cfg.Server.Port = port
+		cli.cfg.Params.LogLevel = loglevel
+		cli.cfg.Params.ActorObserver = observer
+		cli.cfg.Server.Port = port
 	},
 	Run: func(cmd *cobra.Command, _ []string) {
 		err := cmd.Help()
@@ -40,15 +41,21 @@ var rootCmd = &cobra.Command{
 	},
 }
 
-type Cli struct{}
+type Cli struct {
+	cfg       *config.Config
+	graphRepo repos.GraphRepo
+}
 
-func New(config *config.Config) *Cli {
-	cfg = config
+func New(config *config.Config, graphRepo repos.GraphRepo) *Cli {
+	cli = &Cli{
+		cfg:       config,
+		graphRepo: graphRepo,
+	}
 	err := newRoot().Execute()
 	if err != nil {
 		return nil
 	}
-	return &Cli{}
+	return cli
 }
 
 func newRoot() *cobra.Command {
