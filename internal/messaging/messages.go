@@ -7,7 +7,7 @@ type MessageType string
 const (
 	ActorInit MessageType = "actor:init"
 	ChildInit MessageType = "actor:child:init"
-	WorkflowExecuteJSON MessageType = "workflow:executeJson"
+	TriggerWorkflow MessageType = "workflow:trigger"
 )
 
 type (
@@ -16,14 +16,15 @@ type (
 		Data   any
 	}
 
-	WorkflowExecuteJSONMessage struct {
-		JsonBytes []byte
+	TriggerWorkflowMessage struct {
+		SchemaID string
 	}
 )
 
-func NewActorInitMessage() Message {
+func NewActorInitMessage(data any) Message {
 	return Message{
 		Type:   ActorInit,
+		Data:   data,
 	}
 }
 
@@ -34,18 +35,18 @@ func NewChildInitMessage(data any) Message {
 	}
 }
 
-func NewWorkflowExecuteJSONMessage(jsonBytes []byte) Message {
+func NewTriggerWorkflowMessage(schemaID string) Message {
 	return Message{
-		Type:   WorkflowExecuteJSON,
-		Data: WorkflowExecuteJSONMessage{
-			JsonBytes: jsonBytes,
+		Type:   TriggerWorkflow,
+		Data: TriggerWorkflowMessage{
+			SchemaID: schemaID,
 		},
 	}
 }
 
-func (m Message) WorkflowExecuteJSONMessage() (WorkflowExecuteJSONMessage, error) {
-	if m.Type != WorkflowExecuteJSON {
-		return WorkflowExecuteJSONMessage{}, fmt.Errorf("message type %s is not WorkflowExecuteJSON", m.Type)
+func (m Message) TriggerWorkflowMessage() (TriggerWorkflowMessage, error) {
+	if m.Type != TriggerWorkflow {
+		return TriggerWorkflowMessage{}, fmt.Errorf("message type %s is not TriggerWorkflow", m.Type)
 	}
-	return m.Data.(WorkflowExecuteJSONMessage), nil
+	return m.Data.(TriggerWorkflowMessage), nil
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/open-source-cloud/fuse/internal/messaging"
 	"github.com/open-source-cloud/fuse/internal/repos"
+	"github.com/open-source-cloud/fuse/internal/workflow"
 )
 
 const workflowSupervisorName = "workflow_sup"
@@ -23,7 +24,7 @@ func NewWorkflowSupervisorFactory(
 				config:               cfg,
 				graphRepo:            graphRepo,
 				workflowActorFactory: workflowActorFactory,
-				workflowActors:       make(map[string]gen.PID),
+				workflowActors:       make(map[workflow.ID]gen.PID),
 			}
 		},
 	}
@@ -36,7 +37,7 @@ type WorkflowSupervisor struct {
 	graphRepo            repos.GraphRepo
 	workflowActorFactory *Factory[*WorkflowActor]
 
-	workflowActors map[string]gen.PID
+	workflowActors map[workflow.ID]gen.PID
 }
 
 // Init invoked on a spawn Supervisor process. This is a mandatory callback for the implementation
@@ -75,13 +76,23 @@ func (a *WorkflowSupervisor) HandleMessage(from gen.PID, message any) error {
 
 	switch msg.Type {
 	case messaging.ChildInit:
-		schemaID, ok := msg.Data.(string)
+		workflowID, ok := msg.Data.(workflow.ID)
 		if !ok {
-			a.Log().Error("failed to get schema ID from message: %s", msg)
-			return fmt.Errorf("failed to get schema ID from message: %s", msg)
+			a.Log().Error("failed to get workflowID from message: %s", msg)
+			return fmt.Errorf("failed to get workflowID from message: %s", msg)
 		}
-		a.Log().Info("got child init message from %s for schema ID %s", from, schemaID)
-		a.workflowActors[schemaID] = from
+		a.Log().Info("got child init message from %s for workflowID %s", from, workflowID)
+		a.workflowActors[workflowID] = from
+	case messaging.TriggerWorkflow:
+		triggerMsg, err := msg.TriggerWorkflowMessage()
+		if err != nil {
+			a.Log().Error("failed to get trigger workflow message from message: %s", msg)
+			return fmt.Errorf("failed to get trigger workflow message from message: %s", msg)
+		}
+		err = a.spawnWorkflowActor(triggerMsg.SchemaID)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

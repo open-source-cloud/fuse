@@ -5,7 +5,7 @@ import (
 	"github.com/open-source-cloud/fuse/internal/workflow"
 )
 
-func NewGraphRepo() GraphRepo {
+func NewMemoryGraphRepo() GraphRepo {
 	return &memoryGraphRepo{
 		graphs: make(map[string]*workflow.Graph),
 	}

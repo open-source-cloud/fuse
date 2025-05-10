@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/fatih/color"
 	"github.com/mattn/go-colorable"
+	"github.com/open-source-cloud/fuse/internal/workflow"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"os"
@@ -38,7 +39,7 @@ func NewLogger() zerolog.Logger {
 			}
 			relPath := fullPath
 			if strings.Contains(fullPath, "@") {
-				relPath = func () string {
+				relPath = func() string {
 					parts := strings.Split(filepath.ToSlash(fullPath), "/")
 					for i, part := range parts {
 						if strings.Contains(part, "@") {
@@ -131,6 +132,11 @@ func (l *ergoLogger) Log(message gen.MessageLog) {
 			args = append(args, color.CyanString("%s", message.Args[i]))
 		case gen.Version:
 			args = append(args, message.Args[i])
+		case workflow.ID:
+			args = append(args, color.CyanString("%s", message.Args[i]))
+		case error:
+			args = append(args, color.RedString("%s", message.Args[i]))
+
 		default:
 			args = append(args, color.YellowString("%s", message.Args[i]))
 		}

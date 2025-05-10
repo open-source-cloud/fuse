@@ -1,5 +1,47 @@
 package workflow
 
+type (
+	State string
+	ID string
+)
+
+func (s State) String() string {
+	return string(s)
+}
+func (id ID) String() string {
+	return string(id)
+}
+
+const (
+	StateStopped  State = "stopped"
+	StateRunning  State = "running"
+	StateFinished State = "finished"
+	StateError    State = "error"
+)
+
+func New(id string, graph *Graph) *Workflow {
+	return &Workflow{
+		ID:    ID(id),
+		graph: graph,
+		state: workflowState{
+			currentState: StateStopped,
+		},
+	}
+}
+
+type (
+	Workflow struct {
+		ID    ID
+		graph *Graph
+		state workflowState
+	}
+
+	workflowState struct {
+		currentState State
+	}
+)
+
+
 //
 //// State type for workflow states
 //type State string

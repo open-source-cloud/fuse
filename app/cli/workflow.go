@@ -63,6 +63,7 @@ func workflowRunner(_ *cobra.Command, _ []string) error {
 		log.Error().Err(err).Msg("Failed to save workflow graph")
 		os.Exit(1)
 	}
+	log.Info().Str("schemaID", graph.ID()).Msg("Workflow graph created")
 
 	return nil
 }

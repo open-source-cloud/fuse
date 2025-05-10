@@ -53,7 +53,7 @@ func (a *HttpServerActor) HandleMessage(from gen.PID, message any) error {
 	a.Log().Info("got message from %s - %s", from, msg.Type)
 
 	switch msg.Type {
-	case messaging.WorkflowExecuteJSON:
+	case messaging.TriggerWorkflow:
 		err := a.Send(workflowSupervisorName, message)
 		if err != nil {
 			a.Log().Error("failed to send message to workflow supervisor: %s", err)

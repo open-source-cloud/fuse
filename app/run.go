@@ -23,7 +23,8 @@ func Run() {
 			actors.NewWorkflowSupervisorFactory,
 			actors.NewWorkflowActorFactory,
 			// repositories
-			repos.NewGraphRepo,
+			repos.NewMemoryGraphRepo,
+			repos.NewMemoryWorkflowRepo,
 			// apps
 			NewApp,
 		),
