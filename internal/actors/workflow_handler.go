@@ -11,17 +11,17 @@ import (
 	"github.com/open-source-cloud/fuse/pkg/uuid"
 )
 
-const workflowActorName = "workflow_actor"
+const workflowHandlerName = "workflow_handler"
 
-func NewWorkflowActorFactory(
+func NewWorkflowHandlerFactory(
 	cfg *config.Config,
 	graphRepo repos.GraphRepo,
 	workflowRepo repos.WorkflowRepo,
-) *Factory[*WorkflowActor] {
-	return &Factory[*WorkflowActor]{
-		Name: workflowActorName,
+) *Factory[*WorkflowHandler] {
+	return &Factory[*WorkflowHandler]{
+		Name: workflowHandlerName,
 		Behavior: func() gen.ProcessBehavior {
-			return &WorkflowActor{
+			return &WorkflowHandler{
 				config:       cfg,
 				graphRepo:    graphRepo,
 				workflowRepo: workflowRepo,
@@ -30,7 +30,7 @@ func NewWorkflowActorFactory(
 	}
 }
 
-type WorkflowActor struct {
+type WorkflowHandler struct {
 	act.Actor
 	config       *config.Config
 	graphRepo    repos.GraphRepo
@@ -38,7 +38,7 @@ type WorkflowActor struct {
 	workflow     *workflow.Workflow
 }
 
-func (a *WorkflowActor) Init(args ...any) error {
+func (a *WorkflowHandler) Init(args ...any) error {
 	// get the gen.Log interface using Log method of embedded gen.Process interface
 	a.Log().Info("starting process %s", a.PID())
 	a.Log().Info("args: %s", args)
@@ -59,7 +59,7 @@ func (a *WorkflowActor) Init(args ...any) error {
 	return nil
 }
 
-func (a *WorkflowActor) HandleMessage(from gen.PID, message any) error {
+func (a *WorkflowHandler) HandleMessage(from gen.PID, message any) error {
 	msg, ok := message.(messaging.Message)
 	if !ok {
 		a.Log().Error("message from %s is not a messaging.Message", from)
@@ -103,6 +103,6 @@ func (a *WorkflowActor) HandleMessage(from gen.PID, message any) error {
 	return nil
 }
 
-func (a *WorkflowActor) Terminate(reason error) {
+func (a *WorkflowHandler) Terminate(reason error) {
 	a.Log().Info("%s terminated with reason: %s", a.PID(), reason)
 }
