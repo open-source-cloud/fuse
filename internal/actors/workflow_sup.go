@@ -6,24 +6,23 @@ import (
 	"fmt"
 	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/open-source-cloud/fuse/internal/messaging"
-	"github.com/open-source-cloud/fuse/internal/repos"
 	"github.com/open-source-cloud/fuse/internal/workflow"
 )
 
-const workflowSupervisorName = "workflow_sup"
+const WorkflowSupervisorName = "workflow_sup"
+
+type WorkflowSupervisorFactory Factory[*WorkflowSupervisor]
 
 func NewWorkflowSupervisorFactory(
 	cfg *config.Config,
-	graphRepo repos.GraphRepo,
-	workflowActorFactory *Factory[*WorkflowHandler],
-) *Factory[*WorkflowSupervisor] {
-	return &Factory[*WorkflowSupervisor]{
-		Name: workflowSupervisorName,
-		Behavior: func() gen.ProcessBehavior {
+	workflowHandler *WorkflowHandlerFactory,
+) *WorkflowSupervisorFactory {
+	return &WorkflowSupervisorFactory{
+		Factory: func() gen.ProcessBehavior {
 			return &WorkflowSupervisor{
-				config:                 cfg,
-				workflowHandlerFactory: workflowActorFactory,
-				workflowActors:         make(map[workflow.ID]gen.PID),
+				config:          cfg,
+				workflowHandler: workflowHandler,
+				workflowActors:  make(map[workflow.ID]gen.PID),
 			}
 		},
 	}
@@ -32,8 +31,8 @@ func NewWorkflowSupervisorFactory(
 type WorkflowSupervisor struct {
 	act.Supervisor
 
-	config               *config.Config
-	workflowHandlerFactory *Factory[*WorkflowHandler]
+	config          *config.Config
+	workflowHandler *WorkflowHandlerFactory
 
 	workflowActors map[workflow.ID]gen.PID
 }
@@ -47,7 +46,10 @@ func (a *WorkflowSupervisor) Init(_ ...any) (act.SupervisorSpec, error) {
 		Type: act.SupervisorTypeSimpleOneForOne,
 		// children
 		Children: []act.SupervisorChildSpec{
-			a.workflowHandlerFactory.SupervisorChildSpec(),
+			{
+				Name: "workflow_handler",
+				Factory: a.workflowHandler.Factory,
+			},
 		},
 		// strategy
 		Restart: act.SupervisorRestart{
@@ -72,26 +74,26 @@ func (a *WorkflowSupervisor) HandleMessage(from gen.PID, message any) error {
 	}
 	a.Log().Info("got message from %s - %s", from, msg.Type)
 
-	switch msg.Type {
-	case messaging.ChildInit:
-		workflowID, ok := msg.Data.(workflow.ID)
-		if !ok {
-			a.Log().Error("failed to get workflowID from message: %s", msg)
-			return fmt.Errorf("failed to get workflowID from message: %s", msg)
-		}
-		a.Log().Info("got child init message from %s for workflowID %s", from, workflowID)
-		a.workflowActors[workflowID] = from
-	case messaging.TriggerWorkflow:
-		triggerMsg, err := msg.TriggerWorkflowMessage()
-		if err != nil {
-			a.Log().Error("failed to get trigger workflow message from message: %s", msg)
-			return fmt.Errorf("failed to get trigger workflow message from message: %s", msg)
-		}
-		err = a.spawnWorkflowActor(triggerMsg.SchemaID)
-		if err != nil {
-			return err
-		}
-	}
+	//switch msg.Type {
+	//case messaging.ChildInit:
+	//	workflowID, ok := msg.Data.(workflow.ID)
+	//	if !ok {
+	//		a.Log().Error("failed to get workflowID from message: %s", msg)
+	//		return fmt.Errorf("failed to get workflowID from message: %s", msg)
+	//	}
+	//	a.Log().Info("got child init message from %s for workflowID %s", from, workflowID)
+	//	a.workflowActors[workflowID] = from
+	//case messaging.TriggerWorkflow:
+	//	triggerMsg, err := msg.TriggerWorkflowMessage()
+	//	if err != nil {
+	//		a.Log().Error("failed to get trigger workflow message from message: %s", msg)
+	//		return fmt.Errorf("failed to get trigger workflow message from message: %s", msg)
+	//	}
+	//	err = a.spawnWorkflowActor(triggerMsg.SchemaID)
+	//	if err != nil {
+	//		return err
+	//	}
+	//}
 
 	return nil
 }
@@ -113,10 +115,10 @@ func (a *WorkflowSupervisor) HandleEvent(event gen.MessageEvent) error {
 }
 
 func (a *WorkflowSupervisor) spawnWorkflowActor(schemaID string) error {
-	err := a.StartChild(gen.Atom(a.workflowHandlerFactory.Name), schemaID)
-	if err != nil {
-		a.Log().Error("failed to spawn child for schema ID %s : %s", schemaID, err)
-		return err
-	}
+	//err := a.StartChild(gen.Atom(a.workflowHandler.Name), schemaID)
+	//if err != nil {
+	//	a.Log().Error("failed to spawn child for schema ID %s : %s", schemaID, err)
+	//	return err
+	//}
 	return nil
 }

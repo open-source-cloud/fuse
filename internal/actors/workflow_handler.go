@@ -11,16 +11,15 @@ import (
 	"github.com/open-source-cloud/fuse/pkg/uuid"
 )
 
-const workflowHandlerName = "workflow_handler"
+type WorkflowHandlerFactory Factory[*WorkflowHandler]
 
 func NewWorkflowHandlerFactory(
 	cfg *config.Config,
 	graphRepo repos.GraphRepo,
 	workflowRepo repos.WorkflowRepo,
-) *Factory[*WorkflowHandler] {
-	return &Factory[*WorkflowHandler]{
-		Name: workflowHandlerName,
-		Behavior: func() gen.ProcessBehavior {
+) *WorkflowHandlerFactory {
+	return &WorkflowHandlerFactory{
+		Factory: func() gen.ProcessBehavior {
 			return &WorkflowHandler{
 				config:       cfg,
 				graphRepo:    graphRepo,

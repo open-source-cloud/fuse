@@ -11,16 +11,16 @@ import (
 
 func NewApp(
 	config *config.Config,
-	engineSupervisorFactory *actors.Factory[*actors.WorkflowSupervisor],
-	httpServerActorFactory *actors.Factory[*actors.HttpServerActor],
+	workflowSup *actors.WorkflowSupervisorFactory,
+	httpServer *actors.HttpServerActorFactory,
 ) (gen.Node, error) {
 	var options gen.NodeOptions
 
 	apps := make([]gen.ApplicationBehavior, 0, 2)
 	apps = append(apps, &Fuse{
-		config:                    config,
-		workflowSupervisorFactory: engineSupervisorFactory,
-		httpServerActorFactory:    httpServerActorFactory,
+		config:      config,
+		workflowSup: workflowSup,
+		httpServer:  httpServer,
 	})
 	if config.Params.ActorObserver {
 		apps = append(apps, observer.CreateApp(observer.Options{}))
@@ -46,9 +46,9 @@ func NewApp(
 }
 
 type Fuse struct {
-	config                    *config.Config
-	workflowSupervisorFactory *actors.Factory[*actors.WorkflowSupervisor]
-	httpServerActorFactory    *actors.Factory[*actors.HttpServerActor]
+	config                 *config.Config
+	workflowSup *actors.WorkflowSupervisorFactory
+	httpServer  *actors.HttpServerActorFactory
 }
 
 // Load invoked on loading application using the method ApplicationLoad of gen.Node interface.
@@ -57,8 +57,14 @@ func (app *Fuse) Load(_ gen.Node, _ ...any) (gen.ApplicationSpec, error) {
 		Name:        "fuse_app",
 		Description: "FUSE application",
 		Group: []gen.ApplicationMemberSpec{
-			app.workflowSupervisorFactory.ApplicationMemberSpec(),
-			app.httpServerActorFactory.ApplicationMemberSpec(),
+			{
+				Name: actors.WorkflowSupervisorName,
+				Factory: app.workflowSup.Factory,
+			},
+			{
+				Name: actors.HttpServerActorName,
+				Factory: app.httpServer.Factory,
+			},
 		},
 		Mode:     gen.ApplicationModeTemporary,
 		LogLevel: parseLogLevel(app.config.Params.LogLevel),

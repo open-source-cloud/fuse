@@ -9,12 +9,13 @@ import (
 	"github.com/open-source-cloud/fuse/internal/repos"
 )
 
-const httpServerActorName = "http_server"
+const HttpServerActorName = "http_server"
 
-func NewHttpServerActorFactory(cfg *config.Config, graphRepo repos.GraphRepo) *Factory[*HttpServerActor] {
-	return &Factory[*HttpServerActor]{
-		Name: httpServerActorName,
-		Behavior: func() gen.ProcessBehavior {
+type HttpServerActorFactory Factory[*HttpServerActor]
+
+func NewHttpServerActorFactory(cfg *config.Config, graphRepo repos.GraphRepo) *HttpServerActorFactory {
+	return &HttpServerActorFactory{
+		Factory: func() gen.ProcessBehavior {
 			return &HttpServerActor{
 				config:    cfg,
 				graphRepo: graphRepo,
@@ -54,7 +55,7 @@ func (a *HttpServerActor) HandleMessage(from gen.PID, message any) error {
 
 	switch msg.Type {
 	case messaging.TriggerWorkflow:
-		err := a.Send(workflowSupervisorName, message)
+		err := a.Send(WorkflowSupervisorName, message)
 		if err != nil {
 			a.Log().Error("failed to send message to workflow supervisor: %s", err)
 			return err
