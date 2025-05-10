@@ -21,6 +21,7 @@ func Run() {
 			// actors
 			actors.NewHttpServerActorFactory,
 			actors.NewWorkflowSupervisorFactory,
+			actors.NewWorkflowInstanceSupervisorFactory,
 			actors.NewWorkflowHandlerFactory,
 			// repositories
 			repos.NewMemoryGraphRepo,

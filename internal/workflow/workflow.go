@@ -1,5 +1,7 @@
 package workflow
 
+import "github.com/open-source-cloud/fuse/pkg/uuid"
+
 type (
 	State string
 	ID string
@@ -10,6 +12,9 @@ func (s State) String() string {
 }
 func (id ID) String() string {
 	return string(id)
+}
+func NewID() ID {
+	return ID(uuid.V7())
 }
 
 const (

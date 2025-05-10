@@ -8,49 +8,48 @@ import (
 	"github.com/open-source-cloud/fuse/internal/messaging"
 	"github.com/open-source-cloud/fuse/internal/repos"
 	"github.com/open-source-cloud/fuse/internal/workflow"
-	"github.com/open-source-cloud/fuse/pkg/uuid"
 )
 
 type WorkflowHandlerFactory Factory[*WorkflowHandler]
 
 func NewWorkflowHandlerFactory(
 	cfg *config.Config,
-	graphRepo repos.GraphRepo,
 	workflowRepo repos.WorkflowRepo,
 ) *WorkflowHandlerFactory {
 	return &WorkflowHandlerFactory{
 		Factory: func() gen.ProcessBehavior {
 			return &WorkflowHandler{
 				config:       cfg,
-				graphRepo:    graphRepo,
 				workflowRepo: workflowRepo,
 			}
 		},
 	}
 }
 
+func WorkflowHandlerName(workflowID workflow.ID) string {
+	return fmt.Sprintf("workflow_handler_%s", workflowID.String())
+}
+
 type WorkflowHandler struct {
 	act.Actor
 	config       *config.Config
-	graphRepo    repos.GraphRepo
 	workflowRepo repos.WorkflowRepo
 	workflow     *workflow.Workflow
 }
 
 func (a *WorkflowHandler) Init(args ...any) error {
 	// get the gen.Log interface using Log method of embedded gen.Process interface
-	a.Log().Info("starting process %s", a.PID())
-	a.Log().Info("args: %s", args)
+	a.Log().Info("starting process %s with args %s", a.PID(), args)
 
 	if len(args) != 1 {
-		return fmt.Errorf("workflow actor init args must be 1 == [workflowSchemaID/workflowID]")
+		return fmt.Errorf("workflow actor init args must be 1 == [workflow.ID]")
 	}
-	workflowOrSchemaID, ok := args[0].(string)
+	workflowID, ok := args[0].(workflow.ID)
 	if !ok {
-		return fmt.Errorf("workflow actor init args must be 1 == [workflowSchemaID/workflowID]")
+		return fmt.Errorf("workflow actor init args must be 1 == [workflow.ID]; got %T", args[0])
 	}
 
-	err := a.Send(a.PID(), messaging.NewActorInitMessage(workflowOrSchemaID))
+	err := a.Send(a.PID(), messaging.NewActorInitMessage(workflowID))
 	if err != nil {
 		return err
 	}
@@ -68,35 +67,18 @@ func (a *WorkflowHandler) HandleMessage(from gen.PID, message any) error {
 
 	switch msg.Type {
 	case messaging.ActorInit:
-		workflowOrSchemaID, ok := msg.Data.(string)
+		workflowID, ok := msg.Data.(workflow.ID)
 		if !ok {
-			a.Log().Error("failed to get workflow or schema ID from message: %s", msg)
-			return fmt.Errorf("failed to get workflow or schema ID from message: %s", msg)
+			a.Log().Error("failed to get workflowID from message: %s", msg)
+			return fmt.Errorf("failed to get workflowID from message: %s", msg)
 		}
 
-		if a.workflowRepo.Exists(workflowOrSchemaID) {
-			a.workflow, _ = a.workflowRepo.Get(workflowOrSchemaID)
-			a.Log().Info("%s workflow loaded", a.workflow.ID)
-		} else {
-			graph, err := a.graphRepo.Get(workflowOrSchemaID)
-			if err != nil {
-				a.Log().Error("failed to get graph for schema ID %s: %s", workflowOrSchemaID, err)
-				return fmt.Errorf("failed to get graph for schema ID %s: %s", workflowOrSchemaID, err)
-			}
-			a.workflow = workflow.New(uuid.V7(), graph)
-			err = a.workflowRepo.Save(a.workflow)
-			if err != nil {
-				a.Log().Error("failed to save workflow: %s", err)
-				return fmt.Errorf("failed to save workflow: %s", err)
-			}
-			a.Log().Info("%s workflow created from schema ID %s", a.workflow.ID, workflowOrSchemaID)
-		}
-
-		err := a.Send(a.Parent(), messaging.NewChildInitMessage(a.workflow.ID))
+		workflowRef, err := a.workflowRepo.Get(workflowID.String())
 		if err != nil {
-			a.Log().Error("failed to send message to parent: %s", err)
+			a.Log().Error("failed to get workflow for ID %s: %s", workflowID, err)
 			return err
 		}
+		a.workflow = workflowRef
 	}
 
 	return nil

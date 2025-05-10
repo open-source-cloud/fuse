@@ -15,13 +15,13 @@ type WorkflowSupervisorFactory Factory[*WorkflowSupervisor]
 
 func NewWorkflowSupervisorFactory(
 	cfg *config.Config,
-	workflowHandler *WorkflowHandlerFactory,
+	workflowInstanceSup *WorkflowInstanceSupervisorFactory,
 ) *WorkflowSupervisorFactory {
 	return &WorkflowSupervisorFactory{
 		Factory: func() gen.ProcessBehavior {
 			return &WorkflowSupervisor{
 				config:          cfg,
-				workflowHandler: workflowHandler,
+				workflowInstanceSup: workflowInstanceSup,
 				workflowActors:  make(map[workflow.ID]gen.PID),
 			}
 		},
@@ -32,7 +32,7 @@ type WorkflowSupervisor struct {
 	act.Supervisor
 
 	config          *config.Config
-	workflowHandler *WorkflowHandlerFactory
+	workflowInstanceSup *WorkflowInstanceSupervisorFactory
 
 	workflowActors map[workflow.ID]gen.PID
 }
@@ -47,14 +47,14 @@ func (a *WorkflowSupervisor) Init(_ ...any) (act.SupervisorSpec, error) {
 		// children
 		Children: []act.SupervisorChildSpec{
 			{
-				Name: "workflow_handler",
-				Factory: a.workflowHandler.Factory,
+				Name:    "workflow_instance_sup",
+				Factory: a.workflowInstanceSup.Factory,
 			},
 		},
 		// strategy
 		Restart: act.SupervisorRestart{
 			Strategy:  act.SupervisorStrategyTransient,
-			Intensity: 5, // How big bursts of restarts you want to tolerate.
+			Intensity: 1, // How big bursts of restarts you want to tolerate.
 			Period:    5, // In seconds.
 		},
 	}
@@ -74,7 +74,7 @@ func (a *WorkflowSupervisor) HandleMessage(from gen.PID, message any) error {
 	}
 	a.Log().Info("got message from %s - %s", from, msg.Type)
 
-	//switch msg.Type {
+	switch msg.Type {
 	//case messaging.ChildInit:
 	//	workflowID, ok := msg.Data.(workflow.ID)
 	//	if !ok {
@@ -83,17 +83,18 @@ func (a *WorkflowSupervisor) HandleMessage(from gen.PID, message any) error {
 	//	}
 	//	a.Log().Info("got child init message from %s for workflowID %s", from, workflowID)
 	//	a.workflowActors[workflowID] = from
-	//case messaging.TriggerWorkflow:
-	//	triggerMsg, err := msg.TriggerWorkflowMessage()
-	//	if err != nil {
-	//		a.Log().Error("failed to get trigger workflow message from message: %s", msg)
-	//		return fmt.Errorf("failed to get trigger workflow message from message: %s", msg)
-	//	}
-	//	err = a.spawnWorkflowActor(triggerMsg.SchemaID)
-	//	if err != nil {
-	//		return err
-	//	}
-	//}
+	case messaging.TriggerWorkflow:
+		triggerMsg, err := msg.TriggerWorkflowMessage()
+		if err != nil {
+			a.Log().Error("failed to get trigger workflow message from message: %s", msg)
+			return fmt.Errorf("failed to get trigger workflow message from message: %s", msg)
+		}
+		err = a.spawnWorkflowActor(triggerMsg.SchemaID, false)
+		if err != nil {
+			a.Log().Error("failed to spawn workflow actor for schema ID %s : %s", triggerMsg.SchemaID, err)
+			return err
+		}
+	}
 
 	return nil
 }
@@ -114,11 +115,11 @@ func (a *WorkflowSupervisor) HandleEvent(event gen.MessageEvent) error {
 	return nil
 }
 
-func (a *WorkflowSupervisor) spawnWorkflowActor(schemaID string) error {
-	//err := a.StartChild(gen.Atom(a.workflowHandler.Name), schemaID)
-	//if err != nil {
-	//	a.Log().Error("failed to spawn child for schema ID %s : %s", schemaID, err)
-	//	return err
-	//}
+func (a *WorkflowSupervisor) spawnWorkflowActor(workflowOrSchemaID string, isWorkflow bool) error {
+	err := a.StartChild("workflow_instance_sup", workflowOrSchemaID, isWorkflow)
+	if err != nil {
+		a.Log().Error("failed to spawn child for schema ID %s : %s", workflowOrSchemaID, err)
+		return err
+	}
 	return nil
 }
