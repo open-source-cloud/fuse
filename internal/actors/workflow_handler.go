@@ -67,7 +67,7 @@ func (a *WorkflowHandler) HandleMessage(from gen.PID, message any) error {
 
 	switch msg.Type {
 	case messaging.ActorInit:
-		workflowID, ok := msg.Data.(workflow.ID)
+		workflowID, ok := msg.Args.(workflow.ID)
 		if !ok {
 			a.Log().Error("failed to get workflowID from message: %s", msg)
 			return fmt.Errorf("failed to get workflowID from message: %s", msg)

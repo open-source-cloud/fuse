@@ -24,9 +24,9 @@ const (
 	StateError    State = "error"
 )
 
-func New(id string, graph *Graph) *Workflow {
+func New(id ID, graph *Graph) *Workflow {
 	return &Workflow{
-		ID:    ID(id),
+		ID:    id,
 		graph: graph,
 		state: workflowState{
 			currentState: StateStopped,
@@ -137,7 +137,7 @@ type (
 //	switch msg.Type() {
 //	case workflowmsg.Start:
 //		rootNode := w.schema.RootNode()
-//		output, err := w.executeNode(ctx, rootNode, msg.Data())
+//		output, err := w.executeNode(ctx, rootNode, msg.Args())
 //		if err != nil {
 //			audit.Error().Workflow(w.id).Err(err).Msg("Failed to execute root node")
 //			w.state = StateError
@@ -158,7 +158,7 @@ type (
 //			nodeOutputEdges := node.OutputEdges()
 //			for k, edge := range nodeOutputEdges {
 //				if edge.IsConditional() && outputMetadata.ConditionalOutput {
-//					inputData := msg.Data()
+//					inputData := msg.Args()
 //					edgeMetadata := outputMetadata.Edges[edge.Condition().Name]
 //					if edge.Condition().Value == inputData[edgeMetadata.ConditionalEdge.Condition] {
 //						outputEdges[k] = edge
@@ -182,7 +182,7 @@ type (
 //				break
 //			}
 //			//goland:noinspection ALL
-//			output, err := w.executeNode(ctx, edge.To(), msg.Data())
+//			output, err := w.executeNode(ctx, edge.To(), msg.Args())
 //			if err != nil {
 //				audit.Error().Workflow(w.id).Err(err).Msg("Failed to execute root node")
 //				w.state = StateError
@@ -192,7 +192,7 @@ type (
 //				w.SendMessage(ctx, actors.NewMessage(workflowmsg.Continue, actors.MessageData(output)))
 //			}
 //		default:
-//			output, err := w.executeParallelNodes(ctx, outputEdges, msg.Data())
+//			output, err := w.executeParallelNodes(ctx, outputEdges, msg.Args())
 //			if err != nil {
 //				audit.Error().Workflow(w.id).Err(err).Msg("Failed to execute parallel nodes")
 //				w.state = StateError
@@ -236,7 +236,7 @@ type (
 //		go func() {
 //			done := <-async
 //			if done.Status() == workflow.FunctionSuccess {
-//				w.SendMessage(ctx, actors.NewMessage(workflowmsg.Continue, actors.MessageData(done.Data())))
+//				w.SendMessage(ctx, actors.NewMessage(workflowmsg.Continue, actors.MessageData(done.Args())))
 //			}
 //		}()
 //		return nil, nil
@@ -244,12 +244,12 @@ type (
 //
 //	output = result.Output()
 //	if output.Status() == workflow.FunctionSuccess {
-//		return output.Data(), nil
+//		return output.Args(), nil
 //	}
 //
 //	w.state = StateError
 //	// TODO: Improve error handling
-//	return nil, fmt.Errorf("node failed with output %v", output.Data())
+//	return nil, fmt.Errorf("node failed with output %v", output.Args())
 //}
 //
 //func (w *workflowWorker) executeParallelNodes(ctx Context, outputEdges map[string]graph.Edge, rawInputData map[string]any) (workflow.FunctionOutputData, error) {
@@ -301,7 +301,7 @@ type (
 //			status = output.Status()
 //			break
 //		}
-//		aggregatedOutput.Set(fmt.Sprintf("edges.%s", edge.ID()), output.Data())
+//		aggregatedOutput.Set(fmt.Sprintf("edges.%s", edge.ID()), output.Args())
 //	}
 //	//goland:noinspection ALL
 //	if asyncCount == 0 {
@@ -314,7 +314,7 @@ type (
 //		for asyncCount > 0 {
 //			done := <-asyncQueue
 //			if done.Output.Status() == workflow.FunctionSuccess {
-//				aggregatedOutput.Set(fmt.Sprintf("edges.%s", done.EdgeID), done.Output.Data())
+//				aggregatedOutput.Set(fmt.Sprintf("edges.%s", done.EdgeID), done.Output.Args())
 //			}
 //			asyncCount--
 //		}

@@ -30,45 +30,58 @@ func NewWorkflowInstanceSupervisorFactory(
 	}
 }
 
-type WorkflowInstanceSupervisor struct {
-	act.Supervisor
+type (
+	WorkflowInstanceSupervisor struct {
+		act.Supervisor
 
-	config          *config.Config
-	workflowHandler *WorkflowHandlerFactory
-	graphRepo       repos.GraphRepo
-	workflowRepo    repos.WorkflowRepo
-}
+		config          *config.Config
+		workflowHandler *WorkflowHandlerFactory
+		graphRepo       repos.GraphRepo
+		workflowRepo    repos.WorkflowRepo
+
+		workflow *workflow.Workflow
+	}
+
+	workflowInstanceActorInitArgs struct {
+		isNewWorkflow bool
+		schemaID      string
+		workflowID    workflow.ID
+	}
+)
 
 // Init invoked on a spawn Supervisor process. This is a mandatory callback for the implementation
 func (a *WorkflowInstanceSupervisor) Init(args ...any) (act.SupervisorSpec, error) {
 	a.Log().Info("starting process %s with args %s", a.PID(), args)
 
 	if len(args) != 2 {
-		return act.SupervisorSpec{}, fmt.Errorf("workflow instance supervisor init args must be 2 == [workflowSchemaID/workflowID, isWorkflow]")
+		return act.SupervisorSpec{}, fmt.Errorf("workflow instance supervisor init args must be 2 == [workflowSchemaID/workflowID, runNewWorkflow]")
 	}
 	workflowOrSchemaID, ok := args[0].(string)
 	if !ok {
-		return act.SupervisorSpec{}, fmt.Errorf("workflow instance supervisor init args must be 2 == [workflowSchemaID/workflowID, isWorkflow]; first arg must be a string, got %T", args[0])
+		return act.SupervisorSpec{}, fmt.Errorf("workflow instance supervisor init args must be 2 == [workflowSchemaID/workflowID, runNewWorkflow]; first arg must be a string, got %T", args[0])
 	}
-	isWorkflow, ok := args[1].(bool)
+	runNewWorkflow, ok := args[1].(bool)
 	if !ok {
-		return act.SupervisorSpec{}, fmt.Errorf("workflow instance supervisor init args must be 2 == [workflowSchemaID/workflowID, isWorkflow]; second arg must be a bool, got %T", args[1])
+		return act.SupervisorSpec{}, fmt.Errorf("workflow instance supervisor init args must be 2 == [workflowSchemaID/workflowID, runNewWorkflow]; second arg must be a bool, got %T", args[1])
 	}
 
+	var schemaID string
 	var workflowID workflow.ID
-	if isWorkflow {
-		workflowID = workflow.ID(workflowOrSchemaID)
-	} else {
-		workflowGraph, err := a.graphRepo.Get(workflowOrSchemaID)
-		if err != nil {
-			return act.SupervisorSpec{}, fmt.Errorf("failed to get graph for schema ID %s: %s", workflowOrSchemaID, err)
-		}
+	if runNewWorkflow {
 		workflowID = workflow.NewID()
-		newWorkflow := workflow.New(workflowID.String(), workflowGraph)
-		err = a.workflowRepo.Save(newWorkflow)
-		if err != nil {
-			return act.SupervisorSpec{}, fmt.Errorf("failed to save workflow: %s", err)
-		}
+		schemaID = workflowOrSchemaID
+	} else {
+		workflowID = workflow.ID(workflowOrSchemaID)
+	}
+
+	err := a.Send(a.PID(), messaging.NewActorInitMessage(workflowInstanceActorInitArgs{
+		isNewWorkflow: runNewWorkflow,
+		schemaID:      schemaID,
+		workflowID:    workflowID,
+	}))
+	if err != nil {
+		a.Log().Error("failed to send message to workflow instance supervisor: %s", err)
+		return act.SupervisorSpec{}, err
 	}
 
 	// supervisor specification
@@ -104,6 +117,35 @@ func (a *WorkflowInstanceSupervisor) HandleMessage(from gen.PID, message any) er
 		return fmt.Errorf("message from %s is not a messaging.Message", from)
 	}
 	a.Log().Info("got message from %s - %s", from, msg.Type)
+
+	switch msg.Type {
+	case messaging.ActorInit:
+		args, ok := msg.Args.(workflowInstanceActorInitArgs)
+		if !ok {
+			a.Log().Error("failed to get workflowInstanceActorInitArgs from message: %s; got %T", msg.Type, msg.Args)
+			return gen.TerminateReasonPanic
+		}
+
+		if args.isNewWorkflow {
+			graphRef, err := a.graphRepo.Get(args.schemaID)
+			if err != nil {
+				a.Log().Error("failed to get graph for schema ID %s: %s", args.schemaID, err)
+				return gen.TerminateReasonPanic
+			}
+			a.workflow = workflow.New(args.workflowID, graphRef)
+			if a.workflowRepo.Save(a.workflow) != nil {
+				a.Log().Error("failed to save workflow for ID %s: %s", args.workflowID, err)
+				return gen.TerminateReasonPanic
+			}
+		} else {
+			var err error
+			a.workflow, err = a.workflowRepo.Get(args.workflowID.String())
+			if err != nil {
+				a.Log().Error("failed to get workflow for ID %s: %s", args.workflowID, err)
+				return gen.TerminateReasonPanic
+			}
+		}
+	}
 
 	return nil
 }

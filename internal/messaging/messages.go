@@ -12,8 +12,8 @@ const (
 
 type (
 	Message struct {
-		Type   MessageType
-		Data   any
+		Type MessageType
+		Args any
 	}
 
 	TriggerWorkflowMessage struct {
@@ -21,24 +21,24 @@ type (
 	}
 )
 
-func NewActorInitMessage(data any) Message {
+func NewActorInitMessage(args any) Message {
 	return Message{
-		Type:   ActorInit,
-		Data:   data,
+		Type: ActorInit,
+		Args: args,
 	}
 }
 
-func NewChildInitMessage(data any) Message {
+func NewChildInitMessage(args any) Message {
 	return Message{
-		Type:   ChildInit,
-		Data:   data,
+		Type: ChildInit,
+		Args: args,
 	}
 }
 
 func NewTriggerWorkflowMessage(schemaID string) Message {
 	return Message{
 		Type:   TriggerWorkflow,
-		Data: TriggerWorkflowMessage{
+		Args: TriggerWorkflowMessage{
 			SchemaID: schemaID,
 		},
 	}
@@ -48,5 +48,5 @@ func (m Message) TriggerWorkflowMessage() (TriggerWorkflowMessage, error) {
 	if m.Type != TriggerWorkflow {
 		return TriggerWorkflowMessage{}, fmt.Errorf("message type %s is not TriggerWorkflow", m.Type)
 	}
-	return m.Data.(TriggerWorkflowMessage), nil
+	return m.Args.(TriggerWorkflowMessage), nil
 }
