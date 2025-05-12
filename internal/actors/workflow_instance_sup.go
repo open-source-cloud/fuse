@@ -14,6 +14,7 @@ type WorkflowInstanceSupervisorFactory Factory[*WorkflowInstanceSupervisor]
 
 func NewWorkflowInstanceSupervisorFactory(
 	cfg *config.Config,
+	workflowFuncPool *WorkflowFuncPoolFactory,
 	workflowHandler *WorkflowHandlerFactory,
 	workflowRepo repos.WorkflowRepo,
 ) *WorkflowInstanceSupervisorFactory {
@@ -21,6 +22,7 @@ func NewWorkflowInstanceSupervisorFactory(
 		Factory: func() gen.ProcessBehavior {
 			return &WorkflowInstanceSupervisor{
 				config:          cfg,
+				workflowFuncPool: workflowFuncPool,
 				workflowHandler: workflowHandler,
 				workflowRepo:    workflowRepo,
 			}
@@ -33,6 +35,7 @@ type (
 		act.Supervisor
 
 		config          *config.Config
+		workflowFuncPool *WorkflowFuncPoolFactory
 		workflowHandler *WorkflowHandlerFactory
 		workflowRepo    repos.WorkflowRepo
 	}
@@ -73,6 +76,11 @@ func (a *WorkflowInstanceSupervisor) Init(args ...any) (act.SupervisorSpec, erro
 		Type: act.SupervisorTypeOneForOne,
 		// children
 		Children: []act.SupervisorChildSpec{
+			{
+				Name:    gen.Atom(WorkflowFuncPoolName(workflowID)),
+				Factory: a.workflowFuncPool.Factory,
+				Args:    []any{},
+			},
 			{
 				Name:    gen.Atom(WorkflowHandlerName(workflowID)),
 				Factory: a.workflowHandler.Factory,

@@ -136,13 +136,16 @@ func (l *ergoLogger) Log(message gen.MessageLog) {
 			args = append(args, color.CyanString("%s", message.Args[i]))
 		case error:
 			args = append(args, color.RedString("%s", message.Args[i]))
+		case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+			args = append(args, color.YellowString("%d", message.Args[i]))
 
 		default:
 			args = append(args, color.YellowString("%s", message.Args[i]))
 		}
 	}
 
-	event.Msgf("%s %s", source, fmt.Sprintf(message.Format, args...))
+	format := strings.ReplaceAll(message.Format, "%d", "%s")
+	event.Msgf("%s %s", source, fmt.Sprintf(format, args...))
 }
 
 func (l *ergoLogger) Terminate() {}

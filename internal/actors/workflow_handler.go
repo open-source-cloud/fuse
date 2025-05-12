@@ -98,7 +98,8 @@ func (a *WorkflowHandler) HandleMessage(from gen.PID, message any) error {
 				return gen.TerminateReasonPanic
 			}
 			a.Log().Info("created new workflow with ID %s", initArgs.workflowID)
-			a.workflow.Trigger()
+			action := a.workflow.Trigger()
+			a.Log().Info("triggered workflow with ID %s, got action %v", initArgs.workflowID, action)
 		} else {
 			var err error
 			a.workflow, err = a.workflowRepo.Get(initArgs.workflowID.String())
