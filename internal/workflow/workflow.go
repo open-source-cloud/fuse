@@ -3,8 +3,9 @@ package workflow
 import "github.com/open-source-cloud/fuse/pkg/uuid"
 
 type (
-	State string
-	ID string
+	State      string
+	ID         string
+	ActionType string
 )
 
 func (s State) String() string {
@@ -18,18 +19,24 @@ func NewID() ID {
 }
 
 const (
-	StateStopped  State = "stopped"
-	StateRunning  State = "running"
-	StateFinished State = "finished"
-	StateError    State = "error"
+	StateUntriggered State = "untriggered"
+	StateRunning     State = "running"
+	StateSleeping    State = "sleeping"
+	StateFinished    State = "finished"
+	StateError       State = "error"
+)
+
+const (
+	ActionRunFunction ActionType = "function:run"
+	ActionRunFunctions
 )
 
 func New(id ID, graph *Graph) *Workflow {
 	return &Workflow{
 		ID:    id,
 		graph: graph,
-		state: workflowState{
-			currentState: StateStopped,
+		state: RunningState{
+			currentState: StateUntriggered,
 		},
 	}
 }
@@ -38,22 +45,50 @@ type (
 	Workflow struct {
 		ID    ID
 		graph *Graph
-		state workflowState
+		state RunningState
 	}
 
-	workflowState struct {
+	RunningState struct {
 		currentState State
+	}
+
+	Action interface {
+		Type() ActionType
+	}
+
+	RunFunctionAction struct {
+		FunctionID string
+		Args       map[string]any
 	}
 )
 
+func (w *Workflow) Trigger() Action {
+	triggerNode := w.graph.Root()
+	return &RunFunctionAction{
+		FunctionID: triggerNode.FunctionID(),
+		Args:   map[string]any{},
+	}
+}
+
+func (w *Workflow) State() State {
+	return w.state.currentState
+}
+
+func (w *Workflow) SetState(state State) {
+	w.state.currentState = state
+}
+
+func (a *RunFunctionAction) Type() ActionType {
+	return ActionRunFunction
+}
 
 //
 //// State type for workflow states
 //type State string
 //
 //const (
-//	// StateStopped workflow is stopped
-//	StateStopped State = "stopped"
+//	// StateUntriggered workflow is stopped
+//	StateUntriggered State = "stopped"
 //	// StateRunning workflow is running
 //	StateRunning State = "running"
 //	// StateFinished workflow has finished successfully
@@ -88,7 +123,7 @@ type (
 //		id:          id,
 //		schema:      schema,
 //		data:        make(map[string]any),
-//		state:       StateStopped,
+//		state:       StateUntriggered,
 //		currentNode: []graph.Node{},
 //	}
 //	worker.baseActor = actor.New(worker)
@@ -103,7 +138,7 @@ type (
 //func (w *workflowWorker) Stop() {
 //	w.baseActor.Stop()
 //	audit.Info().WorkflowState(w.id, w.state).Msg("Stop() called")
-//	w.state = StateStopped
+//	w.state = StateUntriggered
 //}
 //
 //func (w *workflowWorker) DoWork(ctx actor.Context) actor.WorkerStatus {

@@ -15,7 +15,6 @@ type WorkflowInstanceSupervisorFactory Factory[*WorkflowInstanceSupervisor]
 func NewWorkflowInstanceSupervisorFactory(
 	cfg *config.Config,
 	workflowHandler *WorkflowHandlerFactory,
-	graphRepo repos.GraphRepo,
 	workflowRepo repos.WorkflowRepo,
 ) *WorkflowInstanceSupervisorFactory {
 	return &WorkflowInstanceSupervisorFactory{
@@ -23,7 +22,6 @@ func NewWorkflowInstanceSupervisorFactory(
 			return &WorkflowInstanceSupervisor{
 				config:          cfg,
 				workflowHandler: workflowHandler,
-				graphRepo:       graphRepo,
 				workflowRepo:    workflowRepo,
 			}
 		},
@@ -36,16 +34,7 @@ type (
 
 		config          *config.Config
 		workflowHandler *WorkflowHandlerFactory
-		graphRepo       repos.GraphRepo
 		workflowRepo    repos.WorkflowRepo
-
-		workflow *workflow.Workflow
-	}
-
-	workflowInstanceActorInitArgs struct {
-		isNewWorkflow bool
-		schemaID      string
-		workflowID    workflow.ID
 	}
 )
 
@@ -73,15 +62,10 @@ func (a *WorkflowInstanceSupervisor) Init(args ...any) (act.SupervisorSpec, erro
 	} else {
 		workflowID = workflow.ID(workflowOrSchemaID)
 	}
-
-	err := a.Send(a.PID(), messaging.NewActorInitMessage(workflowInstanceActorInitArgs{
+	handlerInitArgs := WorkflowHandlerInitArgs{
 		isNewWorkflow: runNewWorkflow,
 		schemaID:      schemaID,
 		workflowID:    workflowID,
-	}))
-	if err != nil {
-		a.Log().Error("failed to send message to workflow instance supervisor: %s", err)
-		return act.SupervisorSpec{}, err
 	}
 
 	// supervisor specification
@@ -92,7 +76,7 @@ func (a *WorkflowInstanceSupervisor) Init(args ...any) (act.SupervisorSpec, erro
 			{
 				Name:    gen.Atom(WorkflowHandlerName(workflowID)),
 				Factory: a.workflowHandler.Factory,
-				Args:    []any{workflowID},
+				Args:    []any{handlerInitArgs},
 			},
 		},
 		// strategy
@@ -117,35 +101,6 @@ func (a *WorkflowInstanceSupervisor) HandleMessage(from gen.PID, message any) er
 		return fmt.Errorf("message from %s is not a messaging.Message", from)
 	}
 	a.Log().Info("got message from %s - %s", from, msg.Type)
-
-	switch msg.Type {
-	case messaging.ActorInit:
-		args, ok := msg.Args.(workflowInstanceActorInitArgs)
-		if !ok {
-			a.Log().Error("failed to get workflowInstanceActorInitArgs from message: %s; got %T", msg.Type, msg.Args)
-			return gen.TerminateReasonPanic
-		}
-
-		if args.isNewWorkflow {
-			graphRef, err := a.graphRepo.Get(args.schemaID)
-			if err != nil {
-				a.Log().Error("failed to get graph for schema ID %s: %s", args.schemaID, err)
-				return gen.TerminateReasonPanic
-			}
-			a.workflow = workflow.New(args.workflowID, graphRef)
-			if a.workflowRepo.Save(a.workflow) != nil {
-				a.Log().Error("failed to save workflow for ID %s: %s", args.workflowID, err)
-				return gen.TerminateReasonPanic
-			}
-		} else {
-			var err error
-			a.workflow, err = a.workflowRepo.Get(args.workflowID.String())
-			if err != nil {
-				a.Log().Error("failed to get workflow for ID %s: %s", args.workflowID, err)
-				return gen.TerminateReasonPanic
-			}
-		}
-	}
 
 	return nil
 }

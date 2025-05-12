@@ -31,6 +31,10 @@ func (n *Node) FullID() string {
 	return fmt.Sprintf("%s/%s", n.schema.Function, n.schema.ID)
 }
 
+func (n *Node) FunctionID() string {
+	return n.schema.Function
+}
+
 func (n *Node) Schema() *NodeSchema {
 	return n.schema
 }
