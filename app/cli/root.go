@@ -2,8 +2,8 @@
 package cli
 
 import (
+	"github.com/fatih/color"
 	"github.com/open-source-cloud/fuse/app/config"
-	"github.com/open-source-cloud/fuse/internal/repos"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -14,56 +14,59 @@ import (
 var loglevel string
 var observer bool
 var port string
-var cli *Cli
+var nocolor bool
 
-// Root command for FUSE Workflow Engine CLI
-var rootCmd = &cobra.Command{
-	Use:           "fuse",
-	Short:         "FUSE Workflow Engine application server",
-	SilenceErrors: false,
-	SilenceUsage:  false,
-	PersistentPreRun: func(_ *cobra.Command, _ []string) {
-		level, err := zerolog.ParseLevel(strings.ToLower(loglevel))
-		if err != nil {
-			level = zerolog.InfoLevel // Default fallback
-		}
-		zerolog.SetGlobalLevel(level)
-		cli.cfg.Params.LogLevel = loglevel
-		cli.cfg.Params.ActorObserver = observer
-		cli.cfg.Server.Port = port
-	},
-	Run: func(cmd *cobra.Command, _ []string) {
-		err := cmd.Help()
-		if err != nil {
-			log.Error().Msgf("Failed to print help: %v", err)
-			os.Exit(1)
-		}
-	},
-}
-
-type Cli struct {
-	cfg       *config.Config
-	graphRepo repos.GraphRepo
-}
-
-func New(config *config.Config, graphRepo repos.GraphRepo) *Cli {
-	cli = &Cli{
-		cfg:       config,
-		graphRepo: graphRepo,
-	}
+func Run() {
 	err := newRoot().Execute()
 	if err != nil {
-		return nil
+		log.Error().Err(err).Msg("Failed to execute root command")
+		os.Exit(1)
 	}
-	return cli
 }
 
 func newRoot() *cobra.Command {
+	rootCmd := &cobra.Command{
+		Use:           "fuse",
+		Short:         "FUSE Workflow Engine application server",
+		SilenceErrors: false,
+		SilenceUsage:  false,
+		PersistentPreRun: func(_ *cobra.Command, _ []string) {
+			setupGlobalConfig()
+		},
+		Run: func(cmd *cobra.Command, _ []string) {
+			err := cmd.Help()
+			if err != nil {
+				log.Error().Msgf("Failed to print help: %v", err)
+				os.Exit(1)
+			}
+		},
+	}
+
+	setupRootFlags(rootCmd)
+
+	rootCmd.AddCommand(newServerCommand())
+	rootCmd.AddCommand(newWorkflowCommand())
+
 	return rootCmd
 }
 
+func setupGlobalConfig() {
+	cfg := config.Instance()
+
+	level, err := zerolog.ParseLevel(strings.ToLower(loglevel))
+	if err != nil {
+		level = zerolog.InfoLevel // Default fallback
+	}
+	zerolog.SetGlobalLevel(level)
+	cfg.Params.LogLevel = loglevel
+	cfg.Params.ActorObserver = observer
+	cfg.Server.Port = port
+
+	color.NoColor = color.NoColor || nocolor
+}
+
 // Initialize the root command
-func init() {
+func setupRootFlags(rootCmd *cobra.Command) {
 	rootCmd.PersistentFlags().StringVarP(
 		&loglevel,
 		"loglevel",
@@ -78,13 +81,17 @@ func init() {
 		false,
 		"Run the actor observer app",
 	)
-	serverCmd.PersistentFlags().StringVarP(
+	rootCmd.PersistentFlags().StringVarP(
 		&port,
 		"port",
 		"p",
 		"9090",
 		"Port to listen on for HTTP requests",
 	)
-	rootCmd.AddCommand(workflowCmd)
-	rootCmd.AddCommand(serverCmd)
+	rootCmd.PersistentFlags().BoolVar(
+		&nocolor,
+		"no-color",
+		false,
+		"Disable color output",
+	)
 }

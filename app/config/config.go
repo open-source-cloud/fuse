@@ -5,8 +5,9 @@ import (
 	"github.com/caarlos0/env/v11"
 )
 
-type (
+var config *Config
 
+type (
 	// Config represents the application configuration, including the app name and database configuration.
 	Config struct {
 		Name     string `env:"APP_NAME"`
@@ -38,13 +39,16 @@ type (
 	}
 )
 
-// New initializes and parses the application configuration from environment variables. Returns the configuration or an error.
-func New() *Config {
-	var config Config
-	if err := env.Parse(&config); err != nil {
+// Instance initializes and parses the application configuration from environment variables. Returns the configuration or an error.
+func Instance() *Config {
+	if config != nil {
+		return config
+	}
+	config = &Config{}
+	if err := env.Parse(config); err != nil {
 		panic(err)
 	}
-	return &config
+	return config
 }
 
 // Validate checks the fields of the Config object for correctness and returns an error if validation fails.

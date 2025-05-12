@@ -1,75 +1,22 @@
-package app
+package logging
 
 import (
 	"ergo.services/ergo/gen"
 	"fmt"
 	"github.com/fatih/color"
-	"github.com/mattn/go-colorable"
 	"github.com/open-source-cloud/fuse/internal/workflow"
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
-	"os"
-	"path/filepath"
 	"strings"
-	"time"
 )
 
-// NewLogger initializes logging library
-func NewLogger() zerolog.Logger {
-	projectRoot, err := os.Getwd()
-	if err != nil {
-		projectRoot = ""
-	}
-
-	// Initialize logging
-	zerolog.TimeFieldFormat = time.TimeOnly
-	logger := log.Logger.Output(zerolog.ConsoleWriter{
-		Out:        colorable.NewColorableStdout(),
-		TimeFormat: time.TimeOnly,
-		FieldsOrder: []string{
-			"workflow",
-			"node",
-			"input",
-			"output",
-		},
-		FormatCaller: func(i any) string {
-			fullPath, ok := i.(string)
-			if !ok {
-				return ""
-			}
-			relPath := fullPath
-			if strings.Contains(fullPath, "@") {
-				relPath = func() string {
-					parts := strings.Split(filepath.ToSlash(fullPath), "/")
-					for i, part := range parts {
-						if strings.Contains(part, "@") {
-							slice := parts[i:]
-							slice[0] = "@" + strings.Split(part, "@")[0]
-							return strings.Join(slice, string(filepath.Separator))
-						}
-					}
-					// If not found, return the original path
-					return fullPath
-				}()
-			} else if rel, err := filepath.Rel(projectRoot, fullPath); err == nil {
-				relPath = rel
-			}
-
-			return "\x1b[90m" + relPath + "\x1b[0m" // Cyan color
-		},
-		FormatFieldName: func(i any) string {
-			return "\x1b[94m" + i.(string) + "=\x1b[0m"
-		},
-	}).With().Caller().Logger()
-
-	log.Logger = logger
-	return logger
+type ergoLogger struct {
+	logger zerolog.Logger
 }
 
-type ergoLogger struct{}
-
 func ErgoLogger() (gen.LoggerBehavior, error) {
-	return &ergoLogger{}, nil
+	return &ergoLogger{
+		logger: newLogger(ergoFormatCaller).With().Logger(),
+	}, nil
 }
 
 func (l *ergoLogger) Log(message gen.MessageLog) {
@@ -78,22 +25,21 @@ func (l *ergoLogger) Log(message gen.MessageLog) {
 
 	switch message.Level {
 	case gen.LogLevelInfo:
-		event = log.Info()
+		event = l.logger.Info()
 	case gen.LogLevelWarning:
-		event = log.Warn()
+		event = l.logger.Warn()
 	case gen.LogLevelError:
-		event = log.Error()
+		event = l.logger.Error()
 	case gen.LogLevelPanic:
-		event = log.Panic()
+		event = l.logger.Panic()
 	case gen.LogLevelDebug:
-		event = log.Debug()
+		event = l.logger.Debug()
 	case gen.LogLevelTrace:
-		event = log.Trace()
+		event = l.logger.Trace()
 
 	default:
-		event = log.Info()
+		event = l.logger.Info()
 	}
-	event = event.CallerSkipFrame(1)
 
 	switch src := message.Source.(type) {
 	case gen.MessageLogNode:

@@ -6,6 +6,7 @@ import (
 	"ergo.services/ergo/gen"
 	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/open-source-cloud/fuse/internal/actors"
+	"github.com/open-source-cloud/fuse/logging"
 	"strings"
 )
 
@@ -31,7 +32,7 @@ func NewApp(
 	options.Log.DefaultLogger.Disable = true
 
 	// add logger.
-	logger, err := ErgoLogger()
+	logger, err := logging.ErgoLogger()
 	if err != nil {
 		panic(err)
 	}
