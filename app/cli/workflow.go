@@ -1,12 +1,16 @@
 package cli
 
 import (
+	"bytes"
+	"encoding/json"
 	"github.com/open-source-cloud/fuse/app/di"
 	"github.com/open-source-cloud/fuse/internal/repos"
 	"github.com/open-source-cloud/fuse/internal/workflow"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"go.uber.org/fx"
+	"io"
+	"net/http"
 	"os"
 	"path"
 )
@@ -72,4 +76,25 @@ func workflowRunner(graphRepo repos.GraphRepo) {
 		return
 	}
 	log.Info().Str("schemaID", graph.ID()).Msg("Workflow graph created")
+
+	// make http request to run the supplied workflow once
+	payload := map[string]string{"schemaId": "sum-rand-branch-workflow"}
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to trigger workflow: failed marshaling payload")
+		return
+	}
+
+	//time.Sleep(2 * time.Second)
+	resp, err := http.Post("http://localhost:9090/api/workflow", "application/json", bytes.NewBuffer(jsonPayload))
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to trigger workflow: failed making http request")
+		return
+	}
+	defer func(Body io.ReadCloser) {
+		err = Body.Close()
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to close response body")
+		}
+	}(resp.Body)
 }
