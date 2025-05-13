@@ -26,16 +26,16 @@ type functionOutput struct {
 
 // NewFunctionOutput creates a new node output object with status and data with the result of the execution
 func NewFunctionOutput(status FunctionOutputStatus, data FunctionOutputData) FunctionOutput {
-	return &functionOutput{
+	return functionOutput{
 		status: status,
 		data:   data,
 	}
 }
 
-func (o *functionOutput) Status() FunctionOutputStatus {
+func (o functionOutput) Status() FunctionOutputStatus {
 	return o.status
 }
 
-func (o *functionOutput) Data() FunctionOutputData {
+func (o functionOutput) Data() FunctionOutputData {
 	return o.data
 }

@@ -66,7 +66,7 @@ func (w *Workflow) Trigger() Action {
 	triggerNode := w.graph.Root()
 	return &RunFunctionAction{
 		FunctionID: triggerNode.FunctionID(),
-		Args:   map[string]any{},
+		Args:       map[string]any{},
 	}
 }
 

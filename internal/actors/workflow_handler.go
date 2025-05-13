@@ -98,9 +98,9 @@ func (a *WorkflowHandler) HandleMessage(from gen.PID, message any) error {
 				a.Log().Error("failed to save workflow for ID %s: %s", initArgs.workflowID, err)
 				return nil
 			}
-			a.Log().Info("created new workflow with ID %s", initArgs.workflowID)
+			a.Log().Debug("created new workflow with ID %s", initArgs.workflowID)
 			action := a.workflow.Trigger()
-			a.Log().Info("triggered workflow with ID %s, got action %v", initArgs.workflowID, action)
+			a.Log().Debug("triggered workflow with ID %s, got action %v", initArgs.workflowID, action)
 			a.handleWorkflowAction(action)
 		} else {
 			var err error
@@ -109,7 +109,7 @@ func (a *WorkflowHandler) HandleMessage(from gen.PID, message any) error {
 				a.Log().Error("failed to get workflow for ID %s: %s", initArgs.workflowID, err)
 				return gen.TerminateReasonPanic
 			}
-			a.Log().Info("got workflow with ID %s", initArgs.workflowID)
+			a.Log().Debug("got workflow with ID %s", initArgs.workflowID)
 		}
 	}
 

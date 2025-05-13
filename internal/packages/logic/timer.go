@@ -48,5 +48,5 @@ func TimerFunction(input *workflow.FunctionInput) (workflow.FunctionResult, erro
 		}
 	}()
 
-	return workflow.NewFunctionResultAsync(resultChan), nil
+	return workflow.NewFunctionResultAsync(), nil
 }

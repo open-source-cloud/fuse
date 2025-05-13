@@ -55,7 +55,7 @@ func RandFunction(input *workflow.FunctionInput) (workflow.FunctionResult, error
 
 	randomNumberBig, err := rand.Int(rand.Reader, big.NewInt(int64(maxValue)))
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate random number: %w", err)
+		return workflow.NewFunctionResultError(fmt.Errorf("failed to generate random number: %w", err))
 	}
 
 	randomNumber := int(randomNumberBig.Int64()) + minValue
