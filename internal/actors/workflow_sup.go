@@ -3,7 +3,6 @@ package actors
 import (
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
-	"fmt"
 	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/open-source-cloud/fuse/internal/messaging"
 	"github.com/open-source-cloud/fuse/internal/workflow"
@@ -70,7 +69,7 @@ func (a *WorkflowSupervisor) HandleMessage(from gen.PID, message any) error {
 	msg, ok := message.(messaging.Message)
 	if !ok {
 		a.Log().Error("message from %s is not a messaging.Message", from)
-		return fmt.Errorf("message from %s is not a messaging.Message", from)
+		return nil
 	}
 	a.Log().Info("got message from %s - %s", from, msg.Type)
 
@@ -79,12 +78,12 @@ func (a *WorkflowSupervisor) HandleMessage(from gen.PID, message any) error {
 		triggerMsg, err := msg.TriggerWorkflowMessage()
 		if err != nil {
 			a.Log().Error("failed to get trigger workflow message from message: %s", msg)
-			return fmt.Errorf("failed to get trigger workflow message from message: %s", msg)
+			return nil
 		}
 		err = a.spawnWorkflowActor(triggerMsg.SchemaID, true)
 		if err != nil {
 			a.Log().Error("failed to spawn workflow actor for schema ID %s : %s", triggerMsg.SchemaID, err)
-			return err
+			return nil
 		}
 	}
 

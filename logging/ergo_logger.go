@@ -9,9 +9,11 @@ import (
 	"strings"
 )
 
-type ergoLogger struct {
-	logger zerolog.Logger
-}
+type (
+	ergoLogger struct {
+		logger zerolog.Logger
+	}
+)
 
 func ErgoLogger() (gen.LoggerBehavior, error) {
 	return &ergoLogger{

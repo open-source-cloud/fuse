@@ -6,7 +6,6 @@ require (
 	ergo.services/application v0.0.0-20240904055159-7f2e1a954c05
 	ergo.services/ergo v1.999.300
 	github.com/caarlos0/env/v11 v11.3.1
-	github.com/efectn/fx-zerolog v1.1.0
 	github.com/expr-lang/expr v1.17.2
 	github.com/fatih/color v1.18.0
 	github.com/gofiber/fiber/v3 v3.0.0-beta.4

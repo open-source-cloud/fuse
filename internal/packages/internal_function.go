@@ -32,6 +32,10 @@ func (f *internalFunction) Metadata() workflow.FunctionMetadata {
 	return f.metadata
 }
 
-func (f *internalFunction) Execute(input *workflow.FunctionInput) (workflow.FunctionResult, error) {
-	return f.fn(input)
+func (f *internalFunction) Execute(input map[string]any) (workflow.FunctionResult, error) {
+	fnInput, err := workflow.InitFunctionInput(input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize input store: %w", err)
+	}
+	return f.fn(fnInput)
 }

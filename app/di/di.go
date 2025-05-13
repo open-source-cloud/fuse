@@ -5,8 +5,12 @@ import (
 	"github.com/open-source-cloud/fuse/app"
 	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/open-source-cloud/fuse/internal/actors"
+	"github.com/open-source-cloud/fuse/internal/packages"
+	"github.com/open-source-cloud/fuse/internal/packages/debug"
+	"github.com/open-source-cloud/fuse/internal/packages/logic"
 	"github.com/open-source-cloud/fuse/internal/repos"
 	"github.com/open-source-cloud/fuse/logging"
+	"github.com/open-source-cloud/fuse/pkg/workflow"
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
 )
@@ -33,10 +37,26 @@ var FuseAppModule = fx.Module(
 		// repositories
 		repos.NewMemoryGraphRepo,
 		repos.NewMemoryWorkflowRepo,
+		// other services
+		packages.NewPackageRegistry,
 		// apps
 		app.NewApp,
 	),
-	fx.Invoke(func(_ gen.Node) {}),
+	// eager loading
+	fx.Invoke(func(
+		_ repos.GraphRepo,
+		_ repos.WorkflowRepo,
+		registry packages.Registry,
+		_ gen.Node,
+	) {
+		listOfInternalPackages := []workflow.Package{
+			debug.New(),
+			logic.New(),
+		}
+		for _, pkg := range listOfInternalPackages {
+			registry.Register(pkg.ID(), pkg)
+		}
+	}),
 )
 var AllModules = fx.Options(
 	CommonModule,

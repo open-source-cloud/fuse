@@ -14,6 +14,16 @@ func NewFunctionInput() *FunctionInput {
 	}
 }
 
+func InitFunctionInput(data map[string]any) (*FunctionInput, error) {
+	st, err := store.Init(data)
+	if err != nil {
+		return nil, err
+	}
+	return &FunctionInput{
+		store: st,
+	}, nil
+}
+
 // Get returns the value for the given key
 func (i *FunctionInput) Get(key string) any {
 	return i.store.Get(key)

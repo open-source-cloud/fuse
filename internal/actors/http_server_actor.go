@@ -3,7 +3,6 @@ package actors
 import (
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
-	"fmt"
 	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/open-source-cloud/fuse/internal/messaging"
 	"github.com/open-source-cloud/fuse/internal/repos"
@@ -49,7 +48,7 @@ func (a *HttpServerActor) HandleMessage(from gen.PID, message any) error {
 	msg, ok := message.(messaging.Message)
 	if !ok {
 		a.Log().Error("message from %s is not a messaging.Message", from)
-		return fmt.Errorf("message from %s is not a messaging.Message", from)
+		return nil
 	}
 	a.Log().Info("got message from %s - %s", from, msg.Type)
 
@@ -58,9 +57,8 @@ func (a *HttpServerActor) HandleMessage(from gen.PID, message any) error {
 		err := a.Send(WorkflowSupervisorName, message)
 		if err != nil {
 			a.Log().Error("failed to send message to workflow supervisor: %s", err)
-			return err
+			return nil
 		}
-		return nil
 	}
 
 	return nil

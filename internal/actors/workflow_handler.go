@@ -74,7 +74,7 @@ func (a *WorkflowHandler) HandleMessage(from gen.PID, message any) error {
 	msg, ok := message.(messaging.Message)
 	if !ok {
 		a.Log().Error("message from %s is not a messaging.Message", from)
-		return fmt.Errorf("message from %s is not a messaging.Message", from)
+		return nil
 	}
 	a.Log().Info("got message from %s - %s", from, msg.Type)
 
@@ -83,7 +83,7 @@ func (a *WorkflowHandler) HandleMessage(from gen.PID, message any) error {
 		initArgs, ok := msg.Args.(WorkflowHandlerInitArgs)
 		if !ok {
 			a.Log().Error("failed to get workflowID from message: %s", msg)
-			return fmt.Errorf("failed to get workflowID from message: %s", msg)
+			return nil
 		}
 
 		if initArgs.isNewWorkflow {
@@ -95,11 +95,12 @@ func (a *WorkflowHandler) HandleMessage(from gen.PID, message any) error {
 			a.workflow = workflow.New(initArgs.workflowID, graphRef)
 			if a.workflowRepo.Save(a.workflow) != nil {
 				a.Log().Error("failed to save workflow for ID %s: %s", initArgs.workflowID, err)
-				return gen.TerminateReasonPanic
+				return nil
 			}
 			a.Log().Info("created new workflow with ID %s", initArgs.workflowID)
 			action := a.workflow.Trigger()
 			a.Log().Info("triggered workflow with ID %s, got action %v", initArgs.workflowID, action)
+			a.handleWorkflowAction(action)
 		} else {
 			var err error
 			a.workflow, err = a.workflowRepo.Get(initArgs.workflowID.String())
@@ -116,4 +117,15 @@ func (a *WorkflowHandler) HandleMessage(from gen.PID, message any) error {
 
 func (a *WorkflowHandler) Terminate(reason error) {
 	a.Log().Info("%s terminated with reason: %s", a.PID(), reason)
+}
+
+func (a *WorkflowHandler) handleWorkflowAction(action workflow.Action) {
+	execAction := action.(*workflow.RunFunctionAction)
+	execFnMsg := messaging.NewExecuteFunctionMessage(a.workflow.ID, execAction.FunctionID, execAction.Args)
+
+	err := a.Send(WorkflowFuncPoolName(a.workflow.ID), execFnMsg)
+	if err != nil {
+		a.Log()
+		return
+	}
 }

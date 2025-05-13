@@ -31,8 +31,8 @@ type WorkflowFuncPool struct {
 
 func (a *WorkflowFuncPool) Init(_ ...any) (act.PoolOptions, error) {
 	opts := act.PoolOptions{
-		WorkerFactory: a.workflowFunc.Factory,
-		PoolSize:      3,
+		PoolSize:          3,
+		WorkerFactory:     a.workflowFunc.Factory,
 	}
 
 	a.Log().Info("starting pool %s with %d workers", a.PID(), opts.PoolSize)

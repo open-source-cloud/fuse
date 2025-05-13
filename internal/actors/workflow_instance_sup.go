@@ -82,15 +82,15 @@ func (a *WorkflowInstanceSupervisor) Init(args ...any) (act.SupervisorSpec, erro
 				Args:    []any{},
 			},
 			{
-				Name:    gen.Atom(WorkflowHandlerName(workflowID)),
-				Factory: a.workflowHandler.Factory,
-				Args:    []any{handlerInitArgs},
+				Name:        gen.Atom(WorkflowHandlerName(workflowID)),
+				Factory:     a.workflowHandler.Factory,
+				Args:        []any{handlerInitArgs},
 			},
 		},
 		// strategy
 		Restart: act.SupervisorRestart{
 			Strategy:  act.SupervisorStrategyPermanent,
-			Intensity: 1, // How big bursts of restarts you want to tolerate.
+			Intensity: 2, // How big bursts of restarts you want to tolerate.
 			Period:    5, // In seconds.
 		},
 	}
