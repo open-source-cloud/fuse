@@ -38,7 +38,7 @@ type WorkflowSupervisor struct {
 
 // Init invoked on a spawn Supervisor process. This is a mandatory callback for the implementation
 func (a *WorkflowSupervisor) Init(_ ...any) (act.SupervisorSpec, error) {
-	a.Log().Info("starting process %s", a.PID())
+	a.Log().Debug("starting process %s", a.PID())
 
 	// supervisor specification
 	spec := act.SupervisorSpec{
@@ -72,6 +72,7 @@ func (a *WorkflowSupervisor) HandleMessage(from gen.PID, message any) error {
 		return nil
 	}
 	a.Log().Info("got message from %s - %s", from, msg.Type)
+	a.Log().Debug("args: %s", msg.Args)
 
 	switch msg.Type {
 	case messaging.TriggerWorkflow:

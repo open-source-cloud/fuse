@@ -35,6 +35,6 @@ func (a *WorkflowFuncPool) Init(_ ...any) (act.PoolOptions, error) {
 		WorkerFactory:     a.workflowFunc.Factory,
 	}
 
-	a.Log().Info("starting pool %s with %d workers", a.PID(), opts.PoolSize)
+	a.Log().Debug("starting pool %s with %d workers", a.PID(), opts.PoolSize)
 	return opts, nil
 }

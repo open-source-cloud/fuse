@@ -9,23 +9,23 @@ import (
 
 type ExecuteFunctionMessage struct {
 	WorkflowID workflow.ID
-	ExecID    string
-	PackageID string
-	Function  string
-	Params    any
+	ExecID     string
+	PackageID  string
+	FunctionID string
+	Input      map[string]any
 }
 
-func NewExecuteFunctionMessage(workflowID workflow.ID, functionID string, params any) Message {
+func NewExecuteFunctionMessage(workflowID workflow.ID, functionID string, input map[string]any) Message {
 	lastSlashIndex := strings.LastIndex(functionID, "/")
 
 	return Message{
 		Type: ExecuteFunction,
 		Args: ExecuteFunctionMessage{
 			WorkflowID: workflowID,
-			ExecID:    uuid.V7(),
-			PackageID: functionID[:lastSlashIndex],
-			Function:  functionID[lastSlashIndex+1:],
-			Params:    params,
+			ExecID:     uuid.V7(),
+			PackageID:  functionID[:lastSlashIndex],
+			FunctionID: functionID,
+			Input:      input,
 		},
 	}
 }

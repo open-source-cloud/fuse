@@ -1,8 +1,4 @@
 package workflow
 
-// Function represents an executable Function and it's metadata
-type Function interface {
-	ID() string
-	Metadata() FunctionMetadata
-	Execute(input *FunctionInput) (FunctionResult, error)
-}
+// Function describes an executable workflow Function
+type Function func(input *FunctionInput) (FunctionResult, error)

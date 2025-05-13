@@ -109,22 +109,23 @@ func (a *WorkflowInstanceSupervisor) HandleMessage(from gen.PID, message any) er
 		return fmt.Errorf("message from %s is not a messaging.Message", from)
 	}
 	a.Log().Info("got message from %s - %s", from, msg.Type)
+	a.Log().Debug("args: %s", msg.Args)
 
 	return nil
 }
 
 // Terminate invoked on a termination process
 func (a *WorkflowInstanceSupervisor) Terminate(reason error) {
-	a.Log().Info("process terminated with reason: %s", reason)
+	a.Log().Debug("process terminated with reason: %s", reason)
 }
 
 // HandleInspect invoked on the request made with gen.Process.Inspect(...)
 func (a *WorkflowInstanceSupervisor) HandleInspect(from gen.PID, item ...string) map[string]string {
-	a.Log().Info("process got inspect request from %s", from)
+	a.Log().Debug("process got inspect request from %s", from)
 	return nil
 }
 
 func (a *WorkflowInstanceSupervisor) HandleEvent(event gen.MessageEvent) error {
-	a.Log().Info("received event %s with value: %#v", event.Event, event.Message)
+	a.Log().Debug("received event %s with value: %#v", event.Event, event.Message)
 	return nil
 }

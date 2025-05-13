@@ -10,7 +10,6 @@ import (
 	"github.com/open-source-cloud/fuse/internal/packages/logic"
 	"github.com/open-source-cloud/fuse/internal/repos"
 	"github.com/open-source-cloud/fuse/logging"
-	"github.com/open-source-cloud/fuse/pkg/workflow"
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
 )
@@ -49,7 +48,7 @@ var FuseAppModule = fx.Module(
 		registry packages.Registry,
 		_ gen.Node,
 	) {
-		listOfInternalPackages := []workflow.Package{
+		listOfInternalPackages := []packages.Package{
 			debug.New(),
 			logic.New(),
 		}

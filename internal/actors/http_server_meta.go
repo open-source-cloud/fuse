@@ -32,7 +32,7 @@ func (m *httpServerMeta) Init(meta gen.MetaProcess) error {
 }
 
 func (m *httpServerMeta) Start() error {
-	m.Log().Info("starting '%s' process", HttpServerMeta)
+	m.Log().Debug("starting '%s' process", HttpServerMeta)
 
 	defer func() {
 		err := m.server.Shutdown()

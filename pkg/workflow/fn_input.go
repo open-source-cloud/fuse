@@ -14,7 +14,7 @@ func NewFunctionInput() *FunctionInput {
 	}
 }
 
-func InitFunctionInput(data map[string]any) (*FunctionInput, error) {
+func NewFunctionInputWith(data map[string]any) (*FunctionInput, error) {
 	st, err := store.Init(data)
 	if err != nil {
 		return nil, err

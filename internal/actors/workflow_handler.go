@@ -52,7 +52,7 @@ type (
 
 func (a *WorkflowHandler) Init(args ...any) error {
 	// get the gen.Log interface using Log method of embedded gen.Process interface
-	a.Log().Info("starting process %s with args %s", a.PID(), args)
+	a.Log().Debug("starting process %s with args %s", a.PID(), args)
 
 	if len(args) != 1 {
 		return fmt.Errorf("workflow actor init args must be 1 == [WorkflowHandlerInitArgs]")
@@ -77,6 +77,7 @@ func (a *WorkflowHandler) HandleMessage(from gen.PID, message any) error {
 		return nil
 	}
 	a.Log().Info("got message from %s - %s", from, msg.Type)
+	a.Log().Debug("args: %s", msg.Args)
 
 	switch msg.Type {
 	case messaging.ActorInit:

@@ -32,14 +32,14 @@ type HttpServerActor struct {
 // Init (args ...any)
 func (a *HttpServerActor) Init(_ ...any) error {
 	// get the gen.Log interface using Log method of embedded gen.Process interface
-	a.Log().Info("starting process %s", a.PID())
+	a.Log().Debug("starting process %s", a.PID())
 
 	metaBehavior := NewHttpServerMeta(a.config, a.graphRepo)
 	metaID, err := a.SpawnMeta(metaBehavior, gen.MetaOptions{})
 	if err != nil {
 		return err
 	}
-	a.Log().Info("meta '%s' spawned with metaID: %s", HttpServerMeta, metaID)
+	a.Log().Debug("meta '%s' spawned with metaID: %s", HttpServerMeta, metaID)
 
 	return nil
 }
@@ -51,6 +51,7 @@ func (a *HttpServerActor) HandleMessage(from gen.PID, message any) error {
 		return nil
 	}
 	a.Log().Info("got message from %s - %s", from, msg.Type)
+	a.Log().Debug("args: %s", msg.Args)
 
 	switch msg.Type {
 	case messaging.TriggerWorkflow:
@@ -65,5 +66,5 @@ func (a *HttpServerActor) HandleMessage(from gen.PID, message any) error {
 }
 
 func (a *HttpServerActor) Terminate(reason error) {
-	a.Log().Info("%s terminated with reason: %s", a.PID(), reason)
+	a.Log().Debug("%s terminated with reason: %s", a.PID(), reason)
 }

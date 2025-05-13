@@ -30,6 +30,7 @@ func NewApp(
 
 	// disable default logger to get rid of multiple logging to the os.Stdout
 	options.Log.DefaultLogger.Disable = true
+	options.Log.Level = parseLogLevel(config.Params.LogLevel)
 
 	// add logger.
 	logger, err := logging.ErgoLogger()
