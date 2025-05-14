@@ -19,7 +19,11 @@ require (
 
 require (
 	ergo.services/meta v0.0.0-20240904054930-a97f6add8a78 // indirect
+	github.com/bahlo/generic-list-go v0.2.0 // indirect
+	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
+	github.com/mailru/easyjson v0.9.0 // indirect
+	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 )
 
 require (

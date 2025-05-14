@@ -5,7 +5,7 @@ type FunctionMetadata struct {
 	Output OutputMetadata
 }
 
-// InputMetadata represents one Input or Output Metadata descriptor
+// InputMetadata represents one Input or Result Metadata descriptor
 type InputMetadata struct {
 	CustomParameters bool
 	Parameters       Parameters

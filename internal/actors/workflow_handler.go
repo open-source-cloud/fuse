@@ -8,6 +8,8 @@ import (
 	"github.com/open-source-cloud/fuse/internal/messaging"
 	"github.com/open-source-cloud/fuse/internal/repos"
 	"github.com/open-source-cloud/fuse/internal/workflow"
+	"github.com/open-source-cloud/fuse/pkg/uuid"
+	pkgworkflow "github.com/open-source-cloud/fuse/pkg/workflow"
 )
 
 type WorkflowHandlerFactory Factory[*WorkflowHandler]
@@ -81,36 +83,9 @@ func (a *WorkflowHandler) HandleMessage(from gen.PID, message any) error {
 
 	switch msg.Type {
 	case messaging.ActorInit:
-		initArgs, ok := msg.Args.(WorkflowHandlerInitArgs)
-		if !ok {
-			a.Log().Error("failed to get workflowID from message: %s", msg)
-			return nil
-		}
-
-		if initArgs.isNewWorkflow {
-			graphRef, err := a.graphRepo.Get(initArgs.schemaID)
-			if err != nil {
-				a.Log().Error("failed to get graph for schema ID %s: %s", initArgs.schemaID, err)
-				return gen.TerminateReasonPanic
-			}
-			a.workflow = workflow.New(initArgs.workflowID, graphRef)
-			if a.workflowRepo.Save(a.workflow) != nil {
-				a.Log().Error("failed to save workflow for ID %s: %s", initArgs.workflowID, err)
-				return nil
-			}
-			a.Log().Debug("created new workflow with ID %s", initArgs.workflowID)
-			action := a.workflow.Trigger()
-			a.Log().Debug("triggered workflow with ID %s, got action %v", initArgs.workflowID, action)
-			a.handleWorkflowAction(action)
-		} else {
-			var err error
-			a.workflow, err = a.workflowRepo.Get(initArgs.workflowID.String())
-			if err != nil {
-				a.Log().Error("failed to get workflow for ID %s: %s", initArgs.workflowID, err)
-				return gen.TerminateReasonPanic
-			}
-			a.Log().Debug("got workflow with ID %s", initArgs.workflowID)
-		}
+		return a.handleMsgActorInit(msg)
+	case messaging.FunctionResult:
+		return a.handleMsgFunctionResult(msg)
 	}
 
 	return nil
@@ -120,13 +95,76 @@ func (a *WorkflowHandler) Terminate(reason error) {
 	a.Log().Info("%s terminated with reason: %s", a.PID(), reason)
 }
 
+func (a *WorkflowHandler) handleMsgActorInit(msg messaging.Message) error {
+	initArgs, ok := msg.Args.(WorkflowHandlerInitArgs)
+	if !ok {
+		a.Log().Error("failed to get workflow init args from %s", msg)
+		return nil
+	}
+
+	if initArgs.isNewWorkflow {
+		graphRef, err := a.graphRepo.Get(initArgs.schemaID)
+		if err != nil {
+			a.Log().Error("failed to get graph for schema ID %s: %s", initArgs.schemaID, err)
+			return gen.TerminateReasonPanic
+		}
+		a.workflow = workflow.New(initArgs.workflowID, graphRef)
+		if a.workflowRepo.Save(a.workflow) != nil {
+			a.Log().Error("failed to save workflow for ID %s: %s", initArgs.workflowID, err)
+			return nil
+		}
+		a.Log().Debug("created new workflow with ID %s", initArgs.workflowID)
+
+		action := a.workflow.Trigger()
+		a.handleWorkflowAction(action)
+		a.Log().Debug("triggered workflow with ID %s, got action %v", initArgs.workflowID, action)
+	} else {
+		var err error
+		a.workflow, err = a.workflowRepo.Get(initArgs.workflowID.String())
+		if err != nil {
+			a.Log().Error("failed to get workflow for ID %s: %s", initArgs.workflowID, err)
+			return gen.TerminateReasonPanic
+		}
+		a.Log().Debug("got workflow with ID %s", initArgs.workflowID)
+
+		// TODO: exec next node
+	}
+
+	return nil
+}
+
+func (a *WorkflowHandler) handleMsgFunctionResult(msg messaging.Message) error {
+	fnResultMsg, ok := msg.Args.(messaging.FunctionResultMessage)
+	if !ok {
+		a.Log().Error("failed to get function result from %s", msg)
+	}
+
+	a.workflow.SetLogFunctionResult(fnResultMsg.ExecID, &fnResultMsg.Result)
+	if fnResultMsg.Result.Async {
+		a.Log().Debug("got async function result for workflow %s, execID %s", fnResultMsg.WorkflowID, fnResultMsg.ExecID)
+		// TODO handle async
+		return nil
+	}
+
+	a.Log().Trace("auditLog: %s", a.workflow.AuditLogTrace())
+
+	if fnResultMsg.Result.Output.Status() != pkgworkflow.FunctionSuccess {
+	}
+
+	return nil
+}
+
 func (a *WorkflowHandler) handleWorkflowAction(action workflow.Action) {
 	execAction := action.(*workflow.RunFunctionAction)
-	execFnMsg := messaging.NewExecuteFunctionMessage(a.workflow.ID, execAction.FunctionID, execAction.Args)
 
+	fnExecID := uuid.V7()
+	a.workflow.SetLogFunctionInput(fnExecID, execAction.Args)
+
+	execFnMsg := messaging.NewExecuteFunctionMessage(a.workflow.ID, execAction.FunctionID, fnExecID, execAction.Args)
 	err := a.Send(WorkflowFuncPoolName(a.workflow.ID), execFnMsg)
 	if err != nil {
-		a.Log()
+		a.Log().Error("failed to send execute function message to %s: %s", WorkflowFuncPoolName(a.workflow.ID), err)
 		return
 	}
+	a.workflow.SetState(workflow.StateRunning)
 }

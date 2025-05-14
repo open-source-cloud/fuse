@@ -3,11 +3,12 @@ package repos
 import (
 	"fmt"
 	"github.com/open-source-cloud/fuse/internal/workflow"
+	"github.com/open-source-cloud/fuse/pkg/store"
 )
 
 func NewMemoryGraphRepo() GraphRepo {
 	return &memoryGraphRepo{
-		graphs: make(map[string]*workflow.Graph),
+		graphs: store.New(),
 	}
 }
 
@@ -19,20 +20,20 @@ type (
 	}
 
 	memoryGraphRepo struct {
-		graphs map[string]*workflow.Graph
+		graphs *store.KV
 	}
 )
 
 func (m *memoryGraphRepo) Get(id string) (*workflow.Graph, error) {
-	foundGraph, ok := m.graphs[id]
-	if !ok {
+	foundGraph := m.graphs.Get(id)
+	if foundGraph == nil {
 		return nil, fmt.Errorf("graph %s not found", id)
 	}
 
-	return foundGraph, nil
+	return foundGraph.(*workflow.Graph), nil
 }
 
 func (m *memoryGraphRepo) Save(graph *workflow.Graph) error {
-	m.graphs[graph.ID()] = graph
+	m.graphs.Set(graph.ID(), graph)
 	return nil
 }

@@ -2,8 +2,8 @@ package workflow
 
 // FunctionResult the node result interface that describes the result of a node execution
 type FunctionResult struct {
-	async bool
-	output    FunctionOutput
+	Async  bool           `json:"async"`
+	Output FunctionOutput `json:"output"`
 }
 
 // NewFunctionResult returns a new node result that describes the result of a SYNC node execution with output
@@ -15,7 +15,7 @@ func NewFunctionResult(status FunctionOutputStatus, data FunctionOutputData) Fun
 		outputData = map[string]any{}
 	}
 	return FunctionResult{
-		output:    NewFunctionOutput(status, outputData),
+		Output: NewFunctionOutput(status, outputData),
 	}
 }
 
@@ -33,30 +33,7 @@ func NewFunctionResultError(err error) (FunctionResult, error) {
 // NewFunctionResultAsync returns a new node result that describes the result of an ASYNC node execution
 func NewFunctionResultAsync() FunctionResult {
 	return FunctionResult{
-		async:     true,
-		output:    nil,
-	}
-}
-
-
-func (r FunctionResult) IsAsync() bool {
-	return r.async
-}
-
-func (r FunctionResult) Output() FunctionOutput {
-	return r.output
-}
-
-func (r FunctionResult) Raw() map[string]any {
-	var status FunctionOutputStatus
-	var data FunctionOutputData
-	if r.Output() != nil {
-		status = r.Output().Status()
-		data = r.Output().Data()
-	}
-	return map[string]any{
-		"async":  r.async,
-		"status": status,
-		"data":   data,
+		Async:  true,
+		Output: NewFunctionOutput(FunctionSuccess, nil),
 	}
 }

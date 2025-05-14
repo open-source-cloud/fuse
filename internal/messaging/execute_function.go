@@ -3,7 +3,7 @@ package messaging
 import (
 	"fmt"
 	"github.com/open-source-cloud/fuse/internal/workflow"
-	"github.com/open-source-cloud/fuse/pkg/uuid"
+	"github.com/stretchr/objx"
 	"strings"
 )
 
@@ -12,17 +12,17 @@ type ExecuteFunctionMessage struct {
 	ExecID     string
 	PackageID  string
 	FunctionID string
-	Input      map[string]any
+	Input      objx.Map
 }
 
-func NewExecuteFunctionMessage(workflowID workflow.ID, functionID string, input map[string]any) Message {
+func NewExecuteFunctionMessage(workflowID workflow.ID, functionID string, functionExecID string, input objx.Map) Message {
 	lastSlashIndex := strings.LastIndex(functionID, "/")
 
 	return Message{
 		Type: ExecuteFunction,
 		Args: ExecuteFunctionMessage{
 			WorkflowID: workflowID,
-			ExecID:     uuid.V7(),
+			ExecID:     functionExecID,
 			PackageID:  functionID[:lastSlashIndex],
 			FunctionID: functionID,
 			Input:      input,

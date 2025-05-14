@@ -1,10 +1,14 @@
 package repos
 
-import "github.com/open-source-cloud/fuse/internal/workflow"
+import (
+	"fmt"
+	"github.com/open-source-cloud/fuse/internal/workflow"
+	"github.com/open-source-cloud/fuse/pkg/store"
+)
 
 func NewMemoryWorkflowRepo() WorkflowRepo {
 	return &memoryWorkflowRepo{
-		workflows: make(map[string]workflow.Workflow),
+		workflows: store.New(),
 	}
 }
 
@@ -16,24 +20,23 @@ type (
 	}
 
 	memoryWorkflowRepo struct {
-		workflows map[string]workflow.Workflow
+		workflows *store.KV
 	}
 )
 
 func (m *memoryWorkflowRepo) Exists(id string) bool {
-	_, ok := m.workflows[id]
-	return ok
+	return m.workflows.Has(id)
 }
 
 func (m *memoryWorkflowRepo) Get(id string) (*workflow.Workflow, error) {
-	foundWorkflow, ok := m.workflows[id]
-	if !ok {
-		return nil, nil
+	foundWorkflow := m.workflows.Get(id)
+	if foundWorkflow == nil {
+		return nil, fmt.Errorf("workflow %s not found", id)
 	}
-	return &foundWorkflow, nil
+	return foundWorkflow.(*workflow.Workflow), nil
 }
 
 func (m *memoryWorkflowRepo) Save(workflow *workflow.Workflow) error {
-	m.workflows[workflow.ID.String()] = *workflow
+	m.workflows.Set(workflow.ID.String(), workflow)
 	return nil
 }

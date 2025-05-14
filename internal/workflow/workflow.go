@@ -1,6 +1,11 @@
 package workflow
 
-import "github.com/open-source-cloud/fuse/pkg/uuid"
+import (
+	"github.com/open-source-cloud/fuse/pkg/uuid"
+	"github.com/open-source-cloud/fuse/pkg/workflow"
+	"github.com/rs/zerolog"
+	orderedmap "github.com/wk8/go-ordered-map/v2"
+)
 
 type (
 	State      string
@@ -33,8 +38,9 @@ const (
 
 func New(id ID, graph *Graph) *Workflow {
 	return &Workflow{
-		ID:    id,
-		graph: graph,
+		ID:       id,
+		graph:    graph,
+		auditLog: orderedmap.New[string, *auditLogEntry](),
 		state: RunningState{
 			currentState: StateUntriggered,
 		},
@@ -43,9 +49,10 @@ func New(id ID, graph *Graph) *Workflow {
 
 type (
 	Workflow struct {
-		ID    ID
-		graph *Graph
-		state RunningState
+		ID       ID
+		graph    *Graph
+		auditLog *orderedmap.OrderedMap[string, *auditLogEntry]
+		state    RunningState
 	}
 
 	RunningState struct {
@@ -76,6 +83,52 @@ func (w *Workflow) State() State {
 
 func (w *Workflow) SetState(state State) {
 	w.state.currentState = state
+}
+
+func (w *Workflow) SetLogFunctionInput(functionExecID string, input map[string]any) {
+	auditEntry, exists := w.auditLog.Get(functionExecID)
+	if !exists {
+		auditEntry = newAuditLogEntry()
+		w.auditLog.Set(functionExecID, auditEntry)
+	}
+	auditEntry.Input = input
+}
+
+func (w *Workflow) GetLogFunctionInput(functionExecID string) (map[string]any, bool) {
+	auditEntry, exists := w.auditLog.Get(functionExecID)
+	if !exists {
+		return nil, false
+	}
+	return auditEntry.Input, true
+}
+
+func (w *Workflow) GetLogFunctionResult(functionExecID string) (*workflow.FunctionResult, bool) {
+	auditEntry, exists := w.auditLog.Get(functionExecID)
+	if !exists {
+		return nil, false
+	}
+	return auditEntry.Result, true
+}
+
+func (w *Workflow) SetLogFunctionResult(functionExecID string, result *workflow.FunctionResult) {
+	auditEntry, exists := w.auditLog.Get(functionExecID)
+	if !exists {
+		auditEntry = newAuditLogEntry()
+		w.auditLog.Set(functionExecID, auditEntry)
+	}
+	auditEntry.Result = result
+}
+
+func (w *Workflow) AuditLogJSON() string {
+	json, _ := w.auditLog.MarshalJSON()
+	return string(json)
+}
+
+func (w *Workflow) AuditLogTrace() string {
+	if zerolog.GlobalLevel() == zerolog.TraceLevel {
+		return w.AuditLogJSON()
+	}
+	return ""
 }
 
 func (a *RunFunctionAction) Type() ActionType {
@@ -189,7 +242,7 @@ func (a *RunFunctionAction) Type() ActionType {
 //
 //		outputEdges := map[string]graph.Edge{}
 //		for _, node := range w.currentNode {
-//			outputMetadata := node.NodeRef().Metadata().Output()
+//			outputMetadata := node.NodeRef().Metadata().Result()
 //			nodeOutputEdges := node.OutputEdges()
 //			for k, edge := range nodeOutputEdges {
 //				if edge.IsConditional() && outputMetadata.ConditionalOutput {
@@ -262,7 +315,7 @@ func (a *RunFunctionAction) Type() ActionType {
 //		return nil, err
 //	}
 //
-//	audit.Info().Workflow(w.id).NodeInputOutput(node.ID(), input.Raw(), result.Map()).Msg("node executed")
+//	audit.Info().Workflow(w.id).NodeInputOutput(node.ID(), input.ToMap(), result.Map()).Msg("node executed")
 //
 //	var output workflow.FunctionOutput
 //	async, isAsync := result.Async()
@@ -277,7 +330,7 @@ func (a *RunFunctionAction) Type() ActionType {
 //		return nil, nil
 //	}
 //
-//	output = result.Output()
+//	output = result.Result()
 //	if output.Status() == workflow.FunctionSuccess {
 //		return output.Args(), nil
 //	}
@@ -295,7 +348,7 @@ func (a *RunFunctionAction) Type() ActionType {
 //	asyncCount := 0
 //	asyncQueue := make(chan struct {
 //		EdgeID string
-//		Output workflow.FunctionOutput
+//		Result workflow.FunctionOutput
 //	})
 //
 //	for _, edge := range outputEdges {
@@ -326,12 +379,12 @@ func (a *RunFunctionAction) Type() ActionType {
 //				done := <-async
 //				asyncQueue <- struct {
 //					EdgeID string
-//					Output workflow.FunctionOutput
-//				}{EdgeID: edge.ID(), Output: done}
+//					Result workflow.FunctionOutput
+//				}{EdgeID: edge.ID(), Result: done}
 //			}()
 //			continue
 //		}
-//		output := result.Output()
+//		output := result.Result()
 //		if output.Status() != workflow.FunctionSuccess {
 //			status = output.Status()
 //			break
@@ -341,19 +394,19 @@ func (a *RunFunctionAction) Type() ActionType {
 //	//goland:noinspection ALL
 //	if asyncCount == 0 {
 //		if status == workflow.FunctionSuccess {
-//			return aggregatedOutput.Raw(), nil
+//			return aggregatedOutput.ToMap(), nil
 //		}
-//		return nil, fmt.Errorf("node failed with output %v", aggregatedOutput.Raw())
+//		return nil, fmt.Errorf("node failed with output %v", aggregatedOutput.ToMap())
 //	}
 //	go func() {
 //		for asyncCount > 0 {
 //			done := <-asyncQueue
-//			if done.Output.Status() == workflow.FunctionSuccess {
-//				aggregatedOutput.Set(fmt.Sprintf("edges.%s", done.EdgeID), done.Output.Args())
+//			if done.Result.Status() == workflow.FunctionSuccess {
+//				aggregatedOutput.Set(fmt.Sprintf("edges.%s", done.EdgeID), done.Result.Args())
 //			}
 //			asyncCount--
 //		}
-//		w.SendMessage(ctx, actors.NewMessage(workflowmsg.Continue, actors.MessageData(aggregatedOutput.Raw())))
+//		w.SendMessage(ctx, actors.NewMessage(workflowmsg.Continue, actors.MessageData(aggregatedOutput.ToMap())))
 //	}()
 //
 //	return nil, nil
@@ -445,7 +498,7 @@ func (a *RunFunctionAction) Type() ActionType {
 //
 //	}
 //
-//	audit.Debug().Workflow(w.id).Node(node.ID()).Msgf("FunctionInput: %v", nodeInput.Raw())
+//	audit.Debug().Workflow(w.id).Node(node.ID()).Msgf("FunctionInput: %v", nodeInput.ToMap())
 //
 //	return nodeInput, nil
 //}
