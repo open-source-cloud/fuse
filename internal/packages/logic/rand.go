@@ -12,9 +12,8 @@ const RandFunctionID = "rand"
 
 // RandFunctionMetadata returns the metadata of the rand function
 func RandFunctionMetadata() workflow.FunctionMetadata {
-	return workflow.NewFunctionMetadata(
-		// input
-		workflow.InputMetadata{
+	return workflow.FunctionMetadata{
+		Input: workflow.InputMetadata{
 			Parameters: workflow.Parameters{
 				"min": workflow.ParameterSchema{
 					Name:        "min",
@@ -34,8 +33,7 @@ func RandFunctionMetadata() workflow.FunctionMetadata {
 				},
 			},
 		},
-		// output
-		workflow.OutputMetadata{
+		Output: workflow.OutputMetadata{
 			Parameters: workflow.Parameters{
 				"rand": workflow.ParameterSchema{
 					Name:        "rand",
@@ -45,7 +43,7 @@ func RandFunctionMetadata() workflow.FunctionMetadata {
 				},
 			},
 		},
-	)
+	}
 }
 
 // RandFunction executes the rand function and returns a random number
@@ -60,7 +58,7 @@ func RandFunction(input *workflow.FunctionInput) (workflow.FunctionResult, error
 
 	randomNumber := int(randomNumberBig.Int64()) + minValue
 
-	return workflow.NewFunctionResult(workflow.FunctionSuccess, map[string]any{
+	return workflow.NewFunctionResultSuccessWith(map[string]any{
 		"rand": randomNumber,
 	}), nil
 }

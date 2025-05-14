@@ -19,6 +19,13 @@ func NewFunctionResult(status FunctionOutputStatus, data FunctionOutputData) Fun
 	}
 }
 
+func NewFunctionResultSuccess() FunctionResult {
+	return NewFunctionResult(FunctionSuccess, nil)
+}
+func NewFunctionResultSuccessWith(data FunctionOutputData) FunctionResult {
+	return NewFunctionResult(FunctionSuccess, data)
+}
+
 func NewFunctionResultError(err error) (FunctionResult, error) {
 	return NewFunctionResult(FunctionError, map[string]any{"error": err}), err
 }

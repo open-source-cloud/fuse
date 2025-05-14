@@ -7,13 +7,10 @@ import (
 const NilFunctionID = "nil"
 
 func NilFunctionMetadata() workflow.FunctionMetadata {
-	return workflow.NewFunctionMetadata(
-		workflow.InputMetadata{},
-		workflow.OutputMetadata{},
-	)
+	return workflow.FunctionMetadata{}
 }
 
 // NilFunction executes the nil function
 func NilFunction(_ *workflow.FunctionInput) (workflow.FunctionResult, error) {
-	return workflow.NewFunctionResult(workflow.FunctionSuccess, nil), nil
+	return workflow.NewFunctionResultSuccess(), nil
 }

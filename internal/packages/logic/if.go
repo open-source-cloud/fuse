@@ -10,9 +10,8 @@ const IfFunctionID = "if"
 
 // IfFunctionMetadata returns the metadata of the if function
 func IfFunctionMetadata() workflow.FunctionMetadata {
-	return workflow.NewFunctionMetadata(
-		// input
-		workflow.InputMetadata{
+	return workflow.FunctionMetadata{
+		Input: workflow.InputMetadata{
 			CustomParameters: true,
 			Parameters: workflow.Parameters{
 				"expression": workflow.ParameterSchema{
@@ -25,8 +24,7 @@ func IfFunctionMetadata() workflow.FunctionMetadata {
 				},
 			},
 		},
-		// output
-		workflow.OutputMetadata{
+		Output: workflow.OutputMetadata{
 			ConditionalOutput: true,
 			Edges: map[string]workflow.OutputEdgeMetadata{
 				"condition-true": {
@@ -45,7 +43,7 @@ func IfFunctionMetadata() workflow.FunctionMetadata {
 				},
 			},
 		},
-	)
+	}
 }
 
 // IfFunction executes the if function and returns the result
@@ -65,5 +63,5 @@ func IfFunction(input *workflow.FunctionInput) (workflow.FunctionResult, error) 
 		return workflow.NewFunctionResultError(fmt.Errorf("failed to evaluate expression: %w", err))
 	}
 
-	return workflow.NewFunctionResult(workflow.FunctionSuccess, map[string]any{"result": result}), nil
+	return workflow.NewFunctionResultSuccessWith(map[string]any{"result": result}), nil
 }

@@ -10,9 +10,8 @@ const SumFunctionID = "sum"
 
 // SumFunctionMetadata returns the metadata of the sum function
 func SumFunctionMetadata() workflow.FunctionMetadata {
-	return workflow.NewFunctionMetadata(
-		// input
-		workflow.InputMetadata{
+	return workflow.FunctionMetadata{
+		Input: workflow.InputMetadata{
 			Parameters: workflow.Parameters{
 				"values": workflow.ParameterSchema{
 					Name:        "values",
@@ -23,12 +22,8 @@ func SumFunctionMetadata() workflow.FunctionMetadata {
 					Default:     []int{},
 				},
 			},
-			Edges: workflow.InputEdgeMetadata{
-				Parameters: workflow.Parameters{},
-			},
 		},
-		// output
-		workflow.OutputMetadata{
+		Output: workflow.OutputMetadata{
 			Parameters: workflow.Parameters{
 				"result": workflow.ParameterSchema{
 					Name:        "sum",
@@ -39,7 +34,7 @@ func SumFunctionMetadata() workflow.FunctionMetadata {
 				},
 			},
 		},
-	)
+	}
 }
 
 // SumFunction executes the sum function and returns the sum of the values

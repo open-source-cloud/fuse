@@ -11,8 +11,8 @@ const TimerFunctionID = "timer"
 
 // TimerFunctionMetadata returns the metadata of the timer function
 func TimerFunctionMetadata() workflow.FunctionMetadata {
-	return workflow.NewFunctionMetadata(
-		workflow.InputMetadata{
+	return workflow.FunctionMetadata{
+		Input: workflow.InputMetadata{
 			Parameters: workflow.Parameters{
 				"values": workflow.ParameterSchema{
 					Name:        "timer",
@@ -24,8 +24,7 @@ func TimerFunctionMetadata() workflow.FunctionMetadata {
 				},
 			},
 		},
-		workflow.OutputMetadata{},
-	)
+	}
 }
 
 // TimerFunction executes timer function
