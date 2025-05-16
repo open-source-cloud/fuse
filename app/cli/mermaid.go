@@ -39,17 +39,19 @@ func mermaidHandler() {
 		return
 	}
 
+	graphFactory := workflow.NewGraphFactoryWithoutMetadata()
+
 	var graph *workflow.Graph
 	specFileExt := path.Ext(mermaidSpecFile)
 	switch specFileExt {
 	case ".json":
-		graph, err = workflow.NewGraphFromJSON(spec)
+		graph, err = graphFactory.NewGraphFromJSON(spec)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to parse workflow JSON spec file")
 			return
 		}
 	case ".yaml":
-		graph, err = workflow.NewGraphFromYAML(spec)
+		graph, err = graphFactory.NewGraphFromYAML(spec)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to parse a workflow YAML spec file")
 			return

@@ -6,11 +6,12 @@ import (
 	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/open-source-cloud/fuse/internal/repos"
 	"github.com/open-source-cloud/fuse/internal/server/handlers"
+	"github.com/open-source-cloud/fuse/internal/workflow"
 	"github.com/rs/zerolog/log"
 	"time"
 )
 
-func New(config *config.Config, graphRepo repos.GraphRepo, messageChan chan<- any) *fiber.App {
+func New(config *config.Config, graphFactory *workflow.GraphFactory, graphRepo repos.GraphRepo, messageChan chan<- any) *fiber.App {
 	app := fiber.New(fiber.Config{
 		Immutable:     true,
 		StrictRouting: true,
@@ -27,7 +28,7 @@ func New(config *config.Config, graphRepo repos.GraphRepo, messageChan chan<- an
 		return err
 	})
 
-	app.Put("/api/workflow/schema", handlers.NewUpsertWorkflowSchemaHandler(graphRepo).Handle)
+	app.Put("/api/workflow/schema", handlers.NewUpsertWorkflowSchemaHandler(graphFactory, graphRepo).Handle)
 	app.Post("/api/workflow", handlers.NewTriggerWorkflowHandler(messageChan).Handle)
 
 	go func() {

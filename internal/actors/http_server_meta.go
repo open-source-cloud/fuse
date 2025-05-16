@@ -6,24 +6,27 @@ import (
 	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/open-source-cloud/fuse/internal/repos"
 	"github.com/open-source-cloud/fuse/internal/server"
+	"github.com/open-source-cloud/fuse/internal/workflow"
 )
 
 const HttpServerMeta = "http_server_meta"
 
-func NewHttpServerMeta(cfg *config.Config, graphRepo repos.GraphRepo) gen.MetaBehavior {
+func NewHttpServerMeta(cfg *config.Config, graphFactory *workflow.GraphFactory, graphRepo repos.GraphRepo) gen.MetaBehavior {
 	return &httpServerMeta{
-		config:      cfg,
-		graphRepo:   graphRepo,
-		messageChan: make(chan any, 10),
+		config:       cfg,
+		graphFactory: graphFactory,
+		graphRepo:    graphRepo,
+		messageChan:  make(chan any, 10),
 	}
 }
 
 type httpServerMeta struct {
 	gen.MetaProcess
-	config      *config.Config
-	graphRepo  repos.GraphRepo
-	server      *fiber.App
-	messageChan chan any
+	config       *config.Config
+	graphFactory *workflow.GraphFactory
+	graphRepo    repos.GraphRepo
+	server       *fiber.App
+	messageChan  chan any
 }
 
 func (m *httpServerMeta) Init(meta gen.MetaProcess) error {
@@ -41,7 +44,7 @@ func (m *httpServerMeta) Start() error {
 			return
 		}
 	}()
-	m.server = server.New(m.config, m.graphRepo, m.messageChan)
+	m.server = server.New(m.config, m.graphFactory, m.graphRepo, m.messageChan)
 
 	for v := range m.messageChan {
 		err := m.Send(m.Parent(), v)

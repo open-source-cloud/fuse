@@ -7,20 +7,22 @@ import (
 	"net/http"
 )
 
-func NewUpsertWorkflowSchemaHandler(graphRepo repos.GraphRepo) *UpsertWorkflowSchemaHandler {
+func NewUpsertWorkflowSchemaHandler(graphFactory *workflow.GraphFactory, graphRepo repos.GraphRepo) *UpsertWorkflowSchemaHandler {
 	return &UpsertWorkflowSchemaHandler{
+		graphFactory: graphFactory,
 		graphRepo: graphRepo,
 	}
 }
 
 type UpsertWorkflowSchemaHandler struct {
+	graphFactory *workflow.GraphFactory
 	graphRepo repos.GraphRepo
 }
 
 func (h *UpsertWorkflowSchemaHandler) Handle(ctx fiber.Ctx) error {
 	rawJSON := ctx.Body()
 
-	graph, err := workflow.NewGraphFromJSON(rawJSON)
+	graph, err := h.graphFactory.NewGraphFromJSON(rawJSON)
 	if err != nil {
 		return err
 	}

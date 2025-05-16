@@ -40,7 +40,7 @@
       "input": [
         {
           "source": "edges",
-          "variable": "0196cf19-c319-7c3a-ac82-69a63b8e88d5.rand",
+          "variable": "logic-rand.rand",
           "mapTo": "values"
         }
       ]

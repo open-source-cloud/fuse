@@ -7,12 +7,12 @@ import (
 )
 
 type ExecuteFunctionMessage struct {
-	WorkflowID workflow.ID
-	Thread     int
-	ExecID     string
-	PackageID  string
-	FunctionID string
-	Input      map[string]any
+	WorkflowID workflow.ID    `json:"workflow_id"`
+	ThreadID   int            `json:"thread_id"`
+	ExecID     string         `json:"exec_id"`
+	PackageID  string         `json:"package_id"`
+	FunctionID string         `json:"function_id"`
+	Input      map[string]any `json:"input"`
 }
 
 func NewExecuteFunctionMessage(workflowID workflow.ID, execAction *workflow.RunFunctionAction) Message {
@@ -22,7 +22,7 @@ func NewExecuteFunctionMessage(workflowID workflow.ID, execAction *workflow.RunF
 		Type: ExecuteFunction,
 		Args: ExecuteFunctionMessage{
 			WorkflowID: workflowID,
-			Thread:     execAction.ThreadID,
+			ThreadID:   execAction.ThreadID,
 			ExecID:     execAction.FunctionExecID,
 			PackageID:  execAction.FunctionID[:lastSlashIndex],
 			FunctionID: execAction.FunctionID,

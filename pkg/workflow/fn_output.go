@@ -11,16 +11,13 @@ const (
 // FunctionOutputStatus node output status type
 type FunctionOutputStatus string
 
-// FunctionOutputData node output data type
-type FunctionOutputData map[string]any
-
 type FunctionOutput struct {
 	status FunctionOutputStatus
-	data   FunctionOutputData
+	data   map[string]any
 }
 
 // NewFunctionOutput creates a new node output object with status and data with the result of the execution
-func NewFunctionOutput(status FunctionOutputStatus, data FunctionOutputData) FunctionOutput {
+func NewFunctionOutput(status FunctionOutputStatus, data map[string]any) FunctionOutput {
 	return FunctionOutput{
 		status: status,
 		data:   data,
@@ -31,6 +28,6 @@ func (o FunctionOutput) Status() FunctionOutputStatus {
 	return o.status
 }
 
-func (o FunctionOutput) Data() FunctionOutputData {
+func (o FunctionOutput) Data() map[string]any {
 	return o.data
 }

@@ -41,7 +41,7 @@ func setupWorkflowFlags(workflowCmd *cobra.Command) {
 	workflowCmd.Flags().StringVarP(&workflowSpecFile, "config", "c", "", "Path to the workflow config file")
 }
 
-func workflowRunner(graphRepo repos.GraphRepo) {
+func workflowRunner(graphFactory *workflow.GraphFactory, graphRepo repos.GraphRepo) {
 	// We are ok with reading the file here because we are in the CLI
 	spec, err := os.ReadFile(workflowSpecFile)
 	if err != nil {
@@ -53,13 +53,13 @@ func workflowRunner(graphRepo repos.GraphRepo) {
 	specFileExt := path.Ext(workflowSpecFile)
 	switch specFileExt {
 	case ".json":
-		graph, err = workflow.NewGraphFromJSON(spec)
+		graph, err = graphFactory.NewGraphFromJSON(spec)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to parse workflow JSON spec file")
 			return
 		}
 	case ".yaml":
-		graph, err = workflow.NewGraphFromYAML(spec)
+		graph, err = graphFactory.NewGraphFromYAML(spec)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to parse a workflow YAML spec file")
 			return

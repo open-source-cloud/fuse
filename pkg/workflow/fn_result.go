@@ -7,8 +7,8 @@ type FunctionResult struct {
 }
 
 // NewFunctionResult returns a new node result that describes the result of a SYNC node execution with output
-func NewFunctionResult(status FunctionOutputStatus, data FunctionOutputData) FunctionResult {
-	var outputData FunctionOutputData
+func NewFunctionResult(status FunctionOutputStatus, data map[string]any) FunctionResult {
+	var outputData map[string]any
 	if data != nil {
 		outputData = data
 	} else {
@@ -22,7 +22,7 @@ func NewFunctionResult(status FunctionOutputStatus, data FunctionOutputData) Fun
 func NewFunctionResultSuccess() FunctionResult {
 	return NewFunctionResult(FunctionSuccess, nil)
 }
-func NewFunctionResultSuccessWith(data FunctionOutputData) FunctionResult {
+func NewFunctionResultSuccessWith(data map[string]any) FunctionResult {
 	return NewFunctionResult(FunctionSuccess, data)
 }
 

@@ -7,7 +7,7 @@ import (
 	"sort"
 )
 
-func NewGraphSchemaFromJSON(jsonSpec []byte) (*GraphSchema, error) {
+func newGraphSchemaFromJSON(jsonSpec []byte) (*GraphSchema, error) {
 	var schema GraphSchema
 	err := yaml.Unmarshal(jsonSpec, &schema)
 	if err != nil {
@@ -16,7 +16,7 @@ func NewGraphSchemaFromJSON(jsonSpec []byte) (*GraphSchema, error) {
 	return &schema, nil
 }
 
-func NewGraphSchemaFromYAML(yamlSpec []byte) (*GraphSchema, error) {
+func newGraphSchemaFromYAML(yamlSpec []byte) (*GraphSchema, error) {
 	var schema GraphSchema
 	err := yaml.Unmarshal(yamlSpec, &schema)
 	if err != nil {
@@ -25,23 +25,23 @@ func NewGraphSchemaFromYAML(yamlSpec []byte) (*GraphSchema, error) {
 	return &schema, nil
 }
 
-func NewGraphFromJSON(jsonSpec []byte) (*Graph, error) {
-	schema, err := NewGraphSchemaFromJSON(jsonSpec)
+func newGraphFromJSON(jsonSpec []byte) (*Graph, error) {
+	schema, err := newGraphSchemaFromJSON(jsonSpec)
 	if err != nil {
 		return nil, err
 	}
-	return NewGraphFromSchema(schema)
+	return newGraphFromSchema(schema)
 }
 
-func NewGraphFromYAML(yamlSpec []byte) (*Graph, error) {
-	schema, err := NewGraphSchemaFromYAML(yamlSpec)
+func newGraphFromYAML(yamlSpec []byte) (*Graph, error) {
+	schema, err := newGraphSchemaFromYAML(yamlSpec)
 	if err != nil {
 		return nil, err
 	}
-	return NewGraphFromSchema(schema)
+	return newGraphFromSchema(schema)
 }
 
-func NewGraphFromSchema(schema *GraphSchema) (*Graph, error) {
+func newGraphFromSchema(schema *GraphSchema) (*Graph, error) {
 	graph := &Graph{
 		schema: schema,
 		nodes:  make(map[string]*Node),

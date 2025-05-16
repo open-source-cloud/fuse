@@ -9,6 +9,7 @@ import (
 	"github.com/open-source-cloud/fuse/internal/packages/debug"
 	"github.com/open-source-cloud/fuse/internal/packages/logic"
 	"github.com/open-source-cloud/fuse/internal/repos"
+	"github.com/open-source-cloud/fuse/internal/workflow"
 	"github.com/open-source-cloud/fuse/logging"
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
@@ -37,6 +38,7 @@ var FuseAppModule = fx.Module(
 		repos.NewMemoryGraphRepo,
 		repos.NewMemoryWorkflowRepo,
 		// other services
+		workflow.NewGraphFactory,
 		packages.NewPackageRegistry,
 		// apps
 		app.NewApp,

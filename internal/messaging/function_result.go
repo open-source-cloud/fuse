@@ -7,10 +7,10 @@ import (
 )
 
 type FunctionResultMessage struct {
-	WorkflowID workflow.ID
-	ThreadID   int
-	ExecID     string
-	Result     pubworkflow.FunctionResult
+	WorkflowID workflow.ID                `json:"workflow_id"`
+	ThreadID   int                        `json:"thread_id"`
+	ExecID     string                     `json:"exec_id"`
+	Result     pubworkflow.FunctionResult `json:"result"`
 }
 
 func NewFunctionResultMessage(workflowID workflow.ID, thread int, execID string, result pubworkflow.FunctionResult) Message {

@@ -6,18 +6,20 @@ import (
 	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/open-source-cloud/fuse/internal/messaging"
 	"github.com/open-source-cloud/fuse/internal/repos"
+	"github.com/open-source-cloud/fuse/internal/workflow"
 )
 
 const HttpServerActorName = "http_server"
 
 type HttpServerActorFactory Factory[*HttpServerActor]
 
-func NewHttpServerActorFactory(cfg *config.Config, graphRepo repos.GraphRepo) *HttpServerActorFactory {
+func NewHttpServerActorFactory(cfg *config.Config, graphFactory *workflow.GraphFactory, graphRepo repos.GraphRepo) *HttpServerActorFactory {
 	return &HttpServerActorFactory{
 		Factory: func() gen.ProcessBehavior {
 			return &HttpServerActor{
-				config:    cfg,
-				graphRepo: graphRepo,
+				config:       cfg,
+				graphFactory: graphFactory,
+				graphRepo:    graphRepo,
 			}
 		},
 	}
@@ -25,8 +27,9 @@ func NewHttpServerActorFactory(cfg *config.Config, graphRepo repos.GraphRepo) *H
 
 type HttpServerActor struct {
 	act.Actor
-	config    *config.Config
-	graphRepo repos.GraphRepo
+	config       *config.Config
+	graphFactory *workflow.GraphFactory
+	graphRepo    repos.GraphRepo
 }
 
 // Init (args ...any)
@@ -34,7 +37,7 @@ func (a *HttpServerActor) Init(_ ...any) error {
 	// get the gen.Log interface using Log method of embedded gen.Process interface
 	a.Log().Debug("starting process %s", a.PID())
 
-	metaBehavior := NewHttpServerMeta(a.config, a.graphRepo)
+	metaBehavior := NewHttpServerMeta(a.config, a.graphFactory, a.graphRepo)
 	metaID, err := a.SpawnMeta(metaBehavior, gen.MetaOptions{})
 	if err != nil {
 		return err
