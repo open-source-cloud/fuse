@@ -7,20 +7,22 @@ import (
 type (
 	// Node is a Graph Node
 	Node struct {
-		schema      *NodeSchema
-		thread      int
-		inputEdges  []*Edge
-		outputEdges []*Edge
+		schema        *NodeSchema
+		thread        int
+		parentThreads []int
+		inputEdges    []*Edge
+		outputEdges   []*Edge
 	}
 )
 
 // newNode creates a new Graph Node
 func newNode(schema *NodeSchema) *Node {
 	return &Node{
-		schema:      schema,
-		thread:      0,
-		inputEdges:  make([]*Edge, 0),
-		outputEdges: make([]*Edge, 0),
+		schema:        schema,
+		thread:        0,
+		parentThreads: []int{},
+		inputEdges:    make([]*Edge, 0),
+		outputEdges:   make([]*Edge, 0),
 	}
 }
 

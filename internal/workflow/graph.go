@@ -3,8 +3,8 @@ package workflow
 import (
 	"fmt"
 	"github.com/TyphonHill/go-mermaid/diagrams/flowchart"
-	"github.com/open-source-cloud/fuse/pkg/arr"
 	"gopkg.in/yaml.v3"
+	"sort"
 )
 
 func NewGraphSchemaFromJSON(jsonSpec []byte) (*GraphSchema, error) {
@@ -112,13 +112,11 @@ func (g *Graph) MermaidFlowchart() string {
 
 	// Add nodes with custom labels
 	for _, node := range g.nodes {
-		var label string
+		label := fmt.Sprintf("ID: %s\\nFunction: %s\\nThread: %d\\nParentThreads: %v",
+			node.ID(), node.FunctionID(), node.Thread(), node.parentThreads)
 		if len(node.InputEdges()) > 0 && node.InputEdges()[0].IsConditional() {
-			label = fmt.Sprintf("ID: %s\\nFunction: %s\\nThread: %d\\n(cond: %s)",
-				node.ID(), node.FunctionID(), node.Thread(), node.InputEdges()[0].Condition().Name)
-		} else {
-			label = fmt.Sprintf("ID: %s\\nFunction: %s\\nThread: %d",
-				node.ID(), node.FunctionID(), node.Thread())
+			label = fmt.Sprintf("%s\\n(cond: %s)",
+				label, node.InputEdges()[0].Condition().Name)
 		}
 		key := chart.AddNode(label)
 		nodeKeys[node] = key
@@ -139,37 +137,103 @@ func (g *Graph) MermaidFlowchart() string {
 }
 
 func (g *Graph) calculateThreads() {
-	threads := map[int][]*Node{}
+	visited := make(map[string]map[string]bool) // node.ID() -> thread-key -> bool
+	var threadCounter int
 
-	var dfs func(*Node, int)
-	dfs = func(node *Node, thread int) {
-		if len(threads) <= thread {
-			threads[thread] = []*Node{}
+	newThreadID := func() int {
+		threadCounter++
+		return threadCounter
+	}
+
+	// Helper to create a stable string from a list of parent threads
+	makeParentKey := func(parentThreads []int) string {
+		if len(parentThreads) == 0 {
+			return ""
 		}
-		threads[thread] = append(threads[thread], node)
+		cp := append([]int(nil), parentThreads...)
+		sort.Ints(cp)
+		key := ""
+		for i, t := range cp {
+			if i > 0 {
+				key += ","
+			}
+			key += fmt.Sprintf("%d", t)
+		}
+		return key
+	}
+
+	var walk func(node *Node, thread int, parentThreads []int)
+	walk = func(node *Node, thread int, parentThreads []int) {
+		key := fmt.Sprintf("%d|%s", thread, makeParentKey(parentThreads))
+		id := node.ID()
+		if visited[id] == nil {
+			visited[id] = map[string]bool{}
+		}
+		if visited[id][key] {
+			return
+		}
+		visited[id][key] = true
+
 		node.thread = thread
 
-		// Split edges by conditional, if they exist. Use "" for non-conditional edges
-		conditionalEdges := map[string][]*Edge{"": []*Edge{}}
-		for _, edge := range node.OutputEdges() {
-			if edge.IsConditional() {
-				conditionalEdges[edge.Condition().Name] = append(conditionalEdges[edge.Condition().Name], edge)
-			} else {
-				conditionalEdges[""] = append(conditionalEdges[""], edge)
+		// At a join, use the true parent set; else, don't set self as parent
+		if len(parentThreads) > 1 {
+			node.parentThreads = append([]int(nil), parentThreads...) // These are real merging parents!
+		} else {
+			node.parentThreads = nil // No multi-parent, so leave empty or nil
+		}
+
+		wasJoin := false
+		// Handle join/merge: multiple incoming edges
+		if len(node.InputEdges()) > 1 {
+			parentThreadSet := make(map[int]struct{})
+			for _, edge := range node.InputEdges() {
+				p := edge.From().thread
+				parentThreadSet[p] = struct{}{}
+			}
+			if len(parentThreadSet) > 1 {
+				pt := make([]int, 0, len(parentThreadSet))
+				for p := range parentThreadSet {
+					pt = append(pt, p)
+				}
+				sort.Ints(pt)
+				newThread := newThreadID()
+				node.thread = newThread
+				node.parentThreads = pt // True parents
+				thread = newThread
+				parentThreads = pt // Propagate for downstream, but was a join
+				wasJoin = true
 			}
 		}
-		// walk through all edges, by conditional
-		for _, edges := range conditionalEdges {
-			for i, edge := range edges {
-				newThread := thread + i
-				for i, threadList := range threads {
-					if arr.Contains(threadList, edge.To()) {
-						newThread = i
-					}
+
+		// Group output edges by condition name
+		condGroups := make(map[string][]*Edge)
+		for _, edge := range node.OutputEdges() {
+			condName := ""
+			if edge.Condition() != nil {
+				condName = edge.Condition().Name
+			}
+			condGroups[condName] = append(condGroups[condName], edge)
+		}
+
+		for _, edges := range condGroups {
+			if len(edges) == 1 {
+				// If this node was a join, downstream becomes single-parent (this thread)
+				if wasJoin {
+					walk(edges[0].To(), thread, nil)
+				} else {
+					walk(edges[0].To(), thread, nil)
 				}
-				dfs(edge.To(), newThread)
+			} else if len(edges) > 1 {
+				// Fork: each outgoing edge is a new thread, parent is the fork point's thread
+				for _, edge := range edges {
+					tID := newThreadID()
+					walk(edge.To(), tID, nil)
+				}
 			}
 		}
 	}
-	dfs(g.trigger, 0)
+
+	walk(g.trigger, 0, []int{0})
+
 }
