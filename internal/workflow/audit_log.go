@@ -11,9 +11,9 @@ func NewAuditLog() *AuditLog {
 	}
 }
 
-func NewAuditLogEntry(thread int, functionNodeID string, input map[string]any) *AuditLogEntry {
+func NewAuditLogEntry(threadID int, functionNodeID string, input map[string]any) *AuditLogEntry {
 	return &AuditLogEntry{
-		Thread:         thread,
+		ThreadID:       threadID,
 		FunctionNodeID: functionNodeID,
 		Input:          input,
 		Result:         nil,
@@ -26,15 +26,15 @@ type (
 	}
 
 	AuditLogEntry struct {
-		Thread         int                      `json:"thread"`
+		ThreadID       int                      `json:"thread_id"`
 		FunctionNodeID string                   `json:"function_node_id"`
 		Input          map[string]any           `json:"input,omitempty"`
 		Result         *workflow.FunctionResult `json:"result,omitempty"`
 	}
 )
 
-func (a *AuditLog) NewEntry(thread int, functionNodeID string, functionExecID string, input map[string]any) *AuditLogEntry {
-	newEntry := NewAuditLogEntry(thread, functionNodeID, input)
+func (a *AuditLog) NewEntry(threadID int, functionNodeID string, functionExecID string, input map[string]any) *AuditLogEntry {
+	newEntry := NewAuditLogEntry(threadID, functionNodeID, input)
 	a.log.Set(functionExecID, newEntry)
 	return newEntry
 }

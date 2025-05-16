@@ -8,7 +8,7 @@ import (
 
 type FunctionResultMessage struct {
 	WorkflowID workflow.ID
-	Thread     int
+	ThreadID   int
 	ExecID     string
 	Result     pubworkflow.FunctionResult
 }
@@ -18,7 +18,7 @@ func NewFunctionResultMessage(workflowID workflow.ID, thread int, execID string,
 		Type: FunctionResult,
 		Args: FunctionResultMessage{
 			WorkflowID: workflowID,
-			Thread:     thread,
+			ThreadID:   thread,
 			ExecID:     execID,
 			Result:     result,
 		},

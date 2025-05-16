@@ -37,6 +37,6 @@ func (m *memoryWorkflowRepo) Get(id string) (*workflow.Workflow, error) {
 }
 
 func (m *memoryWorkflowRepo) Save(workflow *workflow.Workflow) error {
-	m.workflows.Set(workflow.ID.String(), workflow)
+	m.workflows.Set(workflow.ID().String(), workflow)
 	return nil
 }

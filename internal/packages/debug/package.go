@@ -5,7 +5,7 @@ import (
 	"github.com/open-source-cloud/fuse/internal/packages"
 )
 
-// PackageID is the ID of the debug function package
+// PackageID is the id of the debug function package
 const PackageID = "fuse/pkg/debug"
 
 // New creates a new Package

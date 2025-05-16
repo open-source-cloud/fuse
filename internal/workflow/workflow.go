@@ -33,10 +33,10 @@ const (
 
 func New(id ID, graph *Graph) *Workflow {
 	return &Workflow{
-		ID:       id,
+		id:       id,
 		graph:    graph,
 		auditLog: NewAuditLog(),
-		threads:  nil,
+		threads:  newThreads(),
 		state: RunningState{
 			currentState: StateUntriggered,
 		},
@@ -45,21 +45,15 @@ func New(id ID, graph *Graph) *Workflow {
 
 type (
 	Workflow struct {
-		ID       ID
+		id       ID
 		graph    *Graph
 		auditLog *AuditLog
-		threads  []*Thread
+		threads  *threads
 		state    RunningState
 	}
 
 	RunningState struct {
 		currentState State
-	}
-
-	Thread struct {
-		ParentThread     int
-		CurrentExecID    string
-		AggregatedOutput *store.KV
 	}
 )
 
@@ -67,59 +61,53 @@ func (w *Workflow) Trigger() Action {
 	execID := uuid.V7()
 	triggerNode := w.graph.Trigger()
 
-	w.threads = []*Thread{
-		{ParentThread: -1, CurrentExecID: execID, AggregatedOutput: store.New()},
-	}
-	w.auditLog.NewEntry(0, triggerNode.ID(), execID, nil)
+	triggerThread := w.threads.New(triggerNode.thread, execID)
+	w.auditLog.NewEntry(triggerThread.ID(), triggerNode.ID(), execID, nil)
 
 	return &RunFunctionAction{
+		ThreadID:       triggerThread.ID(),
 		FunctionID:     triggerNode.FunctionID(),
 		FunctionExecID: execID,
 		Args:           map[string]any{},
 	}
 }
 
-func (w *Workflow) Next(threadIndex int) Action {
-	thread := w.threads[threadIndex]
-	currentAuditEntry, _ := w.auditLog.Get(thread.CurrentExecID)
+func (w *Workflow) Next(threadID int) Action {
+	currentThread := w.threads.Get(threadID)
+	currentAuditEntry, _ := w.auditLog.Get(currentThread.CurrentExecID())
 	currentNode, _ := w.graph.FindNode(currentAuditEntry.FunctionNodeID)
 
 	switch len(currentNode.OutputEdges()) {
 	case 0:
 		// TODO - finished this thread
+		currentThread.SetState(StateFinished)
 		return &NoopAction{}
 	case 1:
 		execID := uuid.V7()
 		edge := currentNode.OutputEdges()[0]
-		args := w.inputMapping(threadIndex, edge)
+		args := w.inputMapping(currentThread, edge)
 
-		thread.CurrentExecID = execID
-		thread.AggregatedOutput = store.New()
-		w.auditLog.NewEntry(threadIndex, edge.To().ID(), execID, args)
+		currentThread.SetCurrentExecID(execID, true)
+		w.auditLog.NewEntry(currentThread.ID(), edge.To().ID(), execID, args)
 		return &RunFunctionAction{
-			Thread:         0,
+			ThreadID:       currentThread.ID(),
 			FunctionID:     edge.To().FunctionID(),
 			FunctionExecID: execID,
 			Args:           args,
 		}
-	default:
+	default: // >1
 		parallelAction := &RunParallelFunctionsAction{
 			Actions: make([]*RunFunctionAction, 0, len(currentNode.OutputEdges())),
 		}
 		for _, edge := range currentNode.OutputEdges() {
+			node := edge.To()
 			execID := uuid.V7()
-			args := w.inputMapping(threadIndex, edge)
+			args := w.inputMapping(currentThread, edge)
 
-			newThreadIndex := len(w.threads)
-			newThread := &Thread{
-				ParentThread:     threadIndex,
-				CurrentExecID:    execID,
-				AggregatedOutput: store.New(),
-			}
-			w.threads = append(w.threads, newThread)
-			w.auditLog.NewEntry(newThreadIndex, edge.To().ID(), execID, args)
+			newParallelThread := w.threads.NewChild(node.thread, execID, node.parentThreads)
+			w.auditLog.NewEntry(newParallelThread.ID(), edge.To().ID(), execID, args)
 			parallelAction.Actions = append(parallelAction.Actions, &RunFunctionAction{
-				Thread:         newThreadIndex,
+				ThreadID:       newParallelThread.ID(),
 				FunctionID:     edge.To().FunctionID(),
 				FunctionExecID: execID,
 				Args:           args,
@@ -136,7 +124,11 @@ func (w *Workflow) SetResultFor(functionExecID string, result *workflow.Function
 		return
 	}
 	entry.Result = result
-	w.threads[entry.Thread].AggregatedOutput.Set(entry.FunctionNodeID, result.Output.Data())
+	w.threads.Get(entry.ThreadID).AggregatedOutput().Set(entry.FunctionNodeID, result.Output.Data())
+}
+
+func (w *Workflow) ID() ID {
+	return w.id
 }
 
 func (w *Workflow) State() State {
@@ -151,6 +143,10 @@ func (w *Workflow) AuditLog() *AuditLog {
 	return w.auditLog
 }
 
+func (w *Workflow) Schema() *GraphSchema {
+	return w.graph.schema
+}
+
 func (w *Workflow) AuditLogJSON() string {
 	json, _ := w.auditLog.MarshalJSON()
 	return string(json)
@@ -163,15 +159,14 @@ func (w *Workflow) AuditLogTrace() string {
 	return ""
 }
 
-func (w *Workflow) inputMapping(threadIndex int, edge *Edge) map[string]any {
+func (w *Workflow) inputMapping(currentThread *thread, edge *Edge) map[string]any {
 	args := store.New()
-	thread := w.threads[threadIndex]
 	for _, mapping := range edge.Input() {
 		switch mapping.Source {
 		case SourceSchema:
 			args.Set(mapping.MapTo, mapping.Value)
 		case SourceEdges:
-			value := thread.AggregatedOutput.Get(mapping.Variable)
+			value := currentThread.AggregatedOutput().Get(mapping.Variable)
 			args.Set(mapping.MapTo, value)
 		}
 	}
@@ -358,7 +353,7 @@ func (w *Workflow) inputMapping(threadIndex int, edge *Edge) map[string]any {
 //		return nil, err
 //	}
 //
-//	audit.Info().Workflow(w.id).NodeInputOutput(node.ID(), input.ToMap(), result.Map()).Msg("node executed")
+//	audit.Info().Workflow(w.id).NodeInputOutput(node.id(), input.ToMap(), result.Map()).Msg("node executed")
 //
 //	var output workflow.FunctionOutput
 //	async, isAsync := result.Async()
@@ -413,7 +408,7 @@ func (w *Workflow) inputMapping(threadIndex int, edge *Edge) map[string]any {
 //			break
 //		}
 //
-//		audit.Info().Workflow(w.id).NodeInputOutput(node.ID(), input, result.Map()).Msg("node executed")
+//		audit.Info().Workflow(w.id).NodeInputOutput(node.id(), input, result.Map()).Msg("node executed")
 //
 //		async, isAsync := result.Async()
 //		if isAsync {
@@ -423,7 +418,7 @@ func (w *Workflow) inputMapping(threadIndex int, edge *Edge) map[string]any {
 //				asyncQueue <- struct {
 //					EdgeID string
 //					Result workflow.FunctionOutput
-//				}{EdgeID: edge.ID(), Result: done}
+//				}{EdgeID: edge.id(), Result: done}
 //			}()
 //			continue
 //		}
@@ -432,7 +427,7 @@ func (w *Workflow) inputMapping(threadIndex int, edge *Edge) map[string]any {
 //			status = output.Status()
 //			break
 //		}
-//		aggregatedOutput.Set(fmt.Sprintf("edges.%s", edge.ID()), output.Args())
+//		aggregatedOutput.Set(fmt.Sprintf("edges.%s", edge.id()), output.Args())
 //	}
 //	//goland:noinspection ALL
 //	if asyncCount == 0 {
@@ -456,7 +451,7 @@ func (w *Workflow) inputMapping(threadIndex int, edge *Edge) map[string]any {
 //}
 //
 //func (w *workflowWorker) createNodeInput(node graph.Node, rawInputData map[string]any) (*workflow.FunctionInput, error) {
-//	audit.Debug().Workflow(w.id).Node(node.ID()).Msgf("RawInputData: %v", rawInputData)
+//	audit.Debug().Workflow(w.id).Node(node.id()).Msgf("RawInputData: %v", rawInputData)
 //
 //	inputStore, err := store.Init(rawInputData)
 //	if err != nil {
@@ -464,30 +459,30 @@ func (w *Workflow) inputMapping(threadIndex int, edge *Edge) map[string]any {
 //		return nil, err
 //	}
 //
-//	audit.Debug().Workflow(w.id).Node(node.ID()).Msgf("InputStore: %v", inputStore)
+//	audit.Debug().Workflow(w.id).Node(node.id()).Msgf("InputStore: %v", inputStore)
 //
 //	nodeInput := workflow.NewFunctionInput()
 //	nodeConfig := node.Config()
 //	inputSchema := node.NodeRef().Metadata().Input()
 //
 //	for i, mapping := range nodeConfig.InputMapping() {
-//		audit.Debug().Workflow(w.id).Node(node.ID()).Msgf("NodeConfig.%d.Mapping.Source: %v", i, mapping.Source)
-//		audit.Debug().Workflow(w.id).Node(node.ID()).Msgf("NodeConfig.%d.Mapping.Origin: %v", i, mapping.Origin)
-//		audit.Debug().Workflow(w.id).Node(node.ID()).Msgf("NodeConfig.%d.Mapping.Mapping: %v", i, mapping.Mapping)
+//		audit.Debug().Workflow(w.id).Node(node.id()).Msgf("NodeConfig.%d.Mapping.Source: %v", i, mapping.Source)
+//		audit.Debug().Workflow(w.id).Node(node.id()).Msgf("NodeConfig.%d.Mapping.Origin: %v", i, mapping.Origin)
+//		audit.Debug().Workflow(w.id).Node(node.id()).Msgf("NodeConfig.%d.Mapping.Mapping: %v", i, mapping.Mapping)
 //
 //		paramSchema, exists := inputSchema.Parameters[mapping.Mapping]
-//		audit.Debug().Workflow(w.id).Node(node.ID()).
+//		audit.Debug().Workflow(w.id).Node(node.id()).
 //			Msgf("FunctionMetadata.GraphSchema.Exists: %v; CustomParameters: %v", exists, inputSchema.CustomParameters)
-//		audit.Debug().Workflow(w.id).Node(node.ID()).
+//		audit.Debug().Workflow(w.id).Node(node.id()).
 //			Msgf("FunctionMetadata.GraphSchema.ParamSchema.Name: %v", paramSchema.Name)
-//		audit.Debug().Workflow(w.id).Node(node.ID()).
+//		audit.Debug().Workflow(w.id).Node(node.id()).
 //			Msgf("FunctionMetadata.GraphSchema.ParamSchema.Type: %v", paramSchema.Type)
-//		audit.Debug().Workflow(w.id).Node(node.ID()).
+//		audit.Debug().Workflow(w.id).Node(node.id()).
 //			Msgf("FunctionMetadata.GraphSchema.ParamSchema.Required: %v", paramSchema.Required)
 //
 //		isCustomParameter := inputSchema.CustomParameters && !exists
 //		if mapping.Source != graph.InputSourceSchema && !isCustomParameter && !exists {
-//			audit.Error().Workflow(w.id).Node(node.ID()).
+//			audit.Error().Workflow(w.id).Node(node.id()).
 //				Str("source", mapping.Source).Any("origin", mapping.Origin).Msg("Input mapping for source.origin not found")
 //			return nil, fmt.Errorf("input mapping for source.origin %s.%s not found", mapping.Source, mapping.Origin)
 //		}
@@ -500,16 +495,16 @@ func (w *Workflow) inputMapping(threadIndex int, edge *Edge) map[string]any {
 //			if len(node.InputEdges()) > 1 {
 //				inputKey = fmt.Sprintf("%s.%s", mapping.Source, mapping.Origin)
 //			}
-//			audit.Debug().Workflow(w.id).Node(node.ID()).Msgf("inputKey: %v", inputKey)
+//			audit.Debug().Workflow(w.id).Node(node.id()).Msgf("inputKey: %v", inputKey)
 //			rawValue = inputStore.Get(inputKey)
 //			if rawValue == nil {
-//				audit.Error().Workflow(w.id).Node(node.ID()).
+//				audit.Error().Workflow(w.id).Node(node.id()).
 //					Str("inputKey", mapping.Source).Msg("Input value for source not found")
 //				return nil, fmt.Errorf("input value for inputKey %s not found", inputKey)
 //			}
 //		}
 //
-//		audit.Debug().Workflow(w.id).Node(node.ID()).Any("rawValue", rawValue).Msg("InputStore.rawValue")
+//		audit.Debug().Workflow(w.id).Node(node.id()).Any("rawValue", rawValue).Msg("InputStore.rawValue")
 //
 //		isArray := strings.HasPrefix(paramSchema.Type, "[]")
 //		var paramValue any
@@ -518,12 +513,12 @@ func (w *Workflow) inputMapping(threadIndex int, edge *Edge) map[string]any {
 //		} else {
 //			paramValue, err = typeschema.ParseValue(paramSchema.Type, rawValue)
 //			if err != nil {
-//				audit.Error().Workflow(w.id).Node(node.ID()).Err(err).Msg("Failed to parse input value")
+//				audit.Error().Workflow(w.id).Node(node.id()).Err(err).Msg("Failed to parse input value")
 //				return nil, err
 //			}
 //		}
 //
-//		audit.Debug().Workflow(w.id).Node(node.ID()).Any("paramValue", paramValue).Msg("FunctionMetadata.GraphSchema.ParamValueParsed")
+//		audit.Debug().Workflow(w.id).Node(node.id()).Any("paramValue", paramValue).Msg("FunctionMetadata.GraphSchema.ParamValueParsed")
 //
 //		// TODO: Add validation based on the paramSchema before set
 //
@@ -541,7 +536,7 @@ func (w *Workflow) inputMapping(threadIndex int, edge *Edge) map[string]any {
 //
 //	}
 //
-//	audit.Debug().Workflow(w.id).Node(node.ID()).Msgf("FunctionInput: %v", nodeInput.ToMap())
+//	audit.Debug().Workflow(w.id).Node(node.id()).Msgf("FunctionInput: %v", nodeInput.ToMap())
 //
 //	return nodeInput, nil
 //}

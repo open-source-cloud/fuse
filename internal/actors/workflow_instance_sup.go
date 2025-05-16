@@ -46,27 +46,18 @@ func (a *WorkflowInstanceSupervisor) Init(args ...any) (act.SupervisorSpec, erro
 	a.Log().Info("starting process %s with args %s", a.PID(), args)
 
 	if len(args) != 2 {
-		return act.SupervisorSpec{}, fmt.Errorf("workflow instance supervisor init args must be 2 == [workflowSchemaID/workflowID, runNewWorkflow]")
+		return act.SupervisorSpec{}, fmt.Errorf("workflow instance supervisor init args must be 2 == [workflowID, workflowSchemaID]")
 	}
-	workflowOrSchemaID, ok := args[0].(string)
+	workflowID, ok := args[0].(workflow.ID)
 	if !ok {
-		return act.SupervisorSpec{}, fmt.Errorf("workflow instance supervisor init args must be 2 == [workflowSchemaID/workflowID, runNewWorkflow]; first arg must be a string, got %T", args[0])
+		return act.SupervisorSpec{}, fmt.Errorf("workflow instance supervisor init args must be 2 == [workflowID, workflowSchemaID]; first arg must be a workflow.ID, got %T", args[0])
 	}
-	runNewWorkflow, ok := args[1].(bool)
+	schemaID, ok := args[1].(string)
 	if !ok {
-		return act.SupervisorSpec{}, fmt.Errorf("workflow instance supervisor init args must be 2 == [workflowSchemaID/workflowID, runNewWorkflow]; second arg must be a bool, got %T", args[1])
+		return act.SupervisorSpec{}, fmt.Errorf("workflow instance supervisor init args must be 2 == [workflowID, workflowSchemaID]; second arg must be a string, got %T", args[1])
 	}
 
-	var schemaID string
-	var workflowID workflow.ID
-	if runNewWorkflow {
-		workflowID = workflow.NewID()
-		schemaID = workflowOrSchemaID
-	} else {
-		workflowID = workflow.ID(workflowOrSchemaID)
-	}
 	handlerInitArgs := WorkflowHandlerInitArgs{
-		isNewWorkflow: runNewWorkflow,
 		schemaID:      schemaID,
 		workflowID:    workflowID,
 	}

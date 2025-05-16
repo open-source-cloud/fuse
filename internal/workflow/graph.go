@@ -108,17 +108,33 @@ func (g *Graph) FindNode(nodeID string) (*Node, error) {
 
 func (g *Graph) MermaidFlowchart() string {
 	chart := flowchart.NewFlowchart()
+	chart.Config.SetDiagramPadding(30)
 	nodeKeys := make(map[*Node]*flowchart.Node)
+
+	// set trigger/start node
+	labelTrigger := fmt.Sprintf("id: %s\\nFunction: %s\\nThread: %d",
+		g.trigger.ID(), g.trigger.FunctionID(), g.trigger.thread)
+	trigger := chart.AddNode(labelTrigger)
+	trigger.Shape = flowchart.NodeShapeStart
+	nodeKeys[g.trigger] = trigger
 
 	// Add nodes with custom labels
 	for _, node := range g.nodes {
-		label := fmt.Sprintf("ID: %s\\nFunction: %s\\nThread: %d\\nParentThreads: %v",
+		if node == g.trigger {
+			continue
+		}
+		label := fmt.Sprintf("id: %s\\nFunction: %s\\nThread: %d\\nParentThreads: %v",
 			node.ID(), node.FunctionID(), node.Thread(), node.parentThreads)
 		if len(node.InputEdges()) > 0 && node.InputEdges()[0].IsConditional() {
-			label = fmt.Sprintf("%s\\n(cond: %s)",
-				label, node.InputEdges()[0].Condition().Name)
+			label = fmt.Sprintf("%s\\n(cond: %s)", label, node.InputEdges()[0].Condition().Name)
 		}
 		key := chart.AddNode(label)
+		for _, edge := range node.OutputEdges() {
+			if edge.IsConditional() {
+				key.Shape = flowchart.NodeShapeDecision
+				break
+			}
+		}
 		nodeKeys[node] = key
 	}
 
@@ -137,7 +153,7 @@ func (g *Graph) MermaidFlowchart() string {
 }
 
 func (g *Graph) calculateThreads() {
-	visited := make(map[string]map[string]bool) // node.ID() -> thread-key -> bool
+	visited := make(map[string]map[string]bool) // node.id() -> id-key -> bool
 	var threadCounter int
 
 	newThreadID := func() int {
@@ -201,7 +217,7 @@ func (g *Graph) calculateThreads() {
 				node.thread = newThread
 				node.parentThreads = pt // True parents
 				thread = newThread
-				parentThreads = pt // Propagate for downstream, but was a join
+				//parentThreads = pt // Propagate for downstream, but was a join
 				wasJoin = true
 			}
 		}
@@ -218,14 +234,14 @@ func (g *Graph) calculateThreads() {
 
 		for _, edges := range condGroups {
 			if len(edges) == 1 {
-				// If this node was a join, downstream becomes single-parent (this thread)
+				// If this node was a join, downstream becomes single-parent (this id)
 				if wasJoin {
 					walk(edges[0].To(), thread, nil)
 				} else {
 					walk(edges[0].To(), thread, nil)
 				}
 			} else if len(edges) > 1 {
-				// Fork: each outgoing edge is a new thread, parent is the fork point's thread
+				// Fork: each outgoing edge is a new id, parent is the fork point's id
 				for _, edge := range edges {
 					tID := newThreadID()
 					walk(edge.To(), tID, nil)

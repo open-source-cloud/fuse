@@ -14,7 +14,7 @@ type (
 	NoopAction struct{}
 
 	RunFunctionAction struct {
-		Thread         int
+		ThreadID       int
 		FunctionID     string
 		FunctionExecID string
 		Args           map[string]any

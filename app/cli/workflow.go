@@ -78,7 +78,7 @@ func workflowRunner(graphRepo repos.GraphRepo) {
 	log.Info().Str("schemaID", graph.ID()).Msg("Workflow graph created")
 
 	// make http request to run the supplied workflow once
-	payload := map[string]string{"schemaId": "sum-rand-branch-workflow"}
+	payload := map[string]string{"schemaId": graph.ID()}
 	jsonPayload, err := json.Marshal(payload)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to trigger workflow: failed marshaling payload")

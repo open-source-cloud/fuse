@@ -46,7 +46,6 @@ type (
 	}
 
 	WorkflowHandlerInitArgs struct {
-		isNewWorkflow bool
 		schemaID      string
 		workflowID    workflow.ID
 	}
@@ -60,7 +59,7 @@ func (a *WorkflowHandler) Init(args ...any) error {
 	}
 	initArgs, ok := args[0].(WorkflowHandlerInitArgs)
 	if !ok {
-		return fmt.Errorf("workflow actor init args must be 1 == [workflow.ID]; got %T", args[0])
+		return fmt.Errorf("workflow actor init args must be 1 == [WorkflowHandlerInitArgs]; got %T", args[0])
 	}
 
 	err := a.Send(a.PID(), messaging.NewActorInitMessage(initArgs))
@@ -102,34 +101,34 @@ func (a *WorkflowHandler) handleMsgActorInit(msg messaging.Message) error {
 		return nil
 	}
 
-	if initArgs.isNewWorkflow {
-		graphRef, err := a.graphRepo.Get(initArgs.schemaID)
-		if err != nil {
-			a.Log().Error("failed to get graph for schema ID %s: %s", initArgs.schemaID, err)
-			return gen.TerminateReasonPanic
+	if a.workflowRepo.Exists(initArgs.workflowID.String()) {
+		a.workflow, _ = a.workflowRepo.Get(initArgs.workflowID.String())
+		var action workflow.Action
+		if a.workflow.State() == workflow.StateUntriggered {
+			action = a.workflow.Trigger()
+		} else {
+			// TODO : add Resume
+			//action = a.workflow.Resume()
 		}
-		a.workflow = workflow.New(initArgs.workflowID, graphRef)
-		if a.workflowRepo.Save(a.workflow) != nil {
-			a.Log().Error("failed to save workflow for ID %s: %s", initArgs.workflowID, err)
-			return nil
-		}
-		a.Log().Debug("created new workflow with ID %s", initArgs.workflowID)
-
-		action := a.workflow.Trigger()
 		a.handleWorkflowAction(action)
-		a.Log().Debug("triggered workflow with ID %s, got action %v", initArgs.workflowID, action)
-	} else {
-		var err error
-		a.workflow, err = a.workflowRepo.Get(initArgs.workflowID.String())
-		if err != nil {
-			a.Log().Error("failed to get workflow for ID %s: %s", initArgs.workflowID, err)
-			return gen.TerminateReasonPanic
-		}
-		a.Log().Debug("got workflow with ID %s", initArgs.workflowID)
-
-		// TODO: exec next node
+		return nil
 	}
 
+	// doesnt exist - create
+	graphRef, err := a.graphRepo.Get(initArgs.schemaID)
+	if err != nil {
+		a.Log().Error("failed to get graph for schema id %s: %s", initArgs.schemaID, err)
+		return gen.TerminateReasonPanic
+	}
+	a.workflow = workflow.New(initArgs.workflowID, graphRef)
+	if a.workflowRepo.Save(a.workflow) != nil {
+		a.Log().Error("failed to save workflow for id %s: %s", initArgs.workflowID, err)
+		return nil
+	}
+	a.Log().Debug("created new workflow with id %s", initArgs.workflowID)
+
+	action := a.workflow.Trigger()
+	a.handleWorkflowAction(action)
 	return nil
 }
 
@@ -143,7 +142,6 @@ func (a *WorkflowHandler) handleMsgFunctionResult(msg messaging.Message) error {
 
 	if fnResultMsg.Result.Async {
 		a.Log().Debug("got async function result for workflow %s, execID %s", fnResultMsg.WorkflowID, fnResultMsg.ExecID)
-		a.workflow.SetState(workflow.StateSleeping)
 		// TODO handle async
 		return nil
 	}
@@ -154,20 +152,20 @@ func (a *WorkflowHandler) handleMsgFunctionResult(msg messaging.Message) error {
 		return nil
 	}
 
-	action := a.workflow.Next(fnResultMsg.Thread)
+	action := a.workflow.Next(fnResultMsg.ThreadID)
 	a.handleWorkflowAction(action)
 
 	return nil
 }
 
 func (a *WorkflowHandler) handleWorkflowAction(action workflow.Action) {
-	workflowPool := WorkflowFuncPoolName(a.workflow.ID)
+	workflowPool := WorkflowFuncPoolName(a.workflow.ID())
 
 	switch action.Type() {
 	case workflow.ActionRunFunction:
 		execAction := action.(*workflow.RunFunctionAction)
 
-		execFnMsg := messaging.NewExecuteFunctionMessage(a.workflow.ID, execAction)
+		execFnMsg := messaging.NewExecuteFunctionMessage(a.workflow.ID(), execAction)
 		err := a.Send(workflowPool, execFnMsg)
 		if err != nil {
 			a.Log().Error("failed to send execute function message to %s: %s", workflowPool, err)

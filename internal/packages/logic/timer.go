@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// TimerFunctionID is the ID of the timer function
+// TimerFunctionID is the id of the timer function
 const TimerFunctionID = "timer"
 
 // TimerFunctionMetadata returns the metadata of the timer function

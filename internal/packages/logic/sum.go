@@ -4,9 +4,8 @@ import (
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 )
 
-// SumFunctionID is the ID of the sum function
+// SumFunctionID is the id of the sum function
 const SumFunctionID = "sum"
-
 
 // SumFunctionMetadata returns the metadata of the sum function
 func SumFunctionMetadata() workflow.FunctionMetadata {

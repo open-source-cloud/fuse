@@ -25,13 +25,13 @@ func NewPackageRegistry() Registry {
 	}
 }
 
-// Register registers a provider by ID
+// Register registers a provider by id
 func (r *MemoryRegistry) Register(packageID string, pkg Package) {
 	log.Info().Str("packageID", pkg.ID()).Msg("Package registered")
 	r.packages[packageID] = pkg
 }
 
-// Get returns a provider by ID
+// Get returns a provider by id
 func (r *MemoryRegistry) Get(packageID string) (Package, error) {
 	provider, ok := r.packages[packageID]
 	if !ok {

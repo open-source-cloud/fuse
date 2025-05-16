@@ -22,7 +22,7 @@ func NewExecuteFunctionMessage(workflowID workflow.ID, execAction *workflow.RunF
 		Type: ExecuteFunction,
 		Args: ExecuteFunctionMessage{
 			WorkflowID: workflowID,
-			Thread:     execAction.Thread,
+			Thread:     execAction.ThreadID,
 			ExecID:     execAction.FunctionExecID,
 			PackageID:  execAction.FunctionID[:lastSlashIndex],
 			FunctionID: execAction.FunctionID,

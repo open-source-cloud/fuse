@@ -5,6 +5,7 @@ import (
 	"ergo.services/ergo/gen"
 	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/open-source-cloud/fuse/internal/messaging"
+	"github.com/open-source-cloud/fuse/internal/repos"
 	"github.com/open-source-cloud/fuse/internal/workflow"
 )
 
@@ -14,14 +15,16 @@ type WorkflowSupervisorFactory Factory[*WorkflowSupervisor]
 
 func NewWorkflowSupervisorFactory(
 	cfg *config.Config,
+	workflowRepo repos.WorkflowRepo,
 	workflowInstanceSup *WorkflowInstanceSupervisorFactory,
 ) *WorkflowSupervisorFactory {
 	return &WorkflowSupervisorFactory{
 		Factory: func() gen.ProcessBehavior {
 			return &WorkflowSupervisor{
-				config:          cfg,
+				config:              cfg,
+				workflowRepo:        workflowRepo,
 				workflowInstanceSup: workflowInstanceSup,
-				workflowActors:  make(map[workflow.ID]gen.PID),
+				workflowActors:      make(map[workflow.ID]gen.PID),
 			}
 		},
 	}
@@ -30,7 +33,8 @@ func NewWorkflowSupervisorFactory(
 type WorkflowSupervisor struct {
 	act.Supervisor
 
-	config          *config.Config
+	config              *config.Config
+	workflowRepo        repos.WorkflowRepo
 	workflowInstanceSup *WorkflowInstanceSupervisorFactory
 
 	workflowActors map[workflow.ID]gen.PID
@@ -83,7 +87,7 @@ func (a *WorkflowSupervisor) HandleMessage(from gen.PID, message any) error {
 		}
 		err = a.spawnWorkflowActor(triggerMsg.SchemaID, true)
 		if err != nil {
-			a.Log().Error("failed to spawn workflow actor for schema ID %s : %s", triggerMsg.SchemaID, err)
+			a.Log().Error("failed to spawn workflow actor for schema id %s : %s", triggerMsg.SchemaID, err)
 			return nil
 		}
 	}
@@ -108,9 +112,23 @@ func (a *WorkflowSupervisor) HandleEvent(event gen.MessageEvent) error {
 }
 
 func (a *WorkflowSupervisor) spawnWorkflowActor(workflowOrSchemaID string, newWorkflow bool) error {
-	err := a.StartChild("workflow_instance_sup", workflowOrSchemaID, newWorkflow)
+	var schemaID string
+	var workflowID workflow.ID
+	if newWorkflow {
+		schemaID = workflowOrSchemaID
+		workflowID = workflow.NewID()
+	} else {
+		existingWorkflow, err := a.workflowRepo.Get(workflowOrSchemaID)
+		if err != nil {
+			a.Log().Error("failed to get workflow %s: %s", workflowOrSchemaID, err)
+			return err
+		}
+		workflowID = existingWorkflow.ID()
+		schemaID = existingWorkflow.Schema().ID
+	}
+	err := a.StartChild("workflow_instance_sup", workflowID, schemaID)
 	if err != nil {
-		a.Log().Error("failed to spawn child for schema ID %s : %s", workflowOrSchemaID, err)
+		a.Log().Error("failed to spawn child for schema id %s : %s", workflowOrSchemaID, err)
 		return err
 	}
 	return nil
