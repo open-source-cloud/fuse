@@ -46,8 +46,8 @@ type (
 	}
 
 	WorkflowHandlerInitArgs struct {
-		schemaID      string
-		workflowID    workflow.ID
+		schemaID   string
+		workflowID workflow.ID
 	}
 )
 
@@ -153,6 +153,10 @@ func (a *WorkflowHandler) handleMsgFunctionResult(msg messaging.Message) error {
 	}
 
 	action := a.workflow.Next(fnResultMsg.ThreadID)
+	if action.Type() == workflow.ActionNoop {
+		a.Log().Warning("got noop action from workflow")
+		return nil
+	}
 	a.handleWorkflowAction(action)
 
 	return nil

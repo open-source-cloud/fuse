@@ -115,7 +115,7 @@ func (w *Workflow) Next(threadID int) Action {
 		}
 	}
 
-	return nil
+	return &NoopAction{}
 }
 
 func (w *Workflow) SetResultFor(functionExecID string, result *workflow.FunctionResult) {
