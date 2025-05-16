@@ -1,0 +1,49 @@
+{
+  "id": "smallest-test",
+  "name": "Smallest test",
+  "nodes": [
+    {
+      "id": "debug-nil",
+      "function": "fuse/pkg/debug/nil"
+    },
+    {
+      "id": "logic-rand",
+      "function": "fuse/pkg/logic/rand"
+    },
+    {
+      "id": "logic-sum",
+      "function": "fuse/pkg/logic/sum"
+    }
+  ],
+  "edges": [
+    {
+      "id": "0196cf0f-8a70-7463-a594-3e2a734be14c",
+      "from": "debug-nil",
+      "to": "logic-rand",
+      "input": [
+        {
+          "source": "schema",
+          "value": 10,
+          "mapTo": "min"
+        },
+        {
+          "source": "schema",
+          "value": 100,
+          "mapTo": "max"
+        }
+      ]
+    },
+    {
+      "id": "0196cf19-c319-7c3a-ac82-69a63b8e88d5",
+      "from": "logic-rand",
+      "to": "logic-sum",
+      "input": [
+        {
+          "source": "edges",
+          "variable": "0196cf19-c319-7c3a-ac82-69a63b8e88d5.rand",
+          "mapTo": "values"
+        }
+      ]
+    }
+  ]
+}

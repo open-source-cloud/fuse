@@ -1,6 +1,6 @@
 {
-  "id": "sum-rand-branch-workflow",
-  "name": "Sum and Rand with Branch",
+  "id": "small-test",
+  "name": "Small Test",
   "nodes": [
     {
       "id": "debug-nil",

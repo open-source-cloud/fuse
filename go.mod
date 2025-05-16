@@ -19,6 +19,7 @@ require (
 
 require (
 	ergo.services/meta v0.0.0-20240904054930-a97f6add8a78 // indirect
+	github.com/TyphonHill/go-mermaid v1.0.0 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect

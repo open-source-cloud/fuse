@@ -1,6 +1,7 @@
 package actors
 
 import (
+	"encoding/json"
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
 	"github.com/open-source-cloud/fuse/internal/messaging"
@@ -39,7 +40,8 @@ func (a *WorkflowFunc) HandleMessage(from gen.PID, message any) error {
 		return nil
 	}
 	a.Log().Info("got message from %s - %s", from, msg.Type)
-	a.Log().Debug("args: %s", msg.Args)
+	jsonArgs, _ := json.Marshal(msg.Args)
+	a.Log().Debug("args: %s", string(jsonArgs))
 
 	if msg.Type != messaging.ExecuteFunction {
 		a.Log().Error("message from %s is not a messaging.ExecuteFunction; got %s", from, msg.Type)
@@ -73,7 +75,7 @@ func (a *WorkflowFunc) HandleMessage(from gen.PID, message any) error {
 	}
 	a.Log().Debug("execute function %s result: %s", fn.ID(), result)
 
-	resultMsg := messaging.NewFunctionResultMessage(msgPayload.WorkflowID, msgPayload.ExecID, result)
+	resultMsg := messaging.NewFunctionResultMessage(msgPayload.WorkflowID, msgPayload.Thread, msgPayload.ExecID, result)
 	err = a.Send(WorkflowHandlerName(msgPayload.WorkflowID), resultMsg)
 	if err != nil {
 		return err

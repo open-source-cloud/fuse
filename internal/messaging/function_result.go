@@ -8,15 +8,17 @@ import (
 
 type FunctionResultMessage struct {
 	WorkflowID workflow.ID
-	ExecID string
-	Result pubworkflow.FunctionResult
+	Thread     int
+	ExecID     string
+	Result     pubworkflow.FunctionResult
 }
 
-func NewFunctionResultMessage(workflowID workflow.ID, execID string, result pubworkflow.FunctionResult) Message {
+func NewFunctionResultMessage(workflowID workflow.ID, thread int, execID string, result pubworkflow.FunctionResult) Message {
 	return Message{
 		Type: FunctionResult,
 		Args: FunctionResultMessage{
 			WorkflowID: workflowID,
+			Thread:     thread,
 			ExecID:     execID,
 			Result:     result,
 		},

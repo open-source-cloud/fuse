@@ -5,20 +5,22 @@ import (
 )
 
 type (
-	// Node is a memory Graph Node
+	// Node is a Graph Node
 	Node struct {
 		schema      *NodeSchema
+		thread      int
 		inputEdges  []*Edge
-		outputEdges map[string]*Edge
+		outputEdges []*Edge
 	}
 )
 
-// newNode creates a new memory Graph Node
+// newNode creates a new Graph Node
 func newNode(schema *NodeSchema) *Node {
 	return &Node{
 		schema:      schema,
+		thread:      0,
 		inputEdges:  make([]*Edge, 0),
-		outputEdges: make(map[string]*Edge),
+		outputEdges: make([]*Edge, 0),
 	}
 }
 
@@ -39,19 +41,18 @@ func (n *Node) Schema() *NodeSchema {
 	return n.schema
 }
 
+func (n *Node) Thread() int {
+	return n.thread
+}
+
 // InputEdges returns the input edges
 func (n *Node) InputEdges() []*Edge {
 	return n.inputEdges
 }
 
 // OutputEdges returns the output edges
-func (n *Node) OutputEdges() map[string]*Edge {
+func (n *Node) OutputEdges() []*Edge {
 	return n.outputEdges
-}
-
-// IsOutputConditional returns true if output is conditional, false otherwise
-func (n *Node) IsOutputConditional() bool {
-	return false
 }
 
 // AddInputEdge adds an input Edge
@@ -60,6 +61,6 @@ func (n *Node) AddInputEdge(edge *Edge) {
 }
 
 // AddOutputEdge adds an output Edge
-func (n *Node) AddOutputEdge(edgeID string, edge *Edge) {
-	n.outputEdges[edgeID] = edge
+func (n *Node) AddOutputEdge(edge *Edge) {
+	n.outputEdges = append(n.outputEdges, edge)
 }

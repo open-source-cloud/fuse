@@ -1,10 +1,10 @@
 package workflow
 
 import (
+	"github.com/open-source-cloud/fuse/pkg/store"
 	"github.com/open-source-cloud/fuse/pkg/uuid"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 	"github.com/rs/zerolog"
-	orderedmap "github.com/wk8/go-ordered-map/v2"
 )
 
 type (
@@ -31,16 +31,12 @@ const (
 	StateError       State = "error"
 )
 
-const (
-	ActionRunFunction ActionType = "function:run"
-	ActionRunFunctions
-)
-
 func New(id ID, graph *Graph) *Workflow {
 	return &Workflow{
 		ID:       id,
 		graph:    graph,
-		auditLog: orderedmap.New[string, *auditLogEntry](),
+		auditLog: NewAuditLog(),
+		threads:  nil,
 		state: RunningState{
 			currentState: StateUntriggered,
 		},
@@ -51,7 +47,8 @@ type (
 	Workflow struct {
 		ID       ID
 		graph    *Graph
-		auditLog *orderedmap.OrderedMap[string, *auditLogEntry]
+		auditLog *AuditLog
+		threads  []*Thread
 		state    RunningState
 	}
 
@@ -59,22 +56,87 @@ type (
 		currentState State
 	}
 
-	Action interface {
-		Type() ActionType
-	}
-
-	RunFunctionAction struct {
-		FunctionID string
-		Args       map[string]any
+	Thread struct {
+		ParentThread     int
+		CurrentExecID    string
+		AggregatedOutput *store.KV
 	}
 )
 
 func (w *Workflow) Trigger() Action {
-	triggerNode := w.graph.Root()
-	return &RunFunctionAction{
-		FunctionID: triggerNode.FunctionID(),
-		Args:       map[string]any{},
+	execID := uuid.V7()
+	triggerNode := w.graph.Trigger()
+
+	w.threads = []*Thread{
+		{ParentThread: -1, CurrentExecID: execID, AggregatedOutput: store.New()},
 	}
+	w.auditLog.NewEntry(0, triggerNode.ID(), execID, nil)
+
+	return &RunFunctionAction{
+		FunctionID:     triggerNode.FunctionID(),
+		FunctionExecID: execID,
+		Args:           map[string]any{},
+	}
+}
+
+func (w *Workflow) Next(threadIndex int) Action {
+	thread := w.threads[threadIndex]
+	currentAuditEntry, _ := w.auditLog.Get(thread.CurrentExecID)
+	currentNode, _ := w.graph.FindNode(currentAuditEntry.FunctionNodeID)
+
+	switch len(currentNode.OutputEdges()) {
+	case 0:
+		// TODO - finished this thread
+		return &NoopAction{}
+	case 1:
+		execID := uuid.V7()
+		edge := currentNode.OutputEdges()[0]
+		args := w.inputMapping(threadIndex, edge)
+
+		thread.CurrentExecID = execID
+		thread.AggregatedOutput = store.New()
+		w.auditLog.NewEntry(threadIndex, edge.To().ID(), execID, args)
+		return &RunFunctionAction{
+			Thread:         0,
+			FunctionID:     edge.To().FunctionID(),
+			FunctionExecID: execID,
+			Args:           args,
+		}
+	default:
+		parallelAction := &RunParallelFunctionsAction{
+			Actions: make([]*RunFunctionAction, 0, len(currentNode.OutputEdges())),
+		}
+		for _, edge := range currentNode.OutputEdges() {
+			execID := uuid.V7()
+			args := w.inputMapping(threadIndex, edge)
+
+			newThreadIndex := len(w.threads)
+			newThread := &Thread{
+				ParentThread:     threadIndex,
+				CurrentExecID:    execID,
+				AggregatedOutput: store.New(),
+			}
+			w.threads = append(w.threads, newThread)
+			w.auditLog.NewEntry(newThreadIndex, edge.To().ID(), execID, args)
+			parallelAction.Actions = append(parallelAction.Actions, &RunFunctionAction{
+				Thread:         newThreadIndex,
+				FunctionID:     edge.To().FunctionID(),
+				FunctionExecID: execID,
+				Args:           args,
+			})
+		}
+	}
+
+	return nil
+}
+
+func (w *Workflow) SetResultFor(functionExecID string, result *workflow.FunctionResult) {
+	entry, exists := w.auditLog.Get(functionExecID)
+	if !exists {
+		return
+	}
+	entry.Result = result
+	w.threads[entry.Thread].AggregatedOutput.Set(entry.FunctionNodeID, result.Output.Data())
 }
 
 func (w *Workflow) State() State {
@@ -85,38 +147,8 @@ func (w *Workflow) SetState(state State) {
 	w.state.currentState = state
 }
 
-func (w *Workflow) SetLogFunctionInput(functionExecID string, input map[string]any) {
-	auditEntry, exists := w.auditLog.Get(functionExecID)
-	if !exists {
-		auditEntry = newAuditLogEntry()
-		w.auditLog.Set(functionExecID, auditEntry)
-	}
-	auditEntry.Input = input
-}
-
-func (w *Workflow) GetLogFunctionInput(functionExecID string) (map[string]any, bool) {
-	auditEntry, exists := w.auditLog.Get(functionExecID)
-	if !exists {
-		return nil, false
-	}
-	return auditEntry.Input, true
-}
-
-func (w *Workflow) GetLogFunctionResult(functionExecID string) (*workflow.FunctionResult, bool) {
-	auditEntry, exists := w.auditLog.Get(functionExecID)
-	if !exists {
-		return nil, false
-	}
-	return auditEntry.Result, true
-}
-
-func (w *Workflow) SetLogFunctionResult(functionExecID string, result *workflow.FunctionResult) {
-	auditEntry, exists := w.auditLog.Get(functionExecID)
-	if !exists {
-		auditEntry = newAuditLogEntry()
-		w.auditLog.Set(functionExecID, auditEntry)
-	}
-	auditEntry.Result = result
+func (w *Workflow) AuditLog() *AuditLog {
+	return w.auditLog
 }
 
 func (w *Workflow) AuditLogJSON() string {
@@ -131,8 +163,19 @@ func (w *Workflow) AuditLogTrace() string {
 	return ""
 }
 
-func (a *RunFunctionAction) Type() ActionType {
-	return ActionRunFunction
+func (w *Workflow) inputMapping(threadIndex int, edge *Edge) map[string]any {
+	args := store.New()
+	thread := w.threads[threadIndex]
+	for _, mapping := range edge.Input() {
+		switch mapping.Source {
+		case SourceSchema:
+			args.Set(mapping.MapTo, mapping.Value)
+		case SourceEdges:
+			value := thread.AggregatedOutput.Get(mapping.Variable)
+			args.Set(mapping.MapTo, value)
+		}
+	}
+	return args.Raw()
 }
 
 //
@@ -227,7 +270,7 @@ func (a *RunFunctionAction) Type() ActionType {
 //		rootNode := w.schema.RootNode()
 //		output, err := w.executeNode(ctx, rootNode, msg.Args())
 //		if err != nil {
-//			audit.Error().Workflow(w.id).Err(err).Msg("Failed to execute root node")
+//			audit.Error().Workflow(w.id).Err(err).Msg("Failed to execute trigger node")
 //			w.state = StateError
 //			return err
 //		}
@@ -272,7 +315,7 @@ func (a *RunFunctionAction) Type() ActionType {
 //			//goland:noinspection ALL
 //			output, err := w.executeNode(ctx, edge.To(), msg.Args())
 //			if err != nil {
-//				audit.Error().Workflow(w.id).Err(err).Msg("Failed to execute root node")
+//				audit.Error().Workflow(w.id).Err(err).Msg("Failed to execute trigger node")
 //				w.state = StateError
 //				return err
 //			}

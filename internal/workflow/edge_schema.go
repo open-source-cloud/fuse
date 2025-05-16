@@ -1,6 +1,14 @@
 package workflow
 
+const (
+	SourceSchema InputMappingSource = "schema"
+	SourceEdges  InputMappingSource = "edges"
+)
+
 type (
+	// InputMappingSource defines an enum for supported input mapping sources
+	InputMappingSource string
+
 	// EdgeSchema represents the schema for an edge in a graph with an ID, source, destination, and optional metadata.
 	EdgeSchema struct {
 		ID          string         `json:"id" yaml:"id"`
@@ -16,9 +24,9 @@ type (
 	}
 	// InputMapping represents a mapping for node input, including source, origin of data, and target mapping name.
 	InputMapping struct {
-		Source   string `json:"source" yaml:"source"`
-		Variable string `json:"variable,omitempty" yaml:"variable,omitempty"`
-		Value    any    `json:"value,omitempty" yaml:"value,omitempty"`
-		MapTo    string `json:"mapTo" yaml:"mapTo"`
+		Source   InputMappingSource `json:"source" yaml:"source"`
+		Variable string             `json:"variable,omitempty" yaml:"variable,omitempty"`
+		Value    any                `json:"value,omitempty" yaml:"value,omitempty"`
+		MapTo    string             `json:"mapTo" yaml:"mapTo"`
 	}
 )

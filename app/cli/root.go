@@ -46,6 +46,7 @@ func newRoot() *cobra.Command {
 
 	rootCmd.AddCommand(newServerCommand())
 	rootCmd.AddCommand(newWorkflowCommand())
+	rootCmd.AddCommand(newMermaidCommand())
 
 	return rootCmd
 }

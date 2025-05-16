@@ -1,6 +1,7 @@
 package actors
 
 import (
+	"encoding/json"
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
 	"fmt"
@@ -8,7 +9,6 @@ import (
 	"github.com/open-source-cloud/fuse/internal/messaging"
 	"github.com/open-source-cloud/fuse/internal/repos"
 	"github.com/open-source-cloud/fuse/internal/workflow"
-	"github.com/open-source-cloud/fuse/pkg/uuid"
 	pkgworkflow "github.com/open-source-cloud/fuse/pkg/workflow"
 )
 
@@ -53,7 +53,6 @@ type (
 )
 
 func (a *WorkflowHandler) Init(args ...any) error {
-	// get the gen.Log interface using Log method of embedded gen.Process interface
 	a.Log().Debug("starting process %s with args %s", a.PID(), args)
 
 	if len(args) != 1 {
@@ -79,7 +78,8 @@ func (a *WorkflowHandler) HandleMessage(from gen.PID, message any) error {
 		return nil
 	}
 	a.Log().Info("got message from %s - %s", from, msg.Type)
-	a.Log().Debug("args: %s", msg.Args)
+	jsonArgs, _ := json.Marshal(msg.Args)
+	a.Log().Debug("args: %s", string(jsonArgs))
 
 	switch msg.Type {
 	case messaging.ActorInit:
@@ -139,32 +139,40 @@ func (a *WorkflowHandler) handleMsgFunctionResult(msg messaging.Message) error {
 		a.Log().Error("failed to get function result from %s", msg)
 	}
 
-	a.workflow.SetLogFunctionResult(fnResultMsg.ExecID, &fnResultMsg.Result)
+	a.workflow.SetResultFor(fnResultMsg.ExecID, &fnResultMsg.Result)
+
 	if fnResultMsg.Result.Async {
 		a.Log().Debug("got async function result for workflow %s, execID %s", fnResultMsg.WorkflowID, fnResultMsg.ExecID)
+		a.workflow.SetState(workflow.StateSleeping)
 		// TODO handle async
 		return nil
 	}
-
-	a.Log().Trace("auditLog: %s", a.workflow.AuditLogTrace())
-
 	if fnResultMsg.Result.Output.Status() != pkgworkflow.FunctionSuccess {
+		a.Log().Error("function result for workflow %s, execID %s failed with status %s", fnResultMsg.WorkflowID, fnResultMsg.ExecID, fnResultMsg.Result.Output.Status())
+		a.workflow.SetState(workflow.StateError)
+		// TODO handle function failure
+		return nil
 	}
+
+	action := a.workflow.Next(fnResultMsg.Thread)
+	a.handleWorkflowAction(action)
 
 	return nil
 }
 
 func (a *WorkflowHandler) handleWorkflowAction(action workflow.Action) {
-	execAction := action.(*workflow.RunFunctionAction)
+	workflowPool := WorkflowFuncPoolName(a.workflow.ID)
 
-	fnExecID := uuid.V7()
-	a.workflow.SetLogFunctionInput(fnExecID, execAction.Args)
+	switch action.Type() {
+	case workflow.ActionRunFunction:
+		execAction := action.(*workflow.RunFunctionAction)
 
-	execFnMsg := messaging.NewExecuteFunctionMessage(a.workflow.ID, execAction.FunctionID, fnExecID, execAction.Args)
-	err := a.Send(WorkflowFuncPoolName(a.workflow.ID), execFnMsg)
-	if err != nil {
-		a.Log().Error("failed to send execute function message to %s: %s", WorkflowFuncPoolName(a.workflow.ID), err)
-		return
+		execFnMsg := messaging.NewExecuteFunctionMessage(a.workflow.ID, execAction)
+		err := a.Send(workflowPool, execFnMsg)
+		if err != nil {
+			a.Log().Error("failed to send execute function message to %s: %s", workflowPool, err)
+			return
+		}
+		a.workflow.SetState(workflow.StateRunning)
 	}
-	a.workflow.SetState(workflow.StateRunning)
 }

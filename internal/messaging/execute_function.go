@@ -3,29 +3,30 @@ package messaging
 import (
 	"fmt"
 	"github.com/open-source-cloud/fuse/internal/workflow"
-	"github.com/stretchr/objx"
 	"strings"
 )
 
 type ExecuteFunctionMessage struct {
 	WorkflowID workflow.ID
+	Thread     int
 	ExecID     string
 	PackageID  string
 	FunctionID string
-	Input      objx.Map
+	Input      map[string]any
 }
 
-func NewExecuteFunctionMessage(workflowID workflow.ID, functionID string, functionExecID string, input objx.Map) Message {
-	lastSlashIndex := strings.LastIndex(functionID, "/")
+func NewExecuteFunctionMessage(workflowID workflow.ID, execAction *workflow.RunFunctionAction) Message {
+	lastSlashIndex := strings.LastIndex(execAction.FunctionID, "/")
 
 	return Message{
 		Type: ExecuteFunction,
 		Args: ExecuteFunctionMessage{
 			WorkflowID: workflowID,
-			ExecID:     functionExecID,
-			PackageID:  functionID[:lastSlashIndex],
-			FunctionID: functionID,
-			Input:      input,
+			Thread:     execAction.Thread,
+			ExecID:     execAction.FunctionExecID,
+			PackageID:  execAction.FunctionID[:lastSlashIndex],
+			FunctionID: execAction.FunctionID,
+			Input:      execAction.Args,
 		},
 	}
 }
