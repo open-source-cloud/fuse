@@ -1,0 +1,124 @@
+{
+  "id": "mermaid-test",
+  "name": "More complex test for mermaid command",
+  "nodes": [
+    {
+      "id": "A",
+      "function": "fuse/pkg/debug/nil"
+    },
+    {
+      "id": "B",
+      "function": "fuse/pkg/debug/nil"
+    },
+    {
+      "id": "C",
+      "function": "fuse/pkg/debug/nil"
+    },
+    {
+      "id": "D",
+      "function": "fuse/pkg/debug/nil"
+    },
+    {
+      "id": "E",
+      "function": "fuse/pkg/debug/nil"
+    },
+    {
+      "id": "F",
+      "function": "fuse/pkg/debug/nil"
+    },
+    {
+      "id": "G",
+      "function": "fuse/pkg/debug/nil"
+    },
+    {
+      "id": "H",
+      "function": "fuse/pkg/debug/nil"
+    },
+    {
+      "id": "I",
+      "function": "fuse/pkg/debug/nil"
+    },
+    {
+      "id": "J",
+      "function": "fuse/pkg/debug/nil"
+    },
+    {
+      "id": "K",
+      "function": "fuse/pkg/debug/nil"
+    }
+  ],
+  "edges": [
+    {
+      "id": "A-B",
+      "from": "A",
+      "to": "B"
+    },
+    {
+      "id": "B-C",
+      "from": "B",
+      "to": "C"
+    },
+    {
+      "id": "B-D",
+      "from": "B",
+      "to": "D"
+    },
+    {
+      "id": "B-E",
+      "from": "B",
+      "to": "E"
+    },
+    {
+      "id": "C-F",
+      "from": "C",
+      "to": "F"
+    },
+    {
+      "id": "D-F",
+      "from": "D",
+      "to": "F"
+    },
+    {
+      "id": "E-G",
+      "from": "E",
+      "to": "G"
+    },
+    {
+      "id": "F-H",
+      "from": "F",
+      "to": "H"
+    },
+    {
+      "id": "G-H",
+      "from": "G",
+      "to": "H"
+    },
+    {
+      "id": "H-I",
+      "from": "H",
+      "to": "I",
+      "conditional": {
+        "name": "conditional-true",
+        "value": true
+      }
+    },
+    {
+      "id": "H-J",
+      "from": "H",
+      "to": "J",
+      "conditional": {
+        "name": "conditional-true",
+        "value": true
+      }
+    },
+    {
+      "id": "H-K",
+      "from": "H",
+      "to": "K",
+      "conditional": {
+        "name": "conditional-false",
+        "value": false
+      }
+    }
+  ]
+}

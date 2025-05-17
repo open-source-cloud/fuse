@@ -1,33 +1,11 @@
 package workflow
 
-// NodeMetadata describes the interface for a node's Metadata
-type NodeMetadata interface {
-	Input() InputMetadata
-	Output() OutputMetadata
+type FunctionMetadata struct {
+	Input  InputMetadata
+	Output OutputMetadata
 }
 
-type nodeMetadata struct {
-	input  InputMetadata
-	output OutputMetadata
-}
-
-// NewNodeMetadata creates a new NodeMetadata type object
-func NewNodeMetadata(input InputMetadata, output OutputMetadata) NodeMetadata {
-	return &nodeMetadata{
-		input:  input,
-		output: output,
-	}
-}
-
-func (n *nodeMetadata) Input() InputMetadata {
-	return n.input
-}
-
-func (n *nodeMetadata) Output() OutputMetadata {
-	return n.output
-}
-
-// InputMetadata represents one Input or Output Metadata descriptor
+// InputMetadata represents one Input or Result Metadata descriptor
 type InputMetadata struct {
 	CustomParameters bool
 	Parameters       Parameters
