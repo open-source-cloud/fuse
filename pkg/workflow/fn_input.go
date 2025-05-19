@@ -7,7 +7,7 @@ type FunctionInput struct {
 	store *store.KV
 }
 
-// NewFunctionInput creates a new FunctionInput object with the given data
+// NewFunctionInput creates a new FunctionInput object with the given Data
 func NewFunctionInput() *FunctionInput {
 	return &FunctionInput{
 		store: store.New(),
@@ -15,7 +15,7 @@ func NewFunctionInput() *FunctionInput {
 }
 
 func NewFunctionInputWith(data map[string]any) (*FunctionInput, error) {
-	st, err := store.Init(data)
+	st, err := store.NewWith(data)
 	if err != nil {
 		return nil, err
 	}
@@ -40,16 +40,22 @@ func (i *FunctionInput) GetIntSlice(key string) []int {
 
 // GetIntSliceOrDefault returns the value of a given key as an int slice or the default value if nil
 func (i *FunctionInput) GetIntSliceOrDefault(key string, defaultValue []int) []int {
-	value := i.store.Get(key)
+	value := i.store.GetIntSlice(key)
 
 	if value == nil {
 		return defaultValue
 	}
-	if tryValue, ok := value.([]int); ok {
-		return tryValue
-	}
+	return value
+}
 
-	return defaultValue
+// GetFloat64SliceOrDefault returns the value of a given key as a float64 slice or the default value if nil
+func (i *FunctionInput) GetFloat64SliceOrDefault(key string, defaultValue []float64) []float64 {
+	value := i.store.GetFloat64Slice(key)
+
+	if value == nil {
+		return defaultValue
+	}
+	return value
 }
 
 // GetAnySliceOrDefault returns the value for the given key as an any slice or default value if nil

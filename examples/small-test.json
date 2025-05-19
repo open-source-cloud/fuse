@@ -61,7 +61,7 @@
       "input": [
         {
           "source": "edges",
-          "variable": "0196cf19-c319-7c3a-ac82-69a63b8e88d5.rand",
+          "variable": "logic-rand-1.rand",
           "mapTo": "values"
         }
       ]
@@ -73,7 +73,7 @@
       "input": [
         {
           "source": "edges",
-          "variable": "0196cf1a-9d58-7021-817a-830942043b38.rand",
+          "variable": "logic-rand-2.rand",
           "mapTo": "values"
         }
       ]

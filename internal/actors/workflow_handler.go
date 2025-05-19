@@ -145,8 +145,13 @@ func (a *WorkflowHandler) handleMsgFunctionResult(msg messaging.Message) error {
 		// TODO handle async
 		return nil
 	}
-	if fnResultMsg.Result.Output.Status() != pkgworkflow.FunctionSuccess {
-		a.Log().Error("function result for workflow %s, execID %s failed with status %s", fnResultMsg.WorkflowID, fnResultMsg.ExecID, fnResultMsg.Result.Output.Status())
+	if fnResultMsg.Result.Output.Status != pkgworkflow.FunctionSuccess {
+		a.Log().Error(
+			"function result for workflow %s, execID %s failed with status %s",
+			fnResultMsg.WorkflowID,
+			fnResultMsg.ExecID,
+			fnResultMsg.Result.Output.Status,
+		)
 		a.workflow.SetState(workflow.StateError)
 		// TODO handle function failure
 		return nil
@@ -163,18 +168,26 @@ func (a *WorkflowHandler) handleMsgFunctionResult(msg messaging.Message) error {
 }
 
 func (a *WorkflowHandler) handleWorkflowAction(action workflow.Action) {
-	workflowPool := WorkflowFuncPoolName(a.workflow.ID())
-
 	switch action.Type() {
 	case workflow.ActionRunFunction:
-		execAction := action.(*workflow.RunFunctionAction)
-
-		execFnMsg := messaging.NewExecuteFunctionMessage(a.workflow.ID(), execAction)
-		err := a.Send(workflowPool, execFnMsg)
-		if err != nil {
-			a.Log().Error("failed to send execute function message to %s: %s", workflowPool, err)
-			return
+		a.handleWorkflowRunFunctionAction(action)
+	case workflow.ActionRunParallelFunctions:
+		for _, runFuncAction := range action.(*workflow.RunParallelFunctionsAction).Actions {
+			a.handleWorkflowRunFunctionAction(runFuncAction)
 		}
-		a.workflow.SetState(workflow.StateRunning)
 	}
+}
+
+func (a *WorkflowHandler) handleWorkflowRunFunctionAction(action workflow.Action) {
+	workflowPool := WorkflowFuncPoolName(a.workflow.ID())
+	execAction := action.(*workflow.RunFunctionAction)
+
+	execFnMsg := messaging.NewExecuteFunctionMessage(a.workflow.ID(), execAction)
+	err := a.Send(workflowPool, execFnMsg)
+	if err != nil {
+		a.Log().Error("failed to send execute function message to %s: %s", workflowPool, err)
+		return
+	}
+	a.workflow.SetState(workflow.StateRunning)
+
 }

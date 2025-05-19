@@ -4,28 +4,65 @@ package typeschema
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 )
 
 // ParseValue converts val (interface{}) to the Go type described by typeStr (e.g., "int", "[]string")
+// For array types, it returns a slice of the actual element type, not []any.
 func ParseValue(typeStr string, val any) (any, error) {
 	typeStr = strings.TrimSpace(typeStr)
 	if strings.HasPrefix(typeStr, "[]") {
 		elemType := typeStr[2:]
-		valSlice, ok := val.([]any)
-		if !ok {
-			valSlice = []any{val}
+		var valSlice []any
+		switch v := val.(type) {
+		case []any:
+			valSlice = v
+		default:
+			// Try to convert common slice types to []any, or wrap standalone value
+			rv := reflect.ValueOf(val)
+			if rv.Kind() == reflect.Slice {
+				valSlice = make([]any, rv.Len())
+				for i := 0; i < rv.Len(); i++ {
+					valSlice[i] = rv.Index(i).Interface()
+				}
+			} else {
+				valSlice = []any{val}
+			}
 		}
-		result := make([]any, len(valSlice))
-		for i, elem := range valSlice {
-			casted, err := ParseValue(elemType, elem)
+		// Recursively convert items, then use reflect to create the actual slice type
+		samples := make([]reflect.Value, len(valSlice))
+		var elemTypeVal reflect.Type
+		for i, item := range valSlice {
+			casted, err := ParseValue(elemType, item)
 			if err != nil {
 				return nil, fmt.Errorf("invalid element at index %d: %v", i, err)
 			}
-			result[i] = casted
+			samples[i] = reflect.ValueOf(casted)
+			if i == 0 {
+				elemTypeVal = samples[0].Type()
+			}
 		}
-		return result, nil
+		if elemTypeVal == nil {
+			switch elemType {
+			case "string":
+				elemTypeVal = reflect.TypeOf("")
+			case "int":
+				elemTypeVal = reflect.TypeOf(int(0))
+			case "float64":
+				elemTypeVal = reflect.TypeOf(float64(0))
+			case "bool":
+				elemTypeVal = reflect.TypeOf(false)
+			default:
+				return nil, fmt.Errorf("cannot determine array element type for %q", elemType)
+			}
+		}
+		resultSlice := reflect.MakeSlice(reflect.SliceOf(elemTypeVal), len(samples), len(samples))
+		for i, v := range samples {
+			resultSlice.Index(i).Set(v)
+		}
+		return resultSlice.Interface(), nil
 	}
 	// Handle scalar types
 	switch typeStr {

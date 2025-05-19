@@ -1,7 +1,6 @@
 package workflow
 
 import (
-	"github.com/open-source-cloud/fuse/pkg/store"
 	"sync"
 )
 
@@ -24,11 +23,10 @@ func newThread(id int, execID string) *thread {
 
 func newThreadWithParents(id int, execID string, parentThreads []int) *thread {
 	return &thread{
-		id:               id,
-		parentThreads:    parentThreads,
-		currentExecID:    execID,
-		aggregatedOutput: store.New(),
-		state:            ThreadRunning,
+		id:            id,
+		parentThreads: parentThreads,
+		currentExecID: execID,
+		state:         ThreadRunning,
 	}
 }
 
@@ -41,17 +39,10 @@ type (
 	thread struct {
 		id            int
 		parentThreads []int
-		currentExecID    string
-		aggregatedOutput *store.KV
-		state            State
+		currentExecID string
+		state         State
 	}
 )
-
-func (t *threads) Get(threadID int) *thread {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	return t.threads[threadID]
-}
 
 func (t *threads) New(threadID int, execID string) *thread {
 	t.mu.Lock()
@@ -69,19 +60,32 @@ func (t *threads) NewChild(threadID int, execID string, parentThreads []int) *th
 	return createdThread
 }
 
+func (t *threads) Get(threadID int) *thread {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.threads[threadID]
+}
+
+func (t *threads) AreAllParentsFinishedFor(parentThreadIDs []int) bool {
+	for _, parentThreadID := range parentThreadIDs {
+		parentThread := t.Get(parentThreadID)
+		if parentThread.State() != ThreadFinished {
+			return false
+		}
+	}
+	return true
+}
+
 func (t *thread) ID() int {
 	return t.id
 }
 
-func (t* thread) CurrentExecID() string {
+func (t *thread) CurrentExecID() string {
 	return t.currentExecID
 }
 
-func (t *thread) SetCurrentExecID(execID string, clearStore bool) {
+func (t *thread) SetCurrentExecID(execID string) {
 	t.currentExecID = execID
-	if clearStore {
-		t.aggregatedOutput = store.New()
-	}
 }
 
 func (t *thread) State() State {
@@ -90,8 +94,4 @@ func (t *thread) State() State {
 
 func (t *thread) SetState(state State) {
 	t.state = state
-}
-
-func (t *thread) AggregatedOutput() *store.KV {
-	return t.aggregatedOutput
 }

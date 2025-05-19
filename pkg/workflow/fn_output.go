@@ -2,32 +2,24 @@ package workflow
 
 const (
 	FunctionStatusNil FunctionOutputStatus = "nil"
-	// FunctionSuccess Success status
+	// FunctionSuccess Success Status
 	FunctionSuccess FunctionOutputStatus = "success"
-	// FunctionError Error status
+	// FunctionError Error Status
 	FunctionError FunctionOutputStatus = "error"
 )
 
-// FunctionOutputStatus node output status type
+// FunctionOutputStatus node output Status type
 type FunctionOutputStatus string
 
 type FunctionOutput struct {
-	status FunctionOutputStatus
-	data   map[string]any
+	Status FunctionOutputStatus `json:"status"`
+	Data   map[string]any       `json:"data"`
 }
 
-// NewFunctionOutput creates a new node output object with status and data with the result of the execution
+// NewFunctionOutput creates a new node output object with Status and Data with the result of the execution
 func NewFunctionOutput(status FunctionOutputStatus, data map[string]any) FunctionOutput {
 	return FunctionOutput{
-		status: status,
-		data:   data,
+		Status: status,
+		Data:   data,
 	}
-}
-
-func (o FunctionOutput) Status() FunctionOutputStatus {
-	return o.status
-}
-
-func (o FunctionOutput) Data() map[string]any {
-	return o.data
 }

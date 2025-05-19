@@ -42,7 +42,7 @@ type OutputEdgeMetadata struct {
 // Parameters type for a collection of Parameter schemas
 type Parameters map[string]ParameterSchema
 
-// ParameterSchema represents a schema definition for a single data field.
+// ParameterSchema represents a schema definition for a single Data field.
 // Each field in the schema can have specific properties like type, validation rules, and metadata.
 //
 // Validation array format:

@@ -49,6 +49,10 @@ func (n *Node) Thread() int {
 	return n.thread
 }
 
+func (n *Node) FunctionMetadata() workflow.FunctionMetadata {
+	return n.functionMetadata
+}
+
 // InputEdges returns the input edges
 func (n *Node) InputEdges() []*Edge {
 	return n.inputEdges

@@ -73,7 +73,8 @@ func (a *WorkflowFunc) HandleMessage(from gen.PID, message any) error {
 		a.Log().Error("failed to execute function %s: %s", fn.ID(), err)
 		return nil
 	}
-	a.Log().Debug("execute function %s result: %s", fn.ID(), result)
+	jsonResult, _ := json.Marshal(result)
+	a.Log().Debug("execute function %s result: %s", fn.ID(), string(jsonResult))
 
 	resultMsg := messaging.NewFunctionResultMessage(msgPayload.WorkflowID, msgPayload.ThreadID, msgPayload.ExecID, result)
 	err = a.Send(WorkflowHandlerName(msgPayload.WorkflowID), resultMsg)
