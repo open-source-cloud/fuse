@@ -37,7 +37,8 @@ func NewSupervisor(config *config.Config) Supervisor {
 		cfg:     config,
 		mailbox: actor.NewMailbox[actormodel.Message](),
 	}
-	app.baseActor = actor.New(app)
+	app.baseActor = actor.Combine(app.mailbox, actor.New(app)).Build()
+
 	return app
 }
 
@@ -86,7 +87,6 @@ func (a *supervisor) Start() {
 			a.server.Start()
 		}
 
-		a.mailbox.Start()
 		a.started = true
 	}
 }
@@ -135,7 +135,6 @@ func (a *supervisor) SendMessageTo(receiver actormodel.MessageReceiver, ctx acto
 		if err != nil {
 			audit.Error().Err(err).Msg("Failed to send message")
 		}
-		a.mailbox.Start()
 	case actormodel.HTTPServer:
 		a.server.SendMessage(ctx, msg)
 	case actormodel.WorkflowEngine:

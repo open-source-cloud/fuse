@@ -2,6 +2,8 @@ package workflow
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/open-source-cloud/fuse/internal/actormodel"
 	"github.com/open-source-cloud/fuse/internal/audit"
 	"github.com/open-source-cloud/fuse/internal/typeschema"
@@ -10,7 +12,6 @@ import (
 	"github.com/open-source-cloud/fuse/pkg/store"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 	"github.com/vladopajic/go-actor/actor"
-	"strings"
 )
 
 // State type for workflow states
@@ -56,7 +57,8 @@ func NewWorkflow(id string, schema Schema) Workflow {
 		state:       StateStopped,
 		currentNode: []graph.Node{},
 	}
-	worker.baseActor = actor.New(worker)
+	worker.baseActor = actor.Combine(worker.mailbox, actor.New(worker)).Build()
+
 	return worker
 }
 
@@ -95,7 +97,6 @@ func (w *workflowWorker) SendMessage(ctx Context, msg actormodel.Message) {
 			Err(err).
 			Msg("Failed to send message to Workflow")
 	}
-	w.mailbox.Start()
 }
 
 func (w *workflowWorker) handleMessage(ctx Context, msg actormodel.Message) error {

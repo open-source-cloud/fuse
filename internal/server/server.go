@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+
 	"github.com/gofiber/fiber/v3"
 	"github.com/open-source-cloud/fuse/internal/actormodel"
 	"github.com/open-source-cloud/fuse/internal/audit"
@@ -42,7 +43,7 @@ func NewServer(cfg config.ServerConfig, db *database.ArangoClient) Server {
 
 	sv.registerHandlers()
 
-	sv.baseActor = actor.New(sv)
+	sv.baseActor = actor.Combine(sv.mailbox, actor.New(sv)).Build()
 	return sv
 }
 
@@ -85,7 +86,6 @@ func (s *server) SendMessage(ctx actor.Context, msg actormodel.Message) {
 		audit.Error().ActorMessage(msg).Err(err).Msg("Failed to send message")
 		return
 	}
-	s.mailbox.Start()
 }
 
 func (s *server) listen() error {

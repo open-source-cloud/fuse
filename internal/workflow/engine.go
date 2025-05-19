@@ -33,7 +33,7 @@ func NewEngine(supervisor actormodel.SupervisorMessenger) Engine {
 		schemas:    make(map[string]Schema),
 		workflows:  make(map[string]Workflow),
 	}
-	worker.baseActor = actor.New(worker)
+	worker.baseActor = actor.Combine(worker.mailbox, actor.New(worker)).Build()
 
 	return worker
 }
@@ -99,5 +99,4 @@ func (e *engine) SendMessage(ctx actor.Context, msg actormodel.Message) {
 	if err != nil {
 		audit.Error().ActorMessage(msg).Err(err).Msg("Failed to send message")
 	}
-	e.mailbox.Start()
 }
