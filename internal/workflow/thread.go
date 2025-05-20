@@ -18,13 +18,8 @@ func newThreads() *threads {
 }
 
 func newThread(id int, execID string) *thread {
-	return newThreadWithParents(id, execID, []int{})
-}
-
-func newThreadWithParents(id int, execID string, parentThreads []int) *thread {
 	return &thread{
 		id:            id,
-		parentThreads: parentThreads,
 		currentExecID: execID,
 		state:         ThreadRunning,
 	}
@@ -38,7 +33,6 @@ type (
 
 	thread struct {
 		id            int
-		parentThreads []int
 		currentExecID string
 		state         State
 	}
@@ -48,14 +42,6 @@ func (t *threads) New(threadID int, execID string) *thread {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	createdThread := newThread(threadID, execID)
-	t.threads[threadID] = createdThread
-	return createdThread
-}
-
-func (t *threads) NewChild(threadID int, execID string, parentThreads []int) *thread {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	createdThread := newThreadWithParents(threadID, execID, parentThreads)
 	t.threads[threadID] = createdThread
 	return createdThread
 }

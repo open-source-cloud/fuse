@@ -86,16 +86,15 @@ func (w *Workflow) Next(threadID int) Action {
 
 	switch len(currentNode.OutputEdges()) {
 	case 0:
-		// TODO - finished this thread
 		currentThread.SetState(StateFinished)
+		// TODO: if ALL threads are finished, finish actor-tree for this workflow
 		return &NoopAction{}
 	case 1:
 		edge := currentNode.OutputEdges()[0]
-		node := edge.To()
-		if currentNode.thread != node.thread {
+		if currentNode.thread != edge.To().thread {
 			currentThread.SetState(StateFinished)
 		}
-		if !w.threads.AreAllParentsFinishedFor(node.parentThreads) {
+		if !w.threads.AreAllParentsFinishedFor(edge.To().parentThreads) {
 			return &NoopAction{}
 		}
 		return w.newRunFunctionAction(currentThread, edge)
@@ -105,8 +104,7 @@ func (w *Workflow) Next(threadID int) Action {
 			Actions: make([]*RunFunctionAction, 0, len(currentNode.OutputEdges())),
 		}
 		for _, edge := range currentNode.OutputEdges() {
-			node := edge.To()
-			if !w.threads.AreAllParentsFinishedFor(node.parentThreads) {
+			if !w.threads.AreAllParentsFinishedFor(edge.To().parentThreads) {
 				return &NoopAction{}
 			}
 			parallelAction.Actions = append(parallelAction.Actions, w.newRunFunctionAction(currentThread, edge))
@@ -163,7 +161,7 @@ func (w *Workflow) newRunFunctionAction(currentThread *thread, edge *Edge) *RunF
 	newOrCurrentThread := currentThread
 	var mappings []InputMapping
 	if currentThread.ID() != node.thread {
-		newOrCurrentThread = w.threads.NewChild(node.thread, execID, node.parentThreads)
+		newOrCurrentThread = w.threads.New(node.thread, execID)
 		for _, inputEdge := range node.InputEdges() {
 			if inputEdge.To() == node {
 				mappings = append(mappings, inputEdge.Input()...)
@@ -255,63 +253,3 @@ func (w *Workflow) inputMapping(edge *Edge, mappings []InputMapping) map[string]
 func (w *Workflow) validateInputMapping(paramSchema *workflow.ParameterSchema, value any) bool {
 	return true
 }
-
-//func (w *workflowWorker) createNodeInput(node graph.Node, rawInputData map[string]any) (*workflow.FunctionInput, error) {
-//	for i, mapping := range nodeConfig.InputMapping() {
-//		paramSchema, exists := inputSchema.Parameters[mapping.Mapping]
-//		audit.Debug().Workflow(w.id).Node(node.id()).
-
-//		isCustomParameter := inputSchema.CustomParameters && !exists
-//		if mapping.Source != graph.InputSourceSchema && !isCustomParameter && !exists {
-//			audit.Error().Workflow(w.id).Node(node.id()).
-//				Str("source", mapping.Source).Any("origin", mapping.Origin).Msg("Input mapping for source.origin not found")
-//			return nil, fmt.Errorf("input mapping for source.origin %s.%s not found", mapping.Source, mapping.Origin)
-//		}
-//
-//		var rawValue any
-//		if mapping.Source == graph.InputSourceSchema {
-//			rawValue = mapping.Origin
-//		} else {
-//			inputKey := mapping.Origin.(string)
-//			if len(node.InputEdges()) > 1 {
-//				inputKey = fmt.Sprintf("%s.%s", mapping.Source, mapping.Origin)
-//			}
-//			audit.Debug().Workflow(w.id).Node(node.id()).Msgf("inputKey: %v", inputKey)
-//			rawValue = inputStore.Get(inputKey)
-//			if rawValue == nil {
-//				audit.Error().Workflow(w.id).Node(node.id()).
-//					Str("inputKey", mapping.Source).Msg("Input value for source not found")
-//				return nil, fmt.Errorf("input value for inputKey %s not found", inputKey)
-//			}
-//		}
-//
-//		isArray := strings.HasPrefix(paramSchema.Type, "[]")
-//		var paramValue any
-//		if mapping.Source == graph.InputSourceSchema || isCustomParameter {
-//			paramValue = rawValue
-//		} else {
-//			paramValue, err = typeschema.ParseValue(paramSchema.Type, rawValue)
-//			if err != nil {
-//				audit.Error().Workflow(w.id).Node(node.id()).Err(err).Msg("Failed to parse input value")
-//				return nil, err
-//			}
-//		}
-//
-//		// TODO: Improve set handling
-//		if isArray {
-//			currentArray := nodeInput.Get(mapping.Mapping)
-//			if currentArray != nil {
-//				nodeInput.Set(mapping.Mapping, append(currentArray.([]any), paramValue.([]any)...))
-//			} else {
-//				nodeInput.Set(mapping.Mapping, paramValue.([]any))
-//			}
-//		} else {
-//			nodeInput.Set(mapping.Mapping, paramValue)
-//		}
-//
-//	}
-//
-//	audit.Debug().Workflow(w.id).Node(node.id()).Msgf("FunctionInput: %v", nodeInput.ToMap())
-//
-//	return nodeInput, nil
-//}
