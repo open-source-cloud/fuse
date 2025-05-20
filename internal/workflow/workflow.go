@@ -98,29 +98,7 @@ func (w *Workflow) Next(threadID int) Action {
 		if !w.threads.AreAllParentsFinishedFor(node.parentThreads) {
 			return &NoopAction{}
 		}
-
-		var mappings []InputMapping
-		if threadID != node.thread {
-			for _, inputEdge := range node.InputEdges() {
-				if inputEdge.To() == node {
-					mappings = append(mappings, inputEdge.Input()...)
-				}
-			}
-		} else {
-			mappings = edge.Input()
-		}
-
-		execID := uuid.V7()
-		args := w.inputMapping(edge, mappings)
-
-		currentThread.SetCurrentExecID(execID)
-		w.auditLog.NewEntry(currentThread.ID(), edge.To().ID(), execID, args)
-		return &RunFunctionAction{
-			ThreadID:       currentThread.ID(),
-			FunctionID:     edge.To().FunctionID(),
-			FunctionExecID: execID,
-			Args:           args,
-		}
+		return w.newRunFunctionAction(currentThread, edge)
 	default: // >1
 		currentThread.SetState(StateFinished)
 		parallelAction := &RunParallelFunctionsAction{
@@ -131,29 +109,7 @@ func (w *Workflow) Next(threadID int) Action {
 			if !w.threads.AreAllParentsFinishedFor(node.parentThreads) {
 				return &NoopAction{}
 			}
-
-			var mappings []InputMapping
-			if threadID != node.thread {
-				for _, inputEdge := range node.InputEdges() {
-					if inputEdge.To() == node {
-						mappings = append(mappings, inputEdge.Input()...)
-					}
-				}
-			} else {
-				mappings = edge.Input()
-			}
-
-			execID := uuid.V7()
-			args := w.inputMapping(edge, mappings)
-
-			newParallelThread := w.threads.NewChild(node.thread, execID, node.parentThreads)
-			w.auditLog.NewEntry(newParallelThread.ID(), edge.To().ID(), execID, args)
-			parallelAction.Actions = append(parallelAction.Actions, &RunFunctionAction{
-				ThreadID:       newParallelThread.ID(),
-				FunctionID:     edge.To().FunctionID(),
-				FunctionExecID: execID,
-				Args:           args,
-			})
+			parallelAction.Actions = append(parallelAction.Actions, w.newRunFunctionAction(currentThread, edge))
 		}
 		return parallelAction
 	}
@@ -200,6 +156,34 @@ func (w *Workflow) AuditLogTrace() string {
 	return ""
 }
 
+func (w *Workflow) newRunFunctionAction(currentThread *thread, edge *Edge) *RunFunctionAction {
+	node := edge.To()
+	execID := uuid.V7()
+
+	newOrCurrentThread := currentThread
+	var mappings []InputMapping
+	if currentThread.ID() != node.thread {
+		newOrCurrentThread = w.threads.NewChild(node.thread, execID, node.parentThreads)
+		for _, inputEdge := range node.InputEdges() {
+			if inputEdge.To() == node {
+				mappings = append(mappings, inputEdge.Input()...)
+			}
+		}
+	} else {
+		currentThread.SetCurrentExecID(execID)
+		mappings = edge.Input()
+	}
+	args := w.inputMapping(edge, mappings)
+
+	w.auditLog.NewEntry(newOrCurrentThread.ID(), edge.To().ID(), execID, args)
+	return &RunFunctionAction{
+		ThreadID:       newOrCurrentThread.ID(),
+		FunctionID:     edge.To().FunctionID(),
+		FunctionExecID: execID,
+		Args:           args,
+	}
+}
+
 func (w *Workflow) inputMapping(edge *Edge, mappings []InputMapping) map[string]any {
 	args := store.New()
 	for _, mapping := range mappings {
@@ -228,7 +212,6 @@ func (w *Workflow) inputMapping(edge *Edge, mappings []InputMapping) map[string]
 					Msgf("Output ParamSchema not found for input mapping")
 				continue
 			}
-			log.Info().Msg(outputParamSchema.Name)
 
 			isArray := strings.HasPrefix(inputParamSchema.Type, "[]")
 			rawValue := w.aggregatedOutput.Get(mapping.Variable)
