@@ -68,6 +68,11 @@ func (n *Node) OutputEdges() []*Edge {
 	return n.outputEdges
 }
 
+// IsConditional returns true if this node has conditional output
+func (n *Node) IsConditional() bool {
+	return n.functionMetadata.Output.ConditionalOutput
+}
+
 // AddInputEdge adds an input Edge
 func (n *Node) AddInputEdge(edge *Edge) {
 	n.inputEdges = append(n.inputEdges, edge)

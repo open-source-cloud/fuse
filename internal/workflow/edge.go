@@ -13,10 +13,10 @@ type (
 // NewEdge creates and returns a new Edge with the specified from and to nodes.
 func newEdge(id string, from *Node, to *Node, schema *EdgeSchema) *Edge {
 	return &Edge{
-		id:   id,
+		id:     id,
 		schema: schema,
-		from: from,
-		to:   to,
+		from:   from,
+		to:     to,
 	}
 }
 

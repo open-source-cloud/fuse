@@ -121,7 +121,7 @@
       "from": "if-conditional",
       "to": "nil-true",
       "conditional": {
-        "name": "conditional-true",
+        "name": "if-true",
         "value": true
       }
     },
@@ -130,7 +130,7 @@
       "from": "if-conditional",
       "to": "nil-false",
       "conditional": {
-        "name": "conditional-false",
+        "name": "if-false",
         "value": false
       }
     }

@@ -1,0 +1,129 @@
+{
+  "id": "small-test",
+  "name": "Small Test",
+  "nodes": [
+    {
+      "id": "debug-nil",
+      "function": "fuse/pkg/debug/nil"
+    },
+    {
+      "id": "logic-rand-1",
+      "function": "fuse/pkg/logic/rand"
+    },
+    {
+      "id": "logic-rand-2",
+      "function": "fuse/pkg/logic/rand"
+    },
+    {
+      "id": "logic-sum",
+      "function": "fuse/pkg/logic/sum"
+    },
+    {
+      "id": "logic-if",
+      "function": "fuse/pkg/logic/if"
+    },
+    {
+      "id": "nil-true",
+      "function": "fuse/pkg/debug/nil"
+    },
+    {
+      "id": "nil-false",
+      "function": "fuse/pkg/debug/nil"
+    }
+  ],
+  "edges": [
+    {
+      "id": "0196cf0f-8a70-7463-a594-3e2a734be14c",
+      "from": "debug-nil",
+      "to": "logic-rand-1",
+      "input": [
+        {
+          "source": "schema",
+          "value": 10,
+          "mapTo": "min"
+        },
+        {
+          "source": "schema",
+          "value": 100,
+          "mapTo": "max"
+        }
+      ]
+    },
+    {
+      "id": "0196cf14-bb19-7b24-ba68-640002731a97",
+      "from": "debug-nil",
+      "to": "logic-rand-2",
+      "input": [
+        {
+          "source": "schema",
+          "value": 0,
+          "mapTo": "min"
+        },
+        {
+          "source": "schema",
+          "value": 90,
+          "mapTo": "max"
+        }
+      ]
+    },
+    {
+      "id": "0196cf19-c319-7c3a-ac82-69a63b8e88d5",
+      "from": "logic-rand-1",
+      "to": "logic-sum",
+      "input": [
+        {
+          "source": "flow",
+          "variable": "logic-rand-1.rand",
+          "mapTo": "values"
+        }
+      ]
+    },
+    {
+      "id": "0196cf1a-9d58-7021-817a-830942043b38",
+      "from": "logic-rand-2",
+      "to": "logic-sum",
+      "input": [
+        {
+          "source": "flow",
+          "variable": "logic-rand-2.rand",
+          "mapTo": "values"
+        }
+      ]
+    },
+    {
+      "id": "0196f8ea-66d8-7f3f-bef9-1ae7eb2d29ea",
+      "from": "logic-sum",
+      "to": "logic-if",
+      "input": [
+        {
+          "source": "schema",
+          "value": "sum > 95",
+          "mapTo": "expression"
+        },
+        {
+          "source": "flow",
+          "variable": "logic-sum.sum",
+          "mapTo": "sum"
+        }
+      ]
+    },
+    {
+      "id": "0196f8f0-da1b-7851-bb19-410499b8b034",
+      "from": "logic-if",
+      "to": "nil-true",
+      "conditional": {
+        "name": "if-true",
+        "value": true
+      }
+    },
+    {
+      "id": "0196f8f1-a416-714c-8c29-263fb4816853",
+      "from": "logic-if",
+      "to": "nil-false",
+      "conditional": {
+        "name": "if-false",
+        "value": false
+      }
+    }
+  ]
+}
