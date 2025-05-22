@@ -1,381 +1,287 @@
+// Package workflow has all the types and functions for defining and handling Workflows
 package workflow
 
 import (
-	"fmt"
-	"github.com/open-source-cloud/fuse/internal/actormodel"
-	"github.com/open-source-cloud/fuse/internal/audit"
 	"github.com/open-source-cloud/fuse/internal/typeschema"
-	"github.com/open-source-cloud/fuse/internal/workflow/workflowmsg"
-	"github.com/open-source-cloud/fuse/pkg/graph"
 	"github.com/open-source-cloud/fuse/pkg/store"
+	"github.com/open-source-cloud/fuse/pkg/utils"
+	"github.com/open-source-cloud/fuse/pkg/uuid"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
-	"github.com/vladopajic/go-actor/actor"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"reflect"
 	"strings"
 )
 
-// State type for workflow states
-type State string
+type (
+	// State defines the State type
+	State string
+	// ID defines a Workflow ID type
+	ID string
+	// ActionType defines an ActionType type
+	ActionType string
+)
 
+func (s State) String() string {
+	return string(s)
+}
+func (id ID) String() string {
+	return string(id)
+}
+
+// NewID generates a new Workflow ID
+func NewID() ID {
+	return ID(uuid.V7())
+}
+
+//goland:noinspection GoUnusedConst
 const (
-	// StateStopped workflow is stopped
-	StateStopped State = "stopped"
-	// StateRunning workflow is running
+	// StateUntriggered Workflow untriggered state (new)
+	StateUntriggered State = "untriggered"
+	// StateRunning Workflow running state
 	StateRunning State = "running"
-	// StateFinished workflow has finished successfully
+	// StateSleeping Workflow sleeping state
+	StateSleeping State = "sleeping"
+	// StateFinished Workflow finished state (finished with success)
 	StateFinished State = "finished"
-	// StateError workflow has finished with errors
+	// StateError Workflow error state (finished with error)
 	StateError State = "error"
 )
 
-// Context the context type used by workflow actors
-type Context actor.Context
-
-// Workflow describes the interface for a Workflow actor
-type Workflow interface {
-	actor.Actor
-	SendMessage(ctx Context, msg actormodel.Message)
-}
-
-type workflowWorker struct {
-	baseActor   actor.Actor
-	mailbox     actor.Mailbox[actormodel.Message]
-	id          string
-	schema      Schema
-	data        map[string]any
-	state       State
-	currentNode []graph.Node
-}
-
-// NewWorkflow creates a new workflow actor worker
-func NewWorkflow(id string, schema Schema) Workflow {
-	worker := &workflowWorker{
-		mailbox:     actor.NewMailbox[actormodel.Message](),
-		id:          id,
-		schema:      schema,
-		data:        make(map[string]any),
-		state:       StateStopped,
-		currentNode: []graph.Node{},
-	}
-	worker.baseActor = actor.New(worker)
-	return worker
-}
-
-func (w *workflowWorker) Start() {
-	w.state = StateRunning
-	w.baseActor.Start()
-}
-
-func (w *workflowWorker) Stop() {
-	w.baseActor.Stop()
-	audit.Info().WorkflowState(w.id, w.state).Msg("Stop() called")
-	w.state = StateStopped
-}
-
-func (w *workflowWorker) DoWork(ctx actor.Context) actor.WorkerStatus {
-	select {
-	case <-ctx.Done():
-		audit.Info().WorkflowState(w.id, w.state).Msg("Stopped")
-		return actor.WorkerEnd
-
-	case msg := <-w.mailbox.ReceiveC():
-		audit.Info().WorkflowMessage(w.id, msg).Msg("Message received")
-		if err := w.handleMessage(ctx, msg); err != nil {
-			audit.Info().WorkflowState(w.id, w.state).Msg("Stopped")
-			return actor.WorkerEnd
-		}
-		return actor.WorkerContinue
+// New creates a new Workflow from an already generated ID and a provided WorkflowGraph
+func New(id ID, graph *Graph) *Workflow {
+	return &Workflow{
+		id:               id,
+		graph:            graph,
+		auditLog:         NewAuditLog(),
+		threads:          newThreads(),
+		aggregatedOutput: store.New(),
+		state: RunningState{
+			currentState: StateUntriggered,
+		},
 	}
 }
 
-func (w *workflowWorker) SendMessage(ctx Context, msg actormodel.Message) {
-	err := w.mailbox.Send(ctx, msg)
-	if err != nil {
-		audit.Error().
-			Workflow(w.id).
-			Err(err).
-			Msg("Failed to send message to Workflow")
+type (
+	// Workflow defines a Workflow
+	Workflow struct {
+		id               ID
+		graph            *Graph
+		auditLog         *AuditLog
+		threads          *threads
+		aggregatedOutput *store.KV
+		state            RunningState
 	}
-	w.mailbox.Start()
+
+	// RunningState defines the Workflow running state
+	RunningState struct {
+		currentState State
+	}
+)
+
+// Trigger triggers a new workflow, results in an Action to be acted upon by the responsible actor
+func (w *Workflow) Trigger() Action {
+	execID := uuid.V7()
+	triggerNode := w.graph.Trigger()
+
+	triggerThread := w.threads.New(triggerNode.thread, execID)
+	w.auditLog.NewEntry(triggerThread.ID(), triggerNode.ID(), execID, nil)
+
+	return &RunFunctionAction{
+		ThreadID:       triggerThread.ID(),
+		FunctionID:     triggerNode.FunctionID(),
+		FunctionExecID: execID,
+		Args:           map[string]any{},
+	}
 }
 
-func (w *workflowWorker) handleMessage(ctx Context, msg actormodel.Message) error {
-	switch msg.Type() {
-	case workflowmsg.Start:
-		rootNode := w.schema.RootNode()
-		output, err := w.executeNode(ctx, rootNode, msg.Data())
-		if err != nil {
-			audit.Error().Workflow(w.id).Err(err).Msg("Failed to execute root node")
-			w.state = StateError
-			return err
-		}
-		w.SendMessage(ctx, actormodel.NewMessage(workflowmsg.Continue, actormodel.MessageData(output)))
-	case workflowmsg.Continue:
-		currentNodeCount := len(w.currentNode)
-		if currentNodeCount == 0 {
-			err := fmt.Errorf("no current node")
-			audit.Error().Workflow(w.id).Err(err).Msg("No current node")
-			return err
-		}
-
-		outputEdges := map[string]graph.Edge{}
-		for _, node := range w.currentNode {
-			outputMetadata := node.NodeRef().Metadata().Output()
-			nodeOutputEdges := node.OutputEdges()
-			for k, edge := range nodeOutputEdges {
-				if edge.IsConditional() && outputMetadata.ConditionalOutput {
-					inputData := msg.Data()
-					edgeMetadata := outputMetadata.Edges[edge.Condition().Name]
-					if edge.Condition().Value == inputData[edgeMetadata.ConditionalEdge.Condition] {
-						outputEdges[k] = edge
-					} else {
-						audit.Debug().Workflow(w.id).Msg("Conditional edge not met")
-					}
-				} else {
-					outputEdges[k] = edge
-				}
-			}
-		}
-		switch len(outputEdges) {
-		case 0:
-			audit.Info().Workflow(w.id).Nodes(w.currentNode).Msg("No output edges")
-			w.state = StateFinished
-			return fmt.Errorf("no output edges")
-		case 1:
-			var edge graph.Edge
-			for _, edgeRef := range outputEdges {
-				edge = edgeRef
-				break
-			}
-			//goland:noinspection ALL
-			output, err := w.executeNode(ctx, edge.To(), msg.Data())
-			if err != nil {
-				audit.Error().Workflow(w.id).Err(err).Msg("Failed to execute root node")
-				w.state = StateError
-				return err
-			}
-			if output != nil {
-				w.SendMessage(ctx, actormodel.NewMessage(workflowmsg.Continue, actormodel.MessageData(output)))
-			}
-		default:
-			output, err := w.executeParallelNodes(ctx, outputEdges, msg.Data())
-			if err != nil {
-				audit.Error().Workflow(w.id).Err(err).Msg("Failed to execute parallel nodes")
-				w.state = StateError
-				return err
-			}
-			w.SendMessage(ctx, actormodel.NewMessage(workflowmsg.Continue, actormodel.MessageData(output)))
-		}
-
-	default:
-		// Handle unknown message types
-		audit.Warn().WorkflowMessage(w.id, msg).Msg("Unknown message type")
-		return fmt.Errorf("unknown message type %s", msg.Type())
-	}
-
+// Resume resumes a previously started Workflow that needed to be re-created from data
+func (w *Workflow) Resume() Action {
+	// TODO add logic to re-start an already started Workflow that got reloaded from storage
 	return nil
 }
 
-func (w *workflowWorker) executeNode(ctx Context, node graph.Node, rawInputData map[string]any) (workflow.NodeOutputData, error) {
-	input, err := w.createNodeInput(node, rawInputData)
-	if err != nil {
-		audit.Error().Workflow(w.id).Err(err).Msg("Failed to create node input")
-		w.state = StateError
-		return nil, err
-	}
+// Next requests the next Action to be enacted by the responsible actor on this workflow
+func (w *Workflow) Next(threadID int) Action {
+	currentThread := w.threads.Get(threadID)
+	currentAuditEntry, _ := w.auditLog.Get(currentThread.CurrentExecID())
+	currentNode, _ := w.graph.FindNode(currentAuditEntry.FunctionNodeID)
 
-	nodeRef := node.NodeRef()
-	w.currentNode = []graph.Node{node}
-	result, err := nodeRef.Execute(input)
-	if err != nil {
-		audit.Error().Workflow(w.id).Err(err).Msg("Failed to execute node")
-		w.state = StateError
-		return nil, err
-	}
-
-	audit.Info().Workflow(w.id).NodeInputOutput(node.ID(), input.Raw(), result.Map()).Msg("node executed")
-
-	var output workflow.NodeOutput
-	async, isAsync := result.Async()
-
-	if isAsync {
-		go func() {
-			done := <-async
-			if done.Status() == workflow.NodeOutputStatusSuccess {
-				w.SendMessage(ctx, actormodel.NewMessage(workflowmsg.Continue, actormodel.MessageData(done.Data())))
+	switch len(currentNode.OutputEdges()) {
+	case 0:
+		currentThread.SetState(StateFinished)
+		// TODO: if ALL threads are finished, finish actor-tree for this workflow
+		return &NoopAction{}
+	case 1:
+		edge := currentNode.OutputEdges()[0]
+		if currentNode.thread != edge.To().thread {
+			currentThread.SetState(StateFinished)
+		}
+		if !w.threads.AreAllParentsFinishedFor(edge.To().parentThreads) {
+			return &NoopAction{}
+		}
+		return w.newRunFunctionAction(currentThread, edge)
+	default: // >1
+		currentThread.SetState(StateFinished)
+		parallelAction := &RunParallelFunctionsAction{
+			Actions: make([]*RunFunctionAction, 0, len(currentNode.OutputEdges())),
+		}
+		for _, edge := range currentNode.OutputEdges() {
+			if !w.threads.AreAllParentsFinishedFor(edge.To().parentThreads) {
+				return &NoopAction{}
 			}
-		}()
-		return nil, nil
+			parallelAction.Actions = append(parallelAction.Actions, w.newRunFunctionAction(currentThread, edge))
+		}
+		return parallelAction
 	}
-
-	output = result.Output()
-	if output.Status() == workflow.NodeOutputStatusSuccess {
-		return output.Data(), nil
-	}
-
-	w.state = StateError
-	// TODO: Improve error handling
-	return nil, fmt.Errorf("node failed with output %v", output.Data())
 }
 
-func (w *workflowWorker) executeParallelNodes(ctx Context, outputEdges map[string]graph.Edge, rawInputData map[string]any) (workflow.NodeOutputData, error) {
-	aggregatedOutput := store.New()
-
-	w.currentNode = make([]graph.Node, 0, len(outputEdges))
-	status := workflow.NodeOutputStatusSuccess
-	asyncCount := 0
-	asyncQueue := make(chan struct {
-		EdgeID string
-		Output workflow.NodeOutput
-	})
-
-	for _, edge := range outputEdges {
-		node := edge.To()
-		input, err := w.createNodeInput(node, rawInputData)
-		if err != nil {
-			audit.Error().Workflow(w.id).Err(err).Msg("Failed to create node input")
-			status = workflow.NodeOutputStatusError
-			break
-		}
-
-		w.currentNode = append(w.currentNode, node)
-
-		nodeRef := node.NodeRef()
-		result, err := nodeRef.Execute(input)
-		if err != nil {
-			audit.Error().Workflow(w.id).Err(err).Msg("Failed to execute node")
-			status = workflow.NodeOutputStatusError
-			break
-		}
-
-		audit.Info().Workflow(w.id).NodeInputOutput(node.ID(), input, result.Map()).Msg("node executed")
-
-		async, isAsync := result.Async()
-		if isAsync {
-			asyncCount++
-			go func() {
-				done := <-async
-				asyncQueue <- struct {
-					EdgeID string
-					Output workflow.NodeOutput
-				}{EdgeID: edge.ID(), Output: done}
-			}()
-			continue
-		}
-		output := result.Output()
-		if output.Status() != workflow.NodeOutputStatusSuccess {
-			status = output.Status()
-			break
-		}
-		aggregatedOutput.Set(fmt.Sprintf("edges.%s", edge.ID()), output.Data())
+// SetResultFor sets the result of a function execution in the workflow's AuditLog
+func (w *Workflow) SetResultFor(functionExecID string, result *workflow.FunctionResult) {
+	entry, exists := w.auditLog.Get(functionExecID)
+	if !exists {
+		return
 	}
-	//goland:noinspection ALL
-	if asyncCount == 0 {
-		if status == workflow.NodeOutputStatusSuccess {
-			return aggregatedOutput.Raw(), nil
-		}
-		return nil, fmt.Errorf("node failed with output %v", aggregatedOutput.Raw())
-	}
-	go func() {
-		for asyncCount > 0 {
-			done := <-asyncQueue
-			if done.Output.Status() == workflow.NodeOutputStatusSuccess {
-				aggregatedOutput.Set(fmt.Sprintf("edges.%s", done.EdgeID), done.Output.Data())
-			}
-			asyncCount--
-		}
-		w.SendMessage(ctx, actormodel.NewMessage(workflowmsg.Continue, actormodel.MessageData(aggregatedOutput.Raw())))
-	}()
-
-	return nil, nil
+	entry.Result = result
+	w.aggregatedOutput.Set(entry.FunctionNodeID, result.Output.Data)
 }
 
-func (w *workflowWorker) createNodeInput(node graph.Node, rawInputData map[string]any) (*workflow.NodeInput, error) {
-	audit.Debug().Workflow(w.id).Node(node.ID()).Msgf("RawInputData: %v", rawInputData)
+// ID Workflow ID
+func (w *Workflow) ID() ID {
+	return w.id
+}
 
-	inputStore, err := store.Init(rawInputData)
-	if err != nil {
-		audit.Error().Workflow(w.id).Err(err).Msg("Failed to init input store")
-		return nil, err
+// State Workflow state
+func (w *Workflow) State() State {
+	return w.state.currentState
+}
+
+// SetState changes Workflow state
+func (w *Workflow) SetState(state State) {
+	w.state.currentState = state
+}
+
+// AuditLog Workflow audit log
+func (w *Workflow) AuditLog() *AuditLog {
+	return w.auditLog
+}
+
+// Schema graph schema that defines the Workflow
+func (w *Workflow) Schema() *GraphSchema {
+	return w.graph.schema
+}
+
+// AuditLogJSON generates JSON from current AuditLog
+func (w *Workflow) AuditLogJSON() string {
+	json, _ := w.auditLog.MarshalJSON()
+	return string(json)
+}
+
+// AuditLogTrace trace log helper to serialize AuditLog (only on trace level)
+func (w *Workflow) AuditLogTrace() string {
+	if zerolog.GlobalLevel() == zerolog.TraceLevel {
+		return w.AuditLogJSON()
 	}
+	return ""
+}
 
-	audit.Debug().Workflow(w.id).Node(node.ID()).Msgf("InputStore: %v", inputStore)
+func (w *Workflow) newRunFunctionAction(currentThread *thread, edge *Edge) *RunFunctionAction {
+	node := edge.To()
+	execID := uuid.V7()
 
-	nodeInput := workflow.NewNodeInput()
-	nodeConfig := node.Config()
-	inputSchema := node.NodeRef().Metadata().Input()
-
-	for i, mapping := range nodeConfig.InputMapping() {
-		audit.Debug().Workflow(w.id).Node(node.ID()).Msgf("NodeConfig.%d.Mapping.Source: %v", i, mapping.Source)
-		audit.Debug().Workflow(w.id).Node(node.ID()).Msgf("NodeConfig.%d.Mapping.Origin: %v", i, mapping.Origin)
-		audit.Debug().Workflow(w.id).Node(node.ID()).Msgf("NodeConfig.%d.Mapping.Mapping: %v", i, mapping.Mapping)
-
-		paramSchema, exists := inputSchema.Parameters[mapping.Mapping]
-		audit.Debug().Workflow(w.id).Node(node.ID()).
-			Msgf("NodeMetadata.Schema.Exists: %v; CustomParameters: %v", exists, inputSchema.CustomParameters)
-		audit.Debug().Workflow(w.id).Node(node.ID()).
-			Msgf("NodeMetadata.Schema.ParamSchema.Name: %v", paramSchema.Name)
-		audit.Debug().Workflow(w.id).Node(node.ID()).
-			Msgf("NodeMetadata.Schema.ParamSchema.Type: %v", paramSchema.Type)
-		audit.Debug().Workflow(w.id).Node(node.ID()).
-			Msgf("NodeMetadata.Schema.ParamSchema.Required: %v", paramSchema.Required)
-
-		isCustomParameter := inputSchema.CustomParameters && !exists
-		if mapping.Source != graph.InputSourceSchema && !isCustomParameter && !exists {
-			audit.Error().Workflow(w.id).Node(node.ID()).
-				Str("source", mapping.Source).Any("origin", mapping.Origin).Msg("Input mapping for source.origin not found")
-			return nil, fmt.Errorf("input mapping for source.origin %s.%s not found", mapping.Source, mapping.Origin)
-		}
-
-		var rawValue any
-		if mapping.Source == graph.InputSourceSchema {
-			rawValue = mapping.Origin
-		} else {
-			inputKey := mapping.Origin.(string)
-			if len(node.InputEdges()) > 1 {
-				inputKey = fmt.Sprintf("%s.%s", mapping.Source, mapping.Origin)
-			}
-			audit.Debug().Workflow(w.id).Node(node.ID()).Msgf("inputKey: %v", inputKey)
-			rawValue = inputStore.Get(inputKey)
-			if rawValue == nil {
-				audit.Error().Workflow(w.id).Node(node.ID()).
-					Str("inputKey", mapping.Source).Msg("Input value for source not found")
-				return nil, fmt.Errorf("input value for inputKey %s not found", inputKey)
+	newOrCurrentThread := currentThread
+	var mappings []InputMapping
+	if currentThread.ID() != node.thread {
+		newOrCurrentThread = w.threads.New(node.thread, execID)
+		for _, inputEdge := range node.InputEdges() {
+			if inputEdge.To() == node {
+				mappings = append(mappings, inputEdge.Input()...)
 			}
 		}
+	} else {
+		currentThread.SetCurrentExecID(execID)
+		mappings = edge.Input()
+	}
+	args := w.inputMapping(edge, mappings)
 
-		audit.Debug().Workflow(w.id).Node(node.ID()).Any("rawValue", rawValue).Msg("InputStore.rawValue")
+	w.auditLog.NewEntry(newOrCurrentThread.ID(), edge.To().ID(), execID, args)
+	return &RunFunctionAction{
+		ThreadID:       newOrCurrentThread.ID(),
+		FunctionID:     edge.To().FunctionID(),
+		FunctionExecID: execID,
+		Args:           args,
+	}
+}
 
-		isArray := strings.HasPrefix(paramSchema.Type, "[]")
-		var paramValue any
-		if mapping.Source == graph.InputSourceSchema || isCustomParameter {
-			paramValue = rawValue
-		} else {
-			paramValue, err = typeschema.ParseValue(paramSchema.Type, rawValue)
+func (w *Workflow) inputMapping(edge *Edge, mappings []InputMapping) map[string]any {
+	args := store.New()
+	for _, mapping := range mappings {
+		inputParamSchema, exists := edge.To().FunctionMetadata().Input.Parameters[mapping.MapTo]
+		if !exists && !edge.To().FunctionMetadata().Input.CustomParameters {
+			log.Error().Str("edge", edge.ID()).Str("param", mapping.MapTo).
+				Msg("Input ParamSchema not found for input mapping")
+		}
+
+		switch mapping.Source {
+		case SourceSchema:
+			if !w.validateInputMapping(&inputParamSchema, mapping.Value) {
+				log.Error().
+					Str("edge", edge.ID()).
+					Str("param", mapping.MapTo).
+					Any("value", mapping.Value).
+					Msg("Failed param validation")
+				continue
+			}
+			args.Set(mapping.MapTo, mapping.Value)
+		case SourceFlow:
+			outputParamName := utils.AfterFirstDot(mapping.Variable)
+			outputParamSchema, exists := edge.From().FunctionMetadata().Output.Parameters[outputParamName]
+			if !exists {
+				log.Error().Str("edge", edge.ID()).Str("param", outputParamName).
+					Msgf("Output ParamSchema not found for input mapping")
+				continue
+			}
+
+			isArray := strings.HasPrefix(inputParamSchema.Type, "[]")
+			rawValue := w.aggregatedOutput.Get(mapping.Variable)
+			value, err := typeschema.ParseValue(inputParamSchema.Type, rawValue)
 			if err != nil {
-				audit.Error().Workflow(w.id).Node(node.ID()).Err(err).Msg("Failed to parse input value")
-				return nil, err
+				log.Error().
+					Err(err).
+					Str("edge", edge.ID()).
+					Str("param", mapping.MapTo).
+					Any("value", mapping.Value).
+					Msg("Error parsing value")
+				continue
 			}
-		}
 
-		audit.Debug().Workflow(w.id).Node(node.ID()).Any("paramValue", paramValue).Msg("NodeMetadata.Schema.ParamValueParsed")
-
-		// TODO: Add validation based on the paramSchema before set
-
-		// TODO: Improve set handling
-		if isArray {
-			currentArray := nodeInput.Get(mapping.Mapping)
-			if currentArray != nil {
-				nodeInput.Set(mapping.Mapping, append(currentArray.([]any), paramValue.([]any)...))
-			} else {
-				nodeInput.Set(mapping.Mapping, paramValue.([]any))
+			if !w.validateInputMapping(&outputParamSchema, value) {
+				log.Error().
+					Str("edge", edge.ID()).
+					Str("param", mapping.MapTo).
+					Any("value", value).
+					Msg("Failed param validation")
+				continue
 			}
-		} else {
-			nodeInput.Set(mapping.Mapping, paramValue)
-		}
 
+			if isArray {
+				currentArray := args.Get(mapping.MapTo)
+				if currentArray != nil {
+					currentArraySlice := reflect.ValueOf(currentArray)
+					valueSlice := reflect.ValueOf(value)
+					args.Set(mapping.MapTo, reflect.AppendSlice(currentArraySlice, valueSlice).Interface())
+				} else {
+					args.Set(mapping.MapTo, value)
+				}
+				continue
+			}
+			args.Set(mapping.MapTo, value)
+		}
 	}
+	return args.Raw()
+}
 
-	audit.Debug().Workflow(w.id).Node(node.ID()).Msgf("NodeInput: %v", nodeInput.Raw())
-
-	return nodeInput, nil
+func (w *Workflow) validateInputMapping(_ *workflow.ParameterSchema, _ any) bool {
+	// TODO implement input mapping validations
+	return true
 }

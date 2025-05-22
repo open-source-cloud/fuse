@@ -1,33 +1,12 @@
 package workflow
 
-// NodeMetadata describes the interface for a node's Metadata
-type NodeMetadata interface {
-	Input() InputMetadata
-	Output() OutputMetadata
+// FunctionMetadata defines the metadata structure for a Function
+type FunctionMetadata struct {
+	Input  InputMetadata
+	Output OutputMetadata
 }
 
-type nodeMetadata struct {
-	input  InputMetadata
-	output OutputMetadata
-}
-
-// NewNodeMetadata creates a new NodeMetadata type object
-func NewNodeMetadata(input InputMetadata, output OutputMetadata) NodeMetadata {
-	return &nodeMetadata{
-		input:  input,
-		output: output,
-	}
-}
-
-func (n *nodeMetadata) Input() InputMetadata {
-	return n.input
-}
-
-func (n *nodeMetadata) Output() OutputMetadata {
-	return n.output
-}
-
-// InputMetadata represents one Input or Output Metadata descriptor
+// InputMetadata represents one Input or Result Metadata descriptor
 type InputMetadata struct {
 	CustomParameters bool
 	Parameters       Parameters
@@ -64,7 +43,7 @@ type OutputEdgeMetadata struct {
 // Parameters type for a collection of Parameter schemas
 type Parameters map[string]ParameterSchema
 
-// ParameterSchema represents a schema definition for a single data field.
+// ParameterSchema represents a schema definition for a single Data field.
 // Each field in the schema can have specific properties like type, validation rules, and metadata.
 //
 // Validation array format:

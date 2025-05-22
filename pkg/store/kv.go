@@ -2,7 +2,6 @@
 package store
 
 import (
-	"encoding/json"
 	"sync"
 
 	"github.com/stretchr/objx"
@@ -25,17 +24,10 @@ func New() *KV {
 	}
 }
 
-// Init initializes a new KV store from rawData, converting the input map to a thread-safe key-value store.
+// NewWith initializes a new KV store from rawData, converting the input map to a thread-safe key-value store.
 // It returns a pointer to the initialized KV store or an error if the initialization fails.
-func Init(rawData map[string]any) (*KV, error) {
-	rawJSON, err := json.Marshal(rawData)
-	if err != nil {
-		return nil, err
-	}
-	data, err := objx.FromJSON(string(rawJSON))
-	if err != nil {
-		return nil, err
-	}
+func NewWith(rawData map[string]any) (*KV, error) {
+	data := objx.New(rawData)
 	return &KV{
 		data: data,
 	}, nil
@@ -44,6 +36,13 @@ func Init(rawData map[string]any) (*KV, error) {
 // Raw returns the underlying map[string]any representing all key-value pairs in the store without any modifications.
 func (k *KV) Raw() map[string]any {
 	return k.data
+}
+
+// MergeWith merges provided data into the current Map
+func (k *KV) MergeWith(data map[string]any) {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	k.data = k.data.Merge(data)
 }
 
 // Clear clears the store
@@ -114,4 +113,13 @@ func (k *KV) GetIntSlice(key string) []int {
 	defer k.mu.RUnlock()
 	val := k.data.Get(key)
 	return val.IntSlice()
+}
+
+// GetFloat64Slice retrieves the value associated with the specified key as a slice of float64 numbers.
+// Returns nil if the key does not exist or the value is not a slice of integers.
+func (k *KV) GetFloat64Slice(key string) []float64 {
+	k.mu.RLock()
+	defer k.mu.RUnlock()
+	val := k.data.Get(key)
+	return val.Float64Slice()
 }
