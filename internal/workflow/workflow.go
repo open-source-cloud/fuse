@@ -3,6 +3,9 @@ package workflow
 
 import (
 	"fmt"
+	"reflect"
+	"strings"
+
 	"github.com/open-source-cloud/fuse/internal/typeschema"
 	"github.com/open-source-cloud/fuse/pkg/store"
 	"github.com/open-source-cloud/fuse/pkg/utils"
@@ -10,8 +13,6 @@ import (
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"reflect"
-	"strings"
 )
 
 type (

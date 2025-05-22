@@ -5,6 +5,7 @@ go 1.24.0
 require (
 	ergo.services/application v0.0.0-20240904055159-7f2e1a954c05
 	ergo.services/ergo v1.999.300
+	github.com/TyphonHill/go-mermaid v1.0.0
 	github.com/caarlos0/env/v11 v11.3.1
 	github.com/expr-lang/expr v1.17.2
 	github.com/fatih/color v1.18.0
@@ -13,18 +14,17 @@ require (
 	github.com/rs/zerolog v1.34.0
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/objx v0.5.2
+	github.com/wk8/go-ordered-map/v2 v2.1.8
 	go.uber.org/fx v1.23.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
 	ergo.services/meta v0.0.0-20240904054930-a97f6add8a78 // indirect
-	github.com/TyphonHill/go-mermaid v1.0.0 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/mailru/easyjson v0.9.0 // indirect
-	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 )
 
 require (
