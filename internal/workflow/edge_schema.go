@@ -1,8 +1,10 @@
 package workflow
 
 const (
+	// SourceSchema source data from the workflow graph schema
 	SourceSchema InputMappingSource = "schema"
-	SourceEdges  InputMappingSource = "edges"
+	// SourceFlow source data from workflow
+	SourceFlow InputMappingSource = "flow"
 )
 
 type (

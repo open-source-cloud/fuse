@@ -60,7 +60,7 @@
       "to": "logic-sum",
       "input": [
         {
-          "source": "edges",
+          "source": "flow",
           "variable": "logic-rand-1.rand",
           "mapTo": "values"
         }
@@ -72,7 +72,7 @@
       "to": "logic-sum",
       "input": [
         {
-          "source": "edges",
+          "source": "flow",
           "variable": "logic-rand-2.rand",
           "mapTo": "values"
         }

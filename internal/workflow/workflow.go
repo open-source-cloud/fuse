@@ -15,9 +15,9 @@ import (
 
 type (
 	// State defines the State type
-	State      string
+	State string
 	// ID defines a Workflow ID type
-	ID         string
+	ID string
 	// ActionType defines an ActionType type
 	ActionType string
 )
@@ -39,13 +39,13 @@ const (
 	// StateUntriggered Workflow untriggered state (new)
 	StateUntriggered State = "untriggered"
 	// StateRunning Workflow running state
-	StateRunning  State = "running"
+	StateRunning State = "running"
 	// StateSleeping Workflow sleeping state
 	StateSleeping State = "sleeping"
 	// StateFinished Workflow finished state (finished with success)
 	StateFinished State = "finished"
 	// StateError Workflow error state (finished with error)
-	StateError    State = "error"
+	StateError State = "error"
 )
 
 // New creates a new Workflow from an already generated ID and a provided WorkflowGraph
@@ -233,7 +233,7 @@ func (w *Workflow) inputMapping(edge *Edge, mappings []InputMapping) map[string]
 				continue
 			}
 			args.Set(mapping.MapTo, mapping.Value)
-		case SourceEdges:
+		case SourceFlow:
 			outputParamName := utils.AfterFirstDot(mapping.Variable)
 			outputParamSchema, exists := edge.From().FunctionMetadata().Output.Parameters[outputParamName]
 			if !exists {

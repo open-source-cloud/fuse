@@ -73,17 +73,17 @@
       "to": "logic-sum",
       "input": [
         {
-          "source": "edges",
+          "source": "flow",
           "variable": "01965ddc-8890-7eed-a894-6fbabbf8681f.rand",
           "mapTo": "values"
         },
         {
-          "source": "edges",
+          "source": "flow",
           "variable": "01965ddc-8890-76ca-8c0b-e65655437777.rand",
           "mapTo": "values"
         },
         {
-          "source": "edges",
+          "source": "flow",
           "variable": "01965e1b-a954-7bde-ad0b-744b7ba78332.rand",
           "mapTo": "values"
         }
@@ -110,7 +110,7 @@
           "mapTo": "expression"
         },
         {
-          "source": "edges",
+          "source": "flow",
           "variable": "sum",
           "mapTo": "sum"
         }

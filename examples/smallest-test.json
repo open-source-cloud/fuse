@@ -39,7 +39,7 @@
       "to": "logic-sum",
       "input": [
         {
-          "source": "edges",
+          "source": "flow",
           "variable": "logic-rand.rand",
           "mapTo": "values"
         }
