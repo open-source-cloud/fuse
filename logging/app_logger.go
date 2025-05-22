@@ -1,3 +1,4 @@
+// Package logging helpers and adapters for application logging
 package logging
 
 import (

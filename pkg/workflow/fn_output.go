@@ -1,6 +1,8 @@
 package workflow
 
+//goland:noinspection GoUnusedConst
 const (
+	// FunctionStatusNil nil function output
 	FunctionStatusNil FunctionOutputStatus = "nil"
 	// FunctionSuccess Success Status
 	FunctionSuccess FunctionOutputStatus = "success"
@@ -11,6 +13,7 @@ const (
 // FunctionOutputStatus node output Status type
 type FunctionOutputStatus string
 
+// FunctionOutput defines a function output
 type FunctionOutput struct {
 	Status FunctionOutputStatus `json:"status"`
 	Data   map[string]any       `json:"data"`

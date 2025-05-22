@@ -14,8 +14,11 @@ import (
 )
 
 type (
+	// State defines the State type
 	State      string
+	// ID defines a Workflow ID type
 	ID         string
+	// ActionType defines an ActionType type
 	ActionType string
 )
 
@@ -25,18 +28,27 @@ func (s State) String() string {
 func (id ID) String() string {
 	return string(id)
 }
+
+// NewID generates a new Workflow ID
 func NewID() ID {
 	return ID(uuid.V7())
 }
 
+//goland:noinspection GoUnusedConst
 const (
+	// StateUntriggered Workflow untriggered state (new)
 	StateUntriggered State = "untriggered"
-	StateRunning     State = "running"
-	StateSleeping    State = "sleeping"
-	StateFinished    State = "finished"
-	StateError       State = "error"
+	// StateRunning Workflow running state
+	StateRunning  State = "running"
+	// StateSleeping Workflow sleeping state
+	StateSleeping State = "sleeping"
+	// StateFinished Workflow finished state (finished with success)
+	StateFinished State = "finished"
+	// StateError Workflow error state (finished with error)
+	StateError    State = "error"
 )
 
+// New creates a new Workflow from an already generated ID and a provided WorkflowGraph
 func New(id ID, graph *Graph) *Workflow {
 	return &Workflow{
 		id:               id,
@@ -51,6 +63,7 @@ func New(id ID, graph *Graph) *Workflow {
 }
 
 type (
+	// Workflow defines a Workflow
 	Workflow struct {
 		id               ID
 		graph            *Graph
@@ -60,11 +73,13 @@ type (
 		state            RunningState
 	}
 
+	// RunningState defines the Workflow running state
 	RunningState struct {
 		currentState State
 	}
 )
 
+// Trigger triggers a new workflow, results in an Action to be acted upon by the responsible actor
 func (w *Workflow) Trigger() Action {
 	execID := uuid.V7()
 	triggerNode := w.graph.Trigger()
@@ -80,8 +95,13 @@ func (w *Workflow) Trigger() Action {
 	}
 }
 
-func (w *Workflow) Resume() Action { return nil }
+// Resume resumes a previously started Workflow that needed to be re-created from data
+func (w *Workflow) Resume() Action {
+	// TODO add logic to re-start an already started Workflow that got reloaded from storage
+	return nil
+}
 
+// Next requests the next Action to be enacted by the responsible actor on this workflow
 func (w *Workflow) Next(threadID int) Action {
 	currentThread := w.threads.Get(threadID)
 	currentAuditEntry, _ := w.auditLog.Get(currentThread.CurrentExecID())
@@ -116,6 +136,7 @@ func (w *Workflow) Next(threadID int) Action {
 	}
 }
 
+// SetResultFor sets the result of a function execution in the workflow's AuditLog
 func (w *Workflow) SetResultFor(functionExecID string, result *workflow.FunctionResult) {
 	entry, exists := w.auditLog.Get(functionExecID)
 	if !exists {
@@ -125,31 +146,38 @@ func (w *Workflow) SetResultFor(functionExecID string, result *workflow.Function
 	w.aggregatedOutput.Set(entry.FunctionNodeID, result.Output.Data)
 }
 
+// ID Workflow ID
 func (w *Workflow) ID() ID {
 	return w.id
 }
 
+// State Workflow state
 func (w *Workflow) State() State {
 	return w.state.currentState
 }
 
+// SetState changes Workflow state
 func (w *Workflow) SetState(state State) {
 	w.state.currentState = state
 }
 
+// AuditLog Workflow audit log
 func (w *Workflow) AuditLog() *AuditLog {
 	return w.auditLog
 }
 
+// Schema graph schema that defines the Workflow
 func (w *Workflow) Schema() *GraphSchema {
 	return w.graph.schema
 }
 
+// AuditLogJSON generates JSON from current AuditLog
 func (w *Workflow) AuditLogJSON() string {
 	json, _ := w.auditLog.MarshalJSON()
 	return string(json)
 }
 
+// AuditLogTrace trace log helper to serialize AuditLog (only on trace level)
 func (w *Workflow) AuditLogTrace() string {
 	if zerolog.GlobalLevel() == zerolog.TraceLevel {
 		return w.AuditLogJSON()
@@ -253,6 +281,7 @@ func (w *Workflow) inputMapping(edge *Edge, mappings []InputMapping) map[string]
 	return args.Raw()
 }
 
-func (w *Workflow) validateInputMapping(paramSchema *workflow.ParameterSchema, value any) bool {
+func (w *Workflow) validateInputMapping(_ *workflow.ParameterSchema, _ any) bool {
+	// TODO implement input mapping validations
 	return true
 }

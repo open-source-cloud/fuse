@@ -7,6 +7,7 @@ import (
 	"go.uber.org/fx/fxevent"
 )
 
+// ZeroLogger logging adapter for FX library
 type ZeroLogger struct {
 	Logger zerolog.Logger
 }
@@ -120,10 +121,10 @@ func (l *ZeroLogger) LogEvent(event fxevent.Event) {
 				Msg("rollback failed")
 		}
 	case *fxevent.Started:
-		//if e.Err != nil {
+		// if e.Err != nil {
 		//	l.Logger.Err(e.Err).
 		//		Msg("start failed")
-		//} else {
+		// } else {
 		//	l.Logger.Info().
 		//		Msg("started")
 		//}
@@ -134,7 +135,7 @@ func (l *ZeroLogger) LogEvent(event fxevent.Event) {
 		} else {
 			l.Logger.Info().
 				Str("function", e.ConstructorName).
-				Msg("initialized custom fxevent.Logger")
+				Msg(`initialized custom fxevent.Logger`)
 		}
 	}
 }

@@ -19,13 +19,17 @@ func NewFunctionResult(status FunctionOutputStatus, data map[string]any) Functio
 	}
 }
 
+// NewFunctionResultSuccess creates a new function result as success, with nil data
 func NewFunctionResultSuccess() FunctionResult {
 	return NewFunctionResult(FunctionSuccess, nil)
 }
+
+// NewFunctionResultSuccessWith creates a new function result as success, with provided data
 func NewFunctionResultSuccessWith(data map[string]any) FunctionResult {
 	return NewFunctionResult(FunctionSuccess, data)
 }
 
+// NewFunctionResultError creates a new function result as error, with provided error
 func NewFunctionResultError(err error) (FunctionResult, error) {
 	return NewFunctionResult(FunctionError, map[string]any{"error": err}), err
 }

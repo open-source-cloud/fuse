@@ -5,8 +5,9 @@ import (
 )
 
 const (
-	ThreadRunning  State = "running"
-	ThreadWaiting  State = "waiting"
+	// ThreadRunning thread running state
+	ThreadRunning State = "running"
+	// ThreadFinished thread finished state
 	ThreadFinished State = "finished"
 )
 

@@ -33,22 +33,27 @@ func (n *Node) ID() string {
 	return n.schema.ID
 }
 
+// FullID returns the full ID for the Node (that is namespaces by the Function ID)
 func (n *Node) FullID() string {
 	return fmt.Sprintf("%s/%s", n.schema.Function, n.schema.ID)
 }
 
+// FunctionID function ID
 func (n *Node) FunctionID() string {
 	return n.schema.Function
 }
 
+// Schema the schema that represents this Node
 func (n *Node) Schema() *NodeSchema {
 	return n.schema
 }
 
+// Thread the Thread ID for this node
 func (n *Node) Thread() int {
 	return n.thread
 }
 
+// FunctionMetadata function metadata for this Node
 func (n *Node) FunctionMetadata() workflow.FunctionMetadata {
 	return n.functionMetadata
 }

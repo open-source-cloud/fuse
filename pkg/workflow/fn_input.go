@@ -1,3 +1,4 @@
+// Package workflow public interfaces, structs and functions for Workflow
 package workflow
 
 import "github.com/open-source-cloud/fuse/pkg/store"
@@ -7,13 +8,7 @@ type FunctionInput struct {
 	store *store.KV
 }
 
-// NewFunctionInput creates a new FunctionInput object with the given Data
-func NewFunctionInput() *FunctionInput {
-	return &FunctionInput{
-		store: store.New(),
-	}
-}
-
+// NewFunctionInputWith creates a new FunctionInput initialized with provided data
 func NewFunctionInputWith(data map[string]any) (*FunctionInput, error) {
 	st, err := store.NewWith(data)
 	if err != nil {
@@ -29,6 +24,7 @@ func (i *FunctionInput) Get(key string) any {
 	return i.store.Get(key)
 }
 
+// GetInt returnst he value for a given key as an int
 func (i *FunctionInput) GetInt(key string) int {
 	return i.store.GetInt(key)
 }

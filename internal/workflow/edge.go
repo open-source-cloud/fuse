@@ -1,6 +1,7 @@
 package workflow
 
 type (
+	// Edge defines an Edge for workflow graphs
 	Edge struct {
 		id     string
 		schema *EdgeSchema

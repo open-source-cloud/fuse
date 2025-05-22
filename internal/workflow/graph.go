@@ -76,6 +76,7 @@ func newGraphFromSchema(schema *GraphSchema) (*Graph, error) {
 }
 
 type (
+	// Graph defines a Workflow Graph
 	Graph struct {
 		trigger *Node
 		schema  *GraphSchema
@@ -84,6 +85,7 @@ type (
 	}
 )
 
+// ID the schema ID for the graph
 func (g *Graph) ID() string {
 	return g.schema.ID
 }
@@ -106,6 +108,7 @@ func (g *Graph) FindNode(nodeID string) (*Node, error) {
 	return nil, fmt.Errorf("node %s not found", nodeID)
 }
 
+// MermaidFlowchart generates a Mermaid flowchart
 func (g *Graph) MermaidFlowchart() string {
 	chart := flowchart.NewFlowchart()
 	chart.Config.SetDiagramPadding(30)
@@ -238,7 +241,7 @@ func (g *Graph) calculateThreads() {
 			node.parentThreads = nil
 		}
 
-		// Join handling: this node has multiple incoming edges (i.e. is a "join" node)
+		// Join handling: this node has multiple incoming edges (i.e., is a "join" node)
 		if len(node.InputEdges()) > 1 {
 			// Gather thread IDs from all immediate parent nodes (these may not be final, hence "guessing")
 			parentThreadSet := make(map[int]struct{})
@@ -264,7 +267,7 @@ func (g *Graph) calculateThreads() {
 			}
 		}
 
-		// Handle forks (multiple outgoing edges for the same condition—i.e. parallel branches or conditional branches)
+		// Handle forks (multiple outgoing edges for the same condition—i.e., parallel branches or conditional branches)
 		// Group outgoing edges by their condition label
 		condGroups := make(map[string][]*Edge)
 		for _, edge := range node.OutputEdges() {

@@ -5,22 +5,26 @@ import (
 	"strings"
 )
 
+// NewGraphFactory creates a new GraphFactory factory
 func NewGraphFactory(packageRegistry packages.Registry) *GraphFactory {
 	return &GraphFactory{
 		packageRegistry: packageRegistry,
 	}
 }
 
+// NewGraphFactoryWithoutMetadata creates a new GraphFactory factory without any packages - mainly for mermaid gen
 func NewGraphFactoryWithoutMetadata() *GraphFactory {
 	return &GraphFactory{
 		packageRegistry: nil,
 	}
 }
 
+// GraphFactory graph factory
 type GraphFactory struct{
 	packageRegistry packages.Registry
 }
 
+// NewGraphFromJSON creates a new Graph from a JSON schema
 func (f *GraphFactory) NewGraphFromJSON(jsonSpec []byte) (*Graph, error) {
 	graph, err := newGraphFromJSON(jsonSpec)
 	if err != nil {
@@ -32,6 +36,7 @@ func (f *GraphFactory) NewGraphFromJSON(jsonSpec []byte) (*Graph, error) {
 	return graph, nil
 }
 
+// NewGraphFromYAML creates a new Graph from a YAML schema
 func (f *GraphFactory) NewGraphFromYAML(yamlSpec []byte) (*Graph, error) {
 	graph, err := newGraphFromYAML(yamlSpec)
 	if err != nil {

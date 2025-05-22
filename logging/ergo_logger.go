@@ -15,6 +15,7 @@ type (
 	}
 )
 
+// ErgoLogger creates the logger adapter for Ergo framework
 func ErgoLogger() (gen.LoggerBehavior, error) {
 	return &ergoLogger{
 		logger: newLogger(ergoFormatCaller).With().Logger(),
@@ -57,7 +58,7 @@ func (l *ergoLogger) Log(message gen.MessageLog) {
 		}
 		source = fmt.Sprintf("%s%s", color.BlueString("%s", src.PID), tag)
 	case gen.MessageLogMeta:
-		source = fmt.Sprintf("%s", color.CyanString("%s", src.Meta))
+		source = color.CyanString("%s", src.Meta)
 	default:
 		panic(fmt.Sprintf("unknown log source type: %#v", message.Source))
 	}

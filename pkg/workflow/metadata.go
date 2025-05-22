@@ -1,5 +1,6 @@
 package workflow
 
+// FunctionMetadata defines the metadata structure for a Function
 type FunctionMetadata struct {
 	Input  InputMetadata
 	Output OutputMetadata
