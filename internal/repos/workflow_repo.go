@@ -6,6 +6,7 @@ import (
 	"github.com/open-source-cloud/fuse/pkg/store"
 )
 
+// NewMemoryWorkflowRepo creates a new in-memory WorkflowRepo repository
 func NewMemoryWorkflowRepo() WorkflowRepo {
 	return &memoryWorkflowRepo{
 		workflows: store.New(),
@@ -13,6 +14,7 @@ func NewMemoryWorkflowRepo() WorkflowRepo {
 }
 
 type (
+	// WorkflowRepo defines the interface o a WorkflowRepo repository
 	WorkflowRepo interface {
 		Exists(id string) bool
 		Get(id string) (*workflow.Workflow, error)

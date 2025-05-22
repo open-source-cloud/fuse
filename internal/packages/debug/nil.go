@@ -4,8 +4,10 @@ import (
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 )
 
+// NilFunctionID nil function ID
 const NilFunctionID = "nil"
 
+// NilFunctionMetadata nil function metadata
 func NilFunctionMetadata() workflow.FunctionMetadata {
 	return workflow.FunctionMetadata{}
 }

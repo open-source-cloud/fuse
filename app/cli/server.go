@@ -7,8 +7,7 @@ import (
 )
 
 func newServerCommand() *cobra.Command {
-	var serverCmd *cobra.Command
-	serverCmd = &cobra.Command{
+	serverCmd := &cobra.Command{
 		Use:   "server",
 		Short: "Start the FUSE Workflow Engine application server",
 		Args:  cobra.NoArgs,

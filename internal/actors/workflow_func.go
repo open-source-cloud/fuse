@@ -9,8 +9,10 @@ import (
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 )
 
+// WorkflowFuncFactory redefines a WorkflowFunc worker actor factory type for better readability
 type WorkflowFuncFactory Factory[*WorkflowFunc]
 
+// NewWorkflowFuncFactory creates a dependency injection factory of WorkflowFunc worker actor
 func NewWorkflowFuncFactory(packageRegistry packages.Registry) *WorkflowFuncFactory {
 	return &WorkflowFuncFactory{
 		Factory: func() gen.ProcessBehavior {
@@ -21,18 +23,22 @@ func NewWorkflowFuncFactory(packageRegistry packages.Registry) *WorkflowFuncFact
 	}
 }
 
+// WorkflowFunc defines a WorkflowFunc worker actor - used as a worker actor in WorkflowFuncPool actor for processing
+//		workflow Functions execution
 type WorkflowFunc struct {
 	act.Actor
 
 	packageRegistry packages.Registry
 }
 
+// Init called when a WorkflowFunc worker actor is being initialized
 func (a *WorkflowFunc) Init(_ ...any) error {
 	a.Log().Debug("starting process %s", a.PID())
 
 	return nil
 }
 
+// HandleMessage handles messages sent to a WorkflowFunc worker actor
 func (a *WorkflowFunc) HandleMessage(from gen.PID, message any) error {
 	msg, ok := message.(messaging.Message)
 	if !ok {

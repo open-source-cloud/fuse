@@ -9,10 +9,13 @@ import (
 	"github.com/open-source-cloud/fuse/internal/workflow"
 )
 
+// WorkflowSupervisorName WorkflowSupervisor supervisor actor name
 const WorkflowSupervisorName = "workflow_sup"
 
+// WorkflowSupervisorFactory redefines the WorkflowSupervisor supervisor actor factory type for better readability
 type WorkflowSupervisorFactory Factory[*WorkflowSupervisor]
 
+// NewWorkflowSupervisorFactory a dependency injection that creates a new WorkflowSupervisor actor factory
 func NewWorkflowSupervisorFactory(
 	cfg *config.Config,
 	workflowRepo repos.WorkflowRepo,
@@ -30,6 +33,7 @@ func NewWorkflowSupervisorFactory(
 	}
 }
 
+// WorkflowSupervisor the WorkflowSupervisor supervisor actor
 type WorkflowSupervisor struct {
 	act.Supervisor
 
@@ -78,8 +82,7 @@ func (a *WorkflowSupervisor) HandleMessage(from gen.PID, message any) error {
 	a.Log().Info("got message from %s - %s", from, msg.Type)
 	a.Log().Debug("args: %s", msg.Args)
 
-	switch msg.Type {
-	case messaging.TriggerWorkflow:
+	if msg.Type == messaging.TriggerWorkflow {
 		triggerMsg, err := msg.TriggerWorkflowMessage()
 		if err != nil {
 			a.Log().Error("failed to get trigger workflow message from message: %s", msg)
@@ -101,11 +104,12 @@ func (a *WorkflowSupervisor) Terminate(reason error) {
 }
 
 // HandleInspect invoked on the request made with gen.Process.Inspect(...)
-func (a *WorkflowSupervisor) HandleInspect(from gen.PID, item ...string) map[string]string {
+func (a *WorkflowSupervisor) HandleInspect(from gen.PID, _ ...string) map[string]string {
 	a.Log().Info("process got inspect request from %s", from)
 	return nil
 }
 
+// HandleEvent handles events within a WorkflowSupervisor supervisor actor context
 func (a *WorkflowSupervisor) HandleEvent(event gen.MessageEvent) error {
 	a.Log().Info("received event %s with value: %#v", event.Event, event.Message)
 	return nil

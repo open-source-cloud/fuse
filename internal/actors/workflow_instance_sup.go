@@ -10,8 +10,11 @@ import (
 	"github.com/open-source-cloud/fuse/internal/workflow"
 )
 
+// WorkflowInstanceSupervisorFactory redefines a WorkflowInstanceSupervisor supervisor actor factory type for
+//		better readability
 type WorkflowInstanceSupervisorFactory Factory[*WorkflowInstanceSupervisor]
 
+// NewWorkflowInstanceSupervisorFactory creates a new dependency injection WorkflowInstanceSupervisor actor factory
 func NewWorkflowInstanceSupervisorFactory(
 	cfg *config.Config,
 	workflowFuncPool *WorkflowFuncPoolFactory,
@@ -31,6 +34,7 @@ func NewWorkflowInstanceSupervisorFactory(
 }
 
 type (
+	// WorkflowInstanceSupervisor a WorkflowInstanceSupervisor supervisor actor
 	WorkflowInstanceSupervisor struct {
 		act.Supervisor
 
@@ -111,11 +115,12 @@ func (a *WorkflowInstanceSupervisor) Terminate(reason error) {
 }
 
 // HandleInspect invoked on the request made with gen.Process.Inspect(...)
-func (a *WorkflowInstanceSupervisor) HandleInspect(from gen.PID, item ...string) map[string]string {
+func (a *WorkflowInstanceSupervisor) HandleInspect(from gen.PID, _ ...string) map[string]string {
 	a.Log().Debug("process got inspect request from %s", from)
 	return nil
 }
 
+// HandleEvent handles events in the context of a WorkflowInstanceSupervisor
 func (a *WorkflowInstanceSupervisor) HandleEvent(event gen.MessageEvent) error {
 	a.Log().Debug("received event %s with value: %#v", event.Event, event.Message)
 	return nil

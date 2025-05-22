@@ -6,6 +6,7 @@ import (
 	"strings"
 )
 
+// ExecuteFunctionMessage defines a ExecuteFunction message
 type ExecuteFunctionMessage struct {
 	WorkflowID workflow.ID    `json:"workflow_id"`
 	ThreadID   int            `json:"thread_id"`
@@ -15,6 +16,7 @@ type ExecuteFunctionMessage struct {
 	Input      map[string]any `json:"input"`
 }
 
+// NewExecuteFunctionMessage creates a new ExecuteFunction message
 func NewExecuteFunctionMessage(workflowID workflow.ID, execAction *workflow.RunFunctionAction) Message {
 	lastSlashIndex := strings.LastIndex(execAction.FunctionID, "/")
 
@@ -31,6 +33,7 @@ func NewExecuteFunctionMessage(workflowID workflow.ID, execAction *workflow.RunF
 	}
 }
 
+// ExecuteFunctionMessage helper function to cast from a generic Message type
 func (m Message) ExecuteFunctionMessage() (ExecuteFunctionMessage, error) {
 	if m.Type != ExecuteFunction {
 		return ExecuteFunctionMessage{}, fmt.Errorf("message type %s is not ExecuteFunction", m.Type)

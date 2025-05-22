@@ -1,3 +1,4 @@
+// Package workflow has all the types and functions for defining and handling Workflows
 package workflow
 
 import (
@@ -78,6 +79,8 @@ func (w *Workflow) Trigger() Action {
 		Args:           map[string]any{},
 	}
 }
+
+func (w *Workflow) Resume() Action { return nil }
 
 func (w *Workflow) Next(threadID int) Action {
 	currentThread := w.threads.Get(threadID)

@@ -9,9 +9,11 @@ import (
 	"github.com/open-source-cloud/fuse/internal/workflow"
 )
 
-const HttpServerMeta = "http_server_meta"
+// HTTPServerMeta actor name
+const HTTPServerMeta = "http_server_meta"
 
-func NewHttpServerMeta(cfg *config.Config, graphFactory *workflow.GraphFactory, graphRepo repos.GraphRepo) gen.MetaBehavior {
+// NewHTTPServerMeta dependency injection creation of HTTPServerMeta meta-process
+func NewHTTPServerMeta(cfg *config.Config, graphFactory *workflow.GraphFactory, graphRepo repos.GraphRepo) gen.MetaBehavior {
 	return &httpServerMeta{
 		config:       cfg,
 		graphFactory: graphFactory,
@@ -35,7 +37,7 @@ func (m *httpServerMeta) Init(meta gen.MetaProcess) error {
 }
 
 func (m *httpServerMeta) Start() error {
-	m.Log().Debug("starting '%s' process", HttpServerMeta)
+	m.Log().Debug("starting '%s' process", HTTPServerMeta)
 
 	defer func() {
 		err := m.server.Shutdown()
@@ -56,16 +58,20 @@ func (m *httpServerMeta) Start() error {
 	return nil
 }
 
-func (m *httpServerMeta) HandleMessage(from gen.PID, message any) error {
+// HandleMessage (from gen.PID, message any) handles messages to HTTPServerMeta meta-process
+func (m *httpServerMeta) HandleMessage(_ gen.PID, _ any) error {
 	return nil
 }
 
-func (m *httpServerMeta) HandleCall(from gen.PID, ref gen.Ref, request any) (any, error) {
+// HandleCall (from gen.PID, ref gen.Ref, request any) handles direct Calls to HTTPServerMeta meta-process
+func (m *httpServerMeta) HandleCall(_ gen.PID, _ gen.Ref, _ any) (any, error) {
 	return nil, nil
 }
 
-func (m *httpServerMeta) Terminate(reason error) {}
+// Terminate called when HttpServerMeta meta-process gets terminated
+func (m *httpServerMeta) Terminate(_ error) {}
 
-func (m *httpServerMeta) HandleInspect(from gen.PID, item ...string) map[string]string {
+// HandleInspect (from gen.PID, item ...string) called when HttpServerMeta meta-process gets inspected
+func (m *httpServerMeta) HandleInspect(_ gen.PID, _ ...string) map[string]string {
 	return nil
 }

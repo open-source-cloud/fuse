@@ -9,14 +9,17 @@ import (
 	"github.com/open-source-cloud/fuse/internal/workflow"
 )
 
-const HttpServerActorName = "http_server"
+// HTTPServerActorName actor name
+const HTTPServerActorName = "http_server"
 
-type HttpServerActorFactory Factory[*HttpServerActor]
+// HTTPServerActorFactory redefines the HTTPServerActor factory type for better readability
+type HTTPServerActorFactory Factory[*HTTPServerActor]
 
-func NewHttpServerActorFactory(cfg *config.Config, graphFactory *workflow.GraphFactory, graphRepo repos.GraphRepo) *HttpServerActorFactory {
-	return &HttpServerActorFactory{
+// NewHTTPServerActorFactory dependency injection function for creating the HTTPServerActor actor factory
+func NewHTTPServerActorFactory(cfg *config.Config, graphFactory *workflow.GraphFactory, graphRepo repos.GraphRepo) *HTTPServerActorFactory {
+	return &HTTPServerActorFactory{
 		Factory: func() gen.ProcessBehavior {
-			return &HttpServerActor{
+			return &HTTPServerActor{
 				config:       cfg,
 				graphFactory: graphFactory,
 				graphRepo:    graphRepo,
@@ -25,29 +28,31 @@ func NewHttpServerActorFactory(cfg *config.Config, graphFactory *workflow.GraphF
 	}
 }
 
-type HttpServerActor struct {
+// HTTPServerActor HTTP Server Actor
+type HTTPServerActor struct {
 	act.Actor
 	config       *config.Config
 	graphFactory *workflow.GraphFactory
 	graphRepo    repos.GraphRepo
 }
 
-// Init (args ...any)
-func (a *HttpServerActor) Init(_ ...any) error {
+// Init (args ...any) called when the HTTPServerActor is being initialized
+func (a *HTTPServerActor) Init(_ ...any) error {
 	// get the gen.Log interface using Log method of embedded gen.Process interface
 	a.Log().Debug("starting process %s", a.PID())
 
-	metaBehavior := NewHttpServerMeta(a.config, a.graphFactory, a.graphRepo)
+	metaBehavior := NewHTTPServerMeta(a.config, a.graphFactory, a.graphRepo)
 	metaID, err := a.SpawnMeta(metaBehavior, gen.MetaOptions{})
 	if err != nil {
 		return err
 	}
-	a.Log().Debug("meta '%s' spawned with metaID: %s", HttpServerMeta, metaID)
+	a.Log().Debug("meta '%s' spawned with metaID: %s", HTTPServerMeta, metaID)
 
 	return nil
 }
 
-func (a *HttpServerActor) HandleMessage(from gen.PID, message any) error {
+// HandleMessage handles messages sent to HTTPServerActor
+func (a *HTTPServerActor) HandleMessage(from gen.PID, message any) error {
 	msg, ok := message.(messaging.Message)
 	if !ok {
 		a.Log().Error("message from %s is not a messaging.Message", from)
@@ -56,8 +61,7 @@ func (a *HttpServerActor) HandleMessage(from gen.PID, message any) error {
 	a.Log().Info("got message from %s - %s", from, msg.Type)
 	a.Log().Debug("args: %s", msg.Args)
 
-	switch msg.Type {
-	case messaging.TriggerWorkflow:
+	if msg.Type == messaging.TriggerWorkflow {
 		err := a.Send(WorkflowSupervisorName, message)
 		if err != nil {
 			a.Log().Error("failed to send message to workflow supervisor: %s", err)
@@ -68,6 +72,7 @@ func (a *HttpServerActor) HandleMessage(from gen.PID, message any) error {
 	return nil
 }
 
-func (a *HttpServerActor) Terminate(reason error) {
+// Terminate called when HTTPServerActor is being terminated
+func (a *HTTPServerActor) Terminate(reason error) {
 	a.Log().Debug("%s terminated with reason: %s", a.PID(), reason)
 }

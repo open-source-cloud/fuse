@@ -16,8 +16,7 @@ import (
 )
 
 func newWorkflowCommand() *cobra.Command {
-	var workflowCmd *cobra.Command
-	workflowCmd = &cobra.Command{
+	workflowCmd := &cobra.Command{
 		Use:   "workflow",
 		Short: "Workflow runner",
 		Args:  cobra.NoArgs,
@@ -43,7 +42,7 @@ func setupWorkflowFlags(workflowCmd *cobra.Command) {
 
 func workflowRunner(graphFactory *workflow.GraphFactory, graphRepo repos.GraphRepo) {
 	// We are ok with reading the file here because we are in the CLI
-	spec, err := os.ReadFile(workflowSpecFile)
+	spec, err := os.ReadFile(workflowSpecFile) //nolint:gosec
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to read the workflow spec file")
 		return

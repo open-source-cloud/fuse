@@ -6,6 +6,7 @@ import (
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 )
 
+// IfFunctionID if function ID
 const IfFunctionID = "if"
 
 // IfFunctionMetadata returns the metadata of the if function

@@ -8,6 +8,7 @@ import (
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 )
 
+// RandFunctionID rand function ID
 const RandFunctionID = "rand"
 
 // RandFunctionMetadata returns the metadata of the rand function

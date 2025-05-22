@@ -10,8 +10,7 @@ import (
 )
 
 func newMermaidCommand() *cobra.Command {
-	var mermaidCmd *cobra.Command
-	mermaidCmd = &cobra.Command{
+	mermaidCmd := &cobra.Command{
 		Use:   "mermaid",
 		Short: "Mermaid flowchart generator",
 		Args:  cobra.NoArgs,
@@ -33,7 +32,7 @@ func setupMermaidFlags(mermaidCmd *cobra.Command) {
 
 func mermaidHandler() {
 	// We are ok with reading the file here because we are in the CLI
-	spec, err := os.ReadFile(mermaidSpecFile)
+	spec, err := os.ReadFile(mermaidSpecFile) //nolint:gosec
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to read the workflow spec file")
 		return

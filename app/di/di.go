@@ -1,3 +1,4 @@
+// Package di dependency injection
 package di
 
 import (
@@ -15,6 +16,7 @@ import (
 	"go.uber.org/fx"
 )
 
+// CommonModule FX module with base common providers
 var CommonModule = fx.Module(
 	"common",
 	fx.Provide(
@@ -24,11 +26,13 @@ var CommonModule = fx.Module(
 	),
 	fx.Invoke(func(_ zerolog.Logger) {}),
 )
+
+// FuseAppModule FX module with the FUSE application providers
 var FuseAppModule = fx.Module(
 	"fuse_app",
 	fx.Provide(
 		// actors
-		actors.NewHttpServerActorFactory,
+		actors.NewHTTPServerActorFactory,
 		actors.NewWorkflowSupervisorFactory,
 		actors.NewWorkflowInstanceSupervisorFactory,
 		actors.NewWorkflowHandlerFactory,
@@ -59,12 +63,15 @@ var FuseAppModule = fx.Module(
 		}
 	}),
 )
+
+// AllModules FX module with the complete application + base providers
 var AllModules = fx.Options(
 	CommonModule,
 	FuseAppModule,
 	fx.WithLogger(logging.NewFxLogger()),
 )
 
+// Run runs the FX dependency injection engine
 func Run(module ...fx.Option) {
 	fx.New(module...).Run()
 }

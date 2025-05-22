@@ -1,3 +1,4 @@
+// Package server Fiber http server
 package server
 
 import (
@@ -11,6 +12,7 @@ import (
 	"time"
 )
 
+// New creates a dependency injection new instance of the HTTP Fiber server
 func New(config *config.Config, graphFactory *workflow.GraphFactory, graphRepo repos.GraphRepo, messageChan chan<- any) *fiber.App {
 	app := fiber.New(fiber.Config{
 		Immutable:     true,

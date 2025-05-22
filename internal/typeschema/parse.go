@@ -11,6 +11,7 @@ import (
 
 // ParseValue converts val (interface{}) to the Go type described by typeStr (e.g., "int", "[]string")
 // For array types, it returns a slice of the actual element type, not []any.
+//nolint:gocyclo
 func ParseValue(typeStr string, val any) (any, error) {
 	typeStr = strings.TrimSpace(typeStr)
 	if strings.HasPrefix(typeStr, "[]") {
@@ -31,7 +32,7 @@ func ParseValue(typeStr string, val any) (any, error) {
 				valSlice = []any{val}
 			}
 		}
-		// Recursively convert items, then use reflect to create the actual slice type
+		// Recursively convert items, then use reflection to create the actual slice type
 		samples := make([]reflect.Value, len(valSlice))
 		var elemTypeVal reflect.Type
 		for i, item := range valSlice {
@@ -49,7 +50,7 @@ func ParseValue(typeStr string, val any) (any, error) {
 			case "string":
 				elemTypeVal = reflect.TypeOf("")
 			case "int":
-				elemTypeVal = reflect.TypeOf(int(0))
+				elemTypeVal = reflect.TypeOf(0)
 			case "float64":
 				elemTypeVal = reflect.TypeOf(float64(0))
 			case "bool":

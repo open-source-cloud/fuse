@@ -7,6 +7,7 @@ import (
 	"net/http"
 )
 
+// NewUpsertWorkflowSchemaHandler creates a new UpsertWorkflowSchemaHandler http handler
 func NewUpsertWorkflowSchemaHandler(graphFactory *workflow.GraphFactory, graphRepo repos.GraphRepo) *UpsertWorkflowSchemaHandler {
 	return &UpsertWorkflowSchemaHandler{
 		graphFactory: graphFactory,
@@ -14,11 +15,13 @@ func NewUpsertWorkflowSchemaHandler(graphFactory *workflow.GraphFactory, graphRe
 	}
 }
 
+// UpsertWorkflowSchemaHandler fiber http handler
 type UpsertWorkflowSchemaHandler struct {
 	graphFactory *workflow.GraphFactory
 	graphRepo repos.GraphRepo
 }
 
+// Handle handles the UpsertWorkflowSchema http endpoint
 func (h *UpsertWorkflowSchemaHandler) Handle(ctx fiber.Ctx) error {
 	rawJSON := ctx.Body()
 

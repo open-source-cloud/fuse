@@ -16,6 +16,7 @@ var observer bool
 var port string
 var nocolor bool
 
+// Run runs the CLI
 func Run() {
 	err := newRoot().Execute()
 	if err != nil {

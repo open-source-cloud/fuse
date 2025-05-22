@@ -7,6 +7,7 @@ import (
 )
 
 type (
+	// Registry defines the interface of a package Registry service
 	Registry interface {
 		Register(packageID string, provider Package)
 		Get(packageID string) (Package, error)

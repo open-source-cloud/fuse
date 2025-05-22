@@ -1,3 +1,4 @@
+// Package repos Data repositories for the application
 package repos
 
 import (
@@ -6,6 +7,7 @@ import (
 	"github.com/open-source-cloud/fuse/pkg/store"
 )
 
+// NewMemoryGraphRepo creates a new in-memory GraphRepo
 func NewMemoryGraphRepo() GraphRepo {
 	return &memoryGraphRepo{
 		graphs: store.New(),

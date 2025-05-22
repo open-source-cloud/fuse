@@ -1,3 +1,4 @@
+// Package app FUSE Application package
 package app
 
 import (
@@ -10,10 +11,11 @@ import (
 	"strings"
 )
 
+// NewApp creates a new FUSE application, in the context of the FX dependency injection engine and the Ergo framework
 func NewApp(
 	config *config.Config,
 	workflowSup *actors.WorkflowSupervisorFactory,
-	httpServer *actors.HttpServerActorFactory,
+	httpServer *actors.HTTPServerActorFactory,
 ) (gen.Node, error) {
 	var options gen.NodeOptions
 
@@ -47,10 +49,11 @@ func NewApp(
 	return node, nil
 }
 
+// Fuse the FUSE application
 type Fuse struct {
-	config                 *config.Config
+	config      *config.Config
 	workflowSup *actors.WorkflowSupervisorFactory
-	httpServer  *actors.HttpServerActorFactory
+	httpServer  *actors.HTTPServerActorFactory
 }
 
 // Load invoked on loading application using the method ApplicationLoad of gen.Node interface.
@@ -60,11 +63,11 @@ func (app *Fuse) Load(_ gen.Node, _ ...any) (gen.ApplicationSpec, error) {
 		Description: "FUSE application",
 		Group: []gen.ApplicationMemberSpec{
 			{
-				Name: actors.WorkflowSupervisorName,
+				Name:    actors.WorkflowSupervisorName,
 				Factory: app.workflowSup.Factory,
 			},
 			{
-				Name: actors.HttpServerActorName,
+				Name:    actors.HTTPServerActorName,
 				Factory: app.httpServer.Factory,
 			},
 		},

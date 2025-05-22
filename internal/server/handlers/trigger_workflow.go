@@ -1,3 +1,4 @@
+// Package handlers HTTP Fiber handles
 package handlers
 
 import (
@@ -7,11 +8,13 @@ import (
 	"net/http"
 )
 
+// NewTriggerWorkflowHandler creates a new TriggerWorkflowHandler http handler
 func NewTriggerWorkflowHandler(messageChan chan<- any) *TriggerWorkflowHandler {
 	return &TriggerWorkflowHandler{messageChan: messageChan}
 }
 
 type (
+	// TriggerWorkflowHandler Fiber http handler
 	TriggerWorkflowHandler struct {
 		messageChan chan<- any
 	}
@@ -21,6 +24,7 @@ type (
 	}
 )
 
+// Handle handles the http TriggerWorkflow endpoint
 func (h *TriggerWorkflowHandler) Handle(ctx fiber.Ctx) error {
 	var req triggerWorkflowRequest
 	if err := ctx.Bind().Body(&req); err != nil {

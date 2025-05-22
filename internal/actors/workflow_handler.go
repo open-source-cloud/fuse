@@ -12,8 +12,10 @@ import (
 	pkgworkflow "github.com/open-source-cloud/fuse/pkg/workflow"
 )
 
+// WorkflowHandlerFactory redefines the WorkflowHandler factory generic type for better readability
 type WorkflowHandlerFactory Factory[*WorkflowHandler]
 
+// NewWorkflowHandlerFactory DI method for creating the WorkflowHandler factory
 func NewWorkflowHandlerFactory(
 	cfg *config.Config,
 	graphRepo repos.GraphRepo,
@@ -30,11 +32,13 @@ func NewWorkflowHandlerFactory(
 	}
 }
 
+// WorkflowHandlerName helper function to generate the WorkflowHandler actor name in the context of a workflow instance
 func WorkflowHandlerName(workflowID workflow.ID) string {
 	return fmt.Sprintf("workflow_handler_%s", workflowID.String())
 }
 
 type (
+	// WorkflowHandler defines the WorkflowHandler actor
 	WorkflowHandler struct {
 		act.Actor
 
@@ -45,12 +49,14 @@ type (
 		workflow *workflow.Workflow
 	}
 
+	// WorkflowHandlerInitArgs defines the typed arguments for the WorkflowHandler Actor Init message
 	WorkflowHandlerInitArgs struct {
 		schemaID   string
 		workflowID workflow.ID
 	}
 )
 
+// Init is called whenever a WorkflowHandler actor is being initialized
 func (a *WorkflowHandler) Init(args ...any) error {
 	a.Log().Debug("starting process %s with args %s", a.PID(), args)
 
@@ -70,6 +76,7 @@ func (a *WorkflowHandler) Init(args ...any) error {
 	return nil
 }
 
+// HandleMessage processes messages that are sent to a WorkflowHandler actor
 func (a *WorkflowHandler) HandleMessage(from gen.PID, message any) error {
 	msg, ok := message.(messaging.Message)
 	if !ok {
@@ -90,6 +97,7 @@ func (a *WorkflowHandler) HandleMessage(from gen.PID, message any) error {
 	return nil
 }
 
+// Terminate is called whenever a WorkflowHandler actor gets terminated
 func (a *WorkflowHandler) Terminate(reason error) {
 	a.Log().Info("%s terminated with reason: %s", a.PID(), reason)
 }
@@ -108,7 +116,7 @@ func (a *WorkflowHandler) handleMsgActorInit(msg messaging.Message) error {
 			action = a.workflow.Trigger()
 		} else {
 			// TODO : add Resume
-			//action = a.workflow.Resume()
+			action = a.workflow.Resume()
 		}
 		a.handleWorkflowAction(action)
 		return nil

@@ -9,6 +9,7 @@ type internalFunctionPackage struct {
 	functions map[string]FunctionSpec
 }
 
+// NewInternal creates a new internal package
 func NewInternal(id string, functions []FunctionSpec) Package {
 	functionsMap := make(map[string]FunctionSpec)
 	for _, function := range functions {
