@@ -123,53 +123,62 @@ func (w *Workflow) Next(threadID int) Action {
 		}
 		return w.newRunFunctionAction(currentThread, edge)
 	default: // >1
-		edges := currentNode.OutputEdges()
-		if currentNode.IsConditional() {
-			conditionalEdges := currentNode.FunctionMetadata().Output.Edges
-			conditionalSource := currentNode.FunctionMetadata().Output.ConditionalOutputField
-			conditionalValue := w.aggregatedOutput.Get(fmt.Sprintf("%s.%s", currentNode.ID(), conditionalSource))
+		return w.nextWithMultipleOutputEdges(currentThread, currentNode)
+	}
+}
 
-			edges = make([]*Edge, 0, len(currentNode.OutputEdges()))
-			for _, edge := range currentNode.OutputEdges() {
-				edgeCondition := edge.Condition()
-				if edgeCondition.Value == conditionalValue {
-					_, exists := conditionalEdges[edgeCondition.Name]
-					if !exists {
-						log.Error().Str("edge", edge.ID()).Str("condition", edgeCondition.Name).
-							Msg("Conditional edge not found")
-						continue
-					}
-					edges = append(edges, edge)
-				}
-			}
+func (w *Workflow) nextWithMultipleOutputEdges(currentThread *thread, currentNode *Node) Action {
+	edges := w.filterOutputEdgesByConditionals(currentNode)
+
+	edgeCount := len(edges)
+	// if no edges after conditional filtering, just stop
+	if edgeCount == 0 {
+		return &NoopAction{}
+	}
+	// if we only have 1 output after filtering conditional edges, let's just run that one
+	if edgeCount == 1 {
+		if currentNode.thread != edges[0].To().thread {
+			currentThread.SetState(StateFinished)
 		}
+		return w.newRunFunctionAction(currentThread, edges[0])
+	}
 
-		edgeCount := len(edges)
-		// if no edges after conditional filtering, just stop
-		if edgeCount == 0 {
+	// more than 1 edge after filtering, let's run them in parallel
+	parallelAction := &RunParallelFunctionsAction{
+		Actions: make([]*RunFunctionAction, 0, len(currentNode.OutputEdges())),
+	}
+	currentThread.SetState(StateFinished)
+	for _, edge := range edges {
+		if !w.threads.AreAllParentsFinishedFor(edge.To().parentThreads) {
 			return &NoopAction{}
 		}
-		// if we only have 1 output after filtering conditional edges, let's just run that one
-		if edgeCount == 1 {
-			if currentNode.thread != edges[0].To().thread {
-				currentThread.SetState(StateFinished)
-			}
-			return w.newRunFunctionAction(currentThread, edges[0])
-		}
-
-		// more than 1 edge after filtering, let's run them in parallel
-		parallelAction := &RunParallelFunctionsAction{
-			Actions: make([]*RunFunctionAction, 0, len(currentNode.OutputEdges())),
-		}
-		currentThread.SetState(StateFinished)
-		for _, edge := range edges {
-			if !w.threads.AreAllParentsFinishedFor(edge.To().parentThreads) {
-				return &NoopAction{}
-			}
-			parallelAction.Actions = append(parallelAction.Actions, w.newRunFunctionAction(currentThread, edge))
-		}
-		return parallelAction
+		parallelAction.Actions = append(parallelAction.Actions, w.newRunFunctionAction(currentThread, edge))
 	}
+	return parallelAction
+}
+
+func (w *Workflow) filterOutputEdgesByConditionals(currentNode *Node) []*Edge {
+	if !currentNode.IsConditional() {
+		return currentNode.OutputEdges()
+	}
+	conditionalEdges := currentNode.FunctionMetadata().Output.Edges
+	conditionalSource := currentNode.FunctionMetadata().Output.ConditionalOutputField
+	conditionalValue := w.aggregatedOutput.Get(fmt.Sprintf("%s.%s", currentNode.ID(), conditionalSource))
+
+	edges := make([]*Edge, 0, len(currentNode.OutputEdges()))
+	for _, edge := range currentNode.OutputEdges() {
+		edgeCondition := edge.Condition()
+		if edgeCondition.Value == conditionalValue {
+			_, exists := conditionalEdges[edgeCondition.Name]
+			if !exists {
+				log.Error().Str("edge", edge.ID()).Str("condition", edgeCondition.Name).
+					Msg("Conditional edge not found")
+				continue
+			}
+			edges = append(edges, edge)
+		}
+	}
+	return edges
 }
 
 // SetResultFor sets the result of a function execution in the workflow's AuditLog
