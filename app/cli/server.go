@@ -14,7 +14,6 @@ func newServerCommand() *cobra.Command {
 		Run:  func (_ *cobra.Command, _ []string) {
 			di.Run(fx.Options(
 				di.AllModules,
-				fx.Invoke(func() {}),
 			))
 		},
 	}

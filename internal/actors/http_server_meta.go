@@ -7,6 +7,7 @@ import (
 	"github.com/open-source-cloud/fuse/internal/repos"
 	"github.com/open-source-cloud/fuse/internal/server"
 	"github.com/open-source-cloud/fuse/internal/workflow"
+	"github.com/rs/zerolog/log"
 )
 
 // HTTPServerMeta actor name
@@ -69,7 +70,9 @@ func (m *httpServerMeta) HandleCall(_ gen.PID, _ gen.Ref, _ any) (any, error) {
 }
 
 // Terminate called when HttpServerMeta meta-process gets terminated
-func (m *httpServerMeta) Terminate(_ error) {}
+func (m *httpServerMeta) Terminate(_ error) {
+	log.Info().Msg("HttpServerMeta terminated")
+}
 
 // HandleInspect (from gen.PID, item ...string) called when HttpServerMeta meta-process gets inspected
 func (m *httpServerMeta) HandleInspect(_ gen.PID, _ ...string) map[string]string {

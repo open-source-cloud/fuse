@@ -8,6 +8,7 @@ import (
 	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/open-source-cloud/fuse/internal/actors"
 	"github.com/open-source-cloud/fuse/logging"
+	"github.com/rs/zerolog/log"
 	"strings"
 )
 
@@ -77,10 +78,14 @@ func (app *Fuse) Load(_ gen.Node, _ ...any) (gen.ApplicationSpec, error) {
 }
 
 // Start invoked once the application started
-func (app *Fuse) Start(_ gen.ApplicationMode) {}
+func (app *Fuse) Start(_ gen.ApplicationMode) {
+	// any start code for the actor model application start goes here...
+}
 
 // Terminate invoked once the application stopped
-func (app *Fuse) Terminate(_ error) {}
+func (app *Fuse) Terminate(_ error) {
+	log.Info().Msg("FUSE application terminated")
+}
 
 func parseLogLevel(s string) gen.LogLevel {
 	switch strings.ToLower(s) {

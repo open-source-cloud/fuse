@@ -97,4 +97,6 @@ func (l *ergoLogger) Log(message gen.MessageLog) {
 	event.Msgf("%s %s", source, fmt.Sprintf(format, args...))
 }
 
-func (l *ergoLogger) Terminate() {}
+func (l *ergoLogger) Terminate() {
+	// terminate is called when an Ergo Logger actor gets terminated
+}

@@ -24,7 +24,9 @@ var CommonModule = fx.Module(
 		logging.NewAppLogger,
 		config.Instance,
 	),
-	fx.Invoke(func(_ zerolog.Logger) {}),
+	fx.Invoke(func(_ zerolog.Logger) {
+		// forces the initialization of the zerolog.Logger dependency
+	}),
 )
 
 // FuseAppModule FX module with the FUSE application providers
