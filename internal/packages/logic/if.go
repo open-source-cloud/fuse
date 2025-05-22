@@ -27,18 +27,17 @@ func IfFunctionMetadata() workflow.FunctionMetadata {
 		},
 		Output: workflow.OutputMetadata{
 			ConditionalOutput: true,
+			ConditionalOutputField: "result",
 			Edges: map[string]workflow.OutputEdgeMetadata{
-				"condition-true": {
-					Name: "condition-true",
+				"if-true": {
+					Name: "if-true",
 					ConditionalEdge: workflow.ConditionalEdgeMetadata{
-						Condition: "result",
 						Value:     true,
 					},
 				},
-				"condition-false": {
-					Name: "condition-false",
+				"if-false": {
+					Name: "if-false",
 					ConditionalEdge: workflow.ConditionalEdgeMetadata{
-						Condition: "result",
 						Value:     false,
 					},
 				},

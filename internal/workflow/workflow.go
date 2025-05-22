@@ -2,6 +2,7 @@
 package workflow
 
 import (
+	"fmt"
 	"github.com/open-source-cloud/fuse/internal/typeschema"
 	"github.com/open-source-cloud/fuse/pkg/store"
 	"github.com/open-source-cloud/fuse/pkg/utils"
@@ -122,18 +123,62 @@ func (w *Workflow) Next(threadID int) Action {
 		}
 		return w.newRunFunctionAction(currentThread, edge)
 	default: // >1
-		currentThread.SetState(StateFinished)
-		parallelAction := &RunParallelFunctionsAction{
-			Actions: make([]*RunFunctionAction, 0, len(currentNode.OutputEdges())),
-		}
-		for _, edge := range currentNode.OutputEdges() {
-			if !w.threads.AreAllParentsFinishedFor(edge.To().parentThreads) {
-				return &NoopAction{}
-			}
-			parallelAction.Actions = append(parallelAction.Actions, w.newRunFunctionAction(currentThread, edge))
-		}
-		return parallelAction
+		return w.nextWithMultipleOutputEdges(currentThread, currentNode)
 	}
+}
+
+func (w *Workflow) nextWithMultipleOutputEdges(currentThread *thread, currentNode *Node) Action {
+	edges := w.filterOutputEdgesByConditionals(currentNode)
+
+	edgeCount := len(edges)
+	// if no edges after conditional filtering, just stop
+	if edgeCount == 0 {
+		return &NoopAction{}
+	}
+	// if we only have 1 output after filtering conditional edges, let's just run that one
+	if edgeCount == 1 {
+		if currentNode.thread != edges[0].To().thread {
+			currentThread.SetState(StateFinished)
+		}
+		return w.newRunFunctionAction(currentThread, edges[0])
+	}
+
+	// more than 1 edge after filtering, let's run them in parallel
+	parallelAction := &RunParallelFunctionsAction{
+		Actions: make([]*RunFunctionAction, 0, len(currentNode.OutputEdges())),
+	}
+	currentThread.SetState(StateFinished)
+	for _, edge := range edges {
+		if !w.threads.AreAllParentsFinishedFor(edge.To().parentThreads) {
+			return &NoopAction{}
+		}
+		parallelAction.Actions = append(parallelAction.Actions, w.newRunFunctionAction(currentThread, edge))
+	}
+	return parallelAction
+}
+
+func (w *Workflow) filterOutputEdgesByConditionals(currentNode *Node) []*Edge {
+	if !currentNode.IsConditional() {
+		return currentNode.OutputEdges()
+	}
+	conditionalEdges := currentNode.FunctionMetadata().Output.Edges
+	conditionalSource := currentNode.FunctionMetadata().Output.ConditionalOutputField
+	conditionalValue := w.aggregatedOutput.Get(fmt.Sprintf("%s.%s", currentNode.ID(), conditionalSource))
+
+	edges := make([]*Edge, 0, len(currentNode.OutputEdges()))
+	for _, edge := range currentNode.OutputEdges() {
+		edgeCondition := edge.Condition()
+		if edgeCondition.Value == conditionalValue {
+			_, exists := conditionalEdges[edgeCondition.Name]
+			if !exists {
+				log.Error().Str("edge", edge.ID()).Str("condition", edgeCondition.Name).
+					Msg("Conditional edge not found")
+				continue
+			}
+			edges = append(edges, edge)
+		}
+	}
+	return edges
 }
 
 // SetResultFor sets the result of a function execution in the workflow's AuditLog
@@ -217,10 +262,11 @@ func (w *Workflow) inputMapping(edge *Edge, mappings []InputMapping) map[string]
 	args := store.New()
 	for _, mapping := range mappings {
 		inputParamSchema, exists := edge.To().FunctionMetadata().Input.Parameters[mapping.MapTo]
-		if !exists && !edge.To().FunctionMetadata().Input.CustomParameters {
+		if !edge.To().FunctionMetadata().Input.CustomParameters && !exists {
 			log.Error().Str("edge", edge.ID()).Str("param", mapping.MapTo).
 				Msg("Input ParamSchema not found for input mapping")
 		}
+		allowCustomInputParameters := edge.To().FunctionMetadata().Input.CustomParameters
 
 		switch mapping.Source {
 		case SourceSchema:
@@ -236,7 +282,7 @@ func (w *Workflow) inputMapping(edge *Edge, mappings []InputMapping) map[string]
 		case SourceFlow:
 			outputParamName := utils.AfterFirstDot(mapping.Variable)
 			outputParamSchema, exists := edge.From().FunctionMetadata().Output.Parameters[outputParamName]
-			if !exists {
+			if !allowCustomInputParameters && !exists {
 				log.Error().Str("edge", edge.ID()).Str("param", outputParamName).
 					Msgf("Output ParamSchema not found for input mapping")
 				continue
@@ -244,15 +290,21 @@ func (w *Workflow) inputMapping(edge *Edge, mappings []InputMapping) map[string]
 
 			isArray := strings.HasPrefix(inputParamSchema.Type, "[]")
 			rawValue := w.aggregatedOutput.Get(mapping.Variable)
-			value, err := typeschema.ParseValue(inputParamSchema.Type, rawValue)
-			if err != nil {
-				log.Error().
-					Err(err).
-					Str("edge", edge.ID()).
-					Str("param", mapping.MapTo).
-					Any("value", mapping.Value).
-					Msg("Error parsing value")
-				continue
+			var value any
+			if inputParamSchema.Type == "" && allowCustomInputParameters {
+				value = rawValue
+			} else {
+				var err error
+				value, err = typeschema.ParseValue(inputParamSchema.Type, rawValue)
+				if err != nil {
+					log.Error().
+						Err(err).
+						Str("edge", edge.ID()).
+						Str("param", mapping.MapTo).
+						Any("value", mapping.Value).
+						Msg("Error parsing value")
+					continue
+				}
 			}
 
 			if !w.validateInputMapping(&outputParamSchema, value) {

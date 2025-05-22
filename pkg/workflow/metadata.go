@@ -15,9 +15,10 @@ type InputMetadata struct {
 
 // OutputMetadata represents the output metadata for a node
 type OutputMetadata struct {
-	Parameters        Parameters
-	ConditionalOutput bool
-	Edges             map[string]OutputEdgeMetadata
+	Parameters             Parameters
+	ConditionalOutput      bool
+	ConditionalOutputField string
+	Edges                  map[string]OutputEdgeMetadata
 }
 
 // InputEdgeMetadata represents edge configuration for a node
@@ -28,7 +29,6 @@ type InputEdgeMetadata struct {
 
 // ConditionalEdgeMetadata represents additional metadata for a conditional edge
 type ConditionalEdgeMetadata struct {
-	Condition string
 	Value     any
 }
 
