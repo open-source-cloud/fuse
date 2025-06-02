@@ -35,7 +35,8 @@ type (
 
 	// ServerConfig http server config
 	ServerConfig struct {
-		Port string
+		Port   string `env:"SERVER_PORT" envDefault:"9090"`
+		Cookie string `env:"SERVER_COOKIE" envDefault:""`
 	}
 )
 

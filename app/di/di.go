@@ -34,7 +34,10 @@ var FuseAppModule = fx.Module(
 	"fuse_app",
 	fx.Provide(
 		// actors
-		actors.NewHTTPServerActorFactory,
+		actors.NewMuxServerSupFactory,
+		actors.NewMuxServerFactory,
+		actors.NewMuxServerPoolFactory,
+		actors.NewMuxWebWorkerFactory,
 		actors.NewWorkflowSupervisorFactory,
 		actors.NewWorkflowInstanceSupervisorFactory,
 		actors.NewWorkflowHandlerFactory,
