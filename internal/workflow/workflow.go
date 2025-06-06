@@ -3,7 +3,7 @@ package workflow
 
 import (
 	"fmt"
-	"github.com/open-source-cloud/fuse/internal/uuid"
+	"github.com/open-source-cloud/fuse/pkg/uuid"
 	"reflect"
 	"strings"
 
