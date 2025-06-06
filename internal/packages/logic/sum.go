@@ -37,7 +37,7 @@ func SumFunctionMetadata() workflow.FunctionMetadata {
 }
 
 // SumFunction executes the sum function and returns the sum of the values
-func SumFunction(input *workflow.FunctionInput) (workflow.FunctionResult, error) {
+func SumFunction(_ *workflow.ExecutionInfo, input *workflow.FunctionInput) (workflow.FunctionResult, error) {
 	sum := float64(0)
 	values := input.GetFloat64SliceOrDefault("values", []float64{})
 

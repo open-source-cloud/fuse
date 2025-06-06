@@ -10,8 +10,8 @@ type (
 	Node struct {
 		schema           *NodeSchema
 		functionMetadata workflow.FunctionMetadata
-		thread           int
-		parentThreads    []int
+		thread           uint16
+		parentThreads    []uint16
 		inputEdges       []*Edge
 		outputEdges      []*Edge
 	}
@@ -22,7 +22,7 @@ func newNode(schema *NodeSchema) *Node {
 	return &Node{
 		schema:           schema,
 		thread:           0,
-		parentThreads:    []int{},
+		parentThreads:    []uint16{},
 		inputEdges:       make([]*Edge, 0),
 		outputEdges:      make([]*Edge, 0),
 	}
@@ -49,7 +49,7 @@ func (n *Node) Schema() *NodeSchema {
 }
 
 // Thread the Thread ID for this node
-func (n *Node) Thread() int {
+func (n *Node) Thread() uint16 {
 	return n.thread
 }
 

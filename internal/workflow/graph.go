@@ -182,22 +182,24 @@ func (g *Graph) calculateThreads() {
 	// Prevents redundant work and handles graphs with cycles.
 	visited := make(map[string]map[string]bool) // node.ID() -> visit key -> bool
 
-	var threadCounter int // Used to issue new, unique thread IDs as needed
+	var threadCounter uint16 // Used to issue new, unique thread IDs as needed
 
 	// Helper to create a new, unique thread ID each time it's called.
-	newThreadID := func() int {
+	newThreadID := func() uint16 {
 		threadCounter++
 		return threadCounter
 	}
 
 	// Helper to convert a parentThreads slice into a canonical (sorted, comma-separated) string.
 	// This is used for visit deduplication, to ensure that different orderings of the same set are treated as equal.
-	makeParentKey := func(parentThreads []int) string {
+	makeParentKey := func(parentThreads []uint16) string {
 		if len(parentThreads) == 0 {
 			return ""
 		}
-		cp := append([]int(nil), parentThreads...) // defensive copy
-		sort.Ints(cp)
+		cp := append([]uint16(nil), parentThreads...) // defensive copy
+		sort.Slice(cp, func(i, j int) bool {
+			return cp[i] < cp[j]
+		})
 		key := ""
 		for i, t := range cp {
 			if i > 0 {
@@ -210,8 +212,8 @@ func (g *Graph) calculateThreads() {
 
 	// PHASE 1: Assign threads by walking through the graph
 	// The walk function explores all possible paths from the root (trigger), assigning threads and "guessing" parentThreads at joins.
-	var walk func(node *Node, thread int, parentThreads []int, inPath map[string]bool)
-	walk = func(node *Node, thread int, parentThreads []int, inPath map[string]bool) {
+	var walk func(node *Node, thread uint16, parentThreads []uint16, inPath map[string]bool)
+	walk = func(node *Node, thread uint16, parentThreads []uint16, inPath map[string]bool) {
 		id := node.ID()
 		visitKey := fmt.Sprintf("%d|%s", thread, makeParentKey(parentThreads))
 
@@ -236,7 +238,7 @@ func (g *Graph) calculateThreads() {
 		// Store parentThreads for documentation; will be stabilized in phase 2
 		if len(parentThreads) > 1 {
 			// Defensive copy
-			node.parentThreads = append([]int(nil), parentThreads...)
+			node.parentThreads = append([]uint16(nil), parentThreads...)
 		} else {
 			node.parentThreads = nil
 		}
@@ -244,7 +246,7 @@ func (g *Graph) calculateThreads() {
 		// Join handling: this node has multiple incoming edges (i.e., is a "join" node)
 		if len(node.InputEdges()) > 1 {
 			// Gather thread IDs from all immediate parent nodes (these may not be final, hence "guessing")
-			parentThreadSet := make(map[int]struct{})
+			parentThreadSet := make(map[uint16]struct{})
 			for _, edge := range node.InputEdges() {
 				pNode := edge.From()
 				pThread := pNode.thread
@@ -255,11 +257,13 @@ func (g *Graph) calculateThreads() {
 			}
 			// If more than one parent thread reaches this node, it's an actual join; issue a new thread, and record parentThreads
 			if len(parentThreadSet) > 1 {
-				pt := make([]int, 0, len(parentThreadSet))
+				pt := make([]uint16, 0, len(parentThreadSet))
 				for p := range parentThreadSet {
 					pt = append(pt, p)
 				}
-				sort.Ints(pt)
+				sort.Slice(pt, func(i, j int) bool {
+					return pt[i] < pt[j]
+				})
 				newThread := newThreadID()
 				node.thread = newThread
 				node.parentThreads = pt
@@ -294,14 +298,14 @@ func (g *Graph) calculateThreads() {
 	}
 
 	// Begin traversal from the trigger/root node, assigning thread 0.
-	walk(g.trigger, 0, []int{0}, map[string]bool{})
+	walk(g.trigger, 0, []uint16{0}, map[string]bool{})
 
 	// PHASE 2: Stabilize parentThreads at all join nodes
 	// For every join node (node with >1 input edge), recompute parentThreads from finalized parent.node.thread values
 	// This ensures that cycles can't create "ghost" thread IDs.
 	for _, node := range g.nodes {
 		if len(node.InputEdges()) > 1 {
-			parentThreadSet := make(map[int]struct{})
+			parentThreadSet := make(map[uint16]struct{})
 			for _, edge := range node.InputEdges() {
 				pNode := edge.From()
 				if pNode != nil {
@@ -312,11 +316,13 @@ func (g *Graph) calculateThreads() {
 			delete(parentThreadSet, node.thread)
 			if len(parentThreadSet) > 1 {
 				// Sort for consistent/stable output
-				pt := make([]int, 0, len(parentThreadSet))
+				pt := make([]uint16, 0, len(parentThreadSet))
 				for p := range parentThreadSet {
 					pt = append(pt, p)
 				}
-				sort.Ints(pt)
+				sort.Slice(pt, func(i, j int) bool {
+					return pt[i] < pt[j]
+				})
 				node.parentThreads = pt
 			} else {
 				// No true join; clear

@@ -14,7 +14,7 @@ func TimerFunctionMetadata() workflow.FunctionMetadata {
 	return workflow.FunctionMetadata{
 		Input: workflow.InputMetadata{
 			Parameters: workflow.Parameters{
-				"values": workflow.ParameterSchema{
+				"timer": workflow.ParameterSchema{
 					Name:        "timer",
 					Type:        "int",
 					Required:    true,
@@ -28,17 +28,16 @@ func TimerFunctionMetadata() workflow.FunctionMetadata {
 }
 
 // TimerFunction executes timer function
-func TimerFunction(input *workflow.FunctionInput) (workflow.FunctionResult, error) {
+func TimerFunction(execInfo *workflow.ExecutionInfo, input *workflow.FunctionInput) (workflow.FunctionResult, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	duration := time.Duration(input.Get("timer").(int)) * time.Millisecond
-	resultChan := make(chan workflow.FunctionOutput)
 
 	go func() {
 		ticker := time.NewTicker(duration)
 		for {
 			select {
 			case <-ticker.C:
-				resultChan <- workflow.NewFunctionOutput(workflow.FunctionSuccess, nil)
+				execInfo.Finish(workflow.NewFunctionSuccessOutput(nil))
 				cancel()
 			case <-ctx.Done():
 				ticker.Stop()

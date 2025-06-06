@@ -26,3 +26,8 @@ func NewFunctionOutput(status FunctionOutputStatus, data map[string]any) Functio
 		Data:   data,
 	}
 }
+
+// NewFunctionSuccessOutput returns a success function output object
+func NewFunctionSuccessOutput(data map[string]any) FunctionOutput {
+	return NewFunctionOutput(FunctionSuccess, data)
+}

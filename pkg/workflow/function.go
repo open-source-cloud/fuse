@@ -1,4 +1,4 @@
 package workflow
 
 // Function describes an executable workflow Function
-type Function func(input *FunctionInput) (FunctionResult, error)
+type Function func(*ExecutionInfo, *FunctionInput) (FunctionResult, error)

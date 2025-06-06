@@ -92,6 +92,7 @@ func (a *WorkflowHandler) HandleMessage(from gen.PID, message any) error {
 		return a.handleMsgActorInit(msg)
 	case messaging.FunctionResult:
 		return a.handleMsgFunctionResult(msg)
+	case messaging.AsyncFunctionResult: return a.handleMsgAsyncFunctionResult(msg)
 	}
 
 	return nil
@@ -166,6 +167,38 @@ func (a *WorkflowHandler) handleMsgFunctionResult(msg messaging.Message) error {
 	}
 
 	action := a.workflow.Next(fnResultMsg.ThreadID)
+	if action.Type() == workflow.ActionNoop {
+		a.Log().Warning("got noop action from workflow")
+		return nil
+	}
+	a.handleWorkflowAction(action)
+
+	return nil
+}
+
+func (a *WorkflowHandler) handleMsgAsyncFunctionResult(msg messaging.Message) error {
+	fnResultMsg, ok := msg.Args.(messaging.AsyncFunctionResultMessage)
+	if !ok {
+		a.Log().Error("failed to get async function result from %s", msg)
+	}
+
+	a.workflow.SetResultFor(fnResultMsg.ExecID, &pkgworkflow.FunctionResult{
+		Async: true,
+		Output: fnResultMsg.Output,
+	})
+	if fnResultMsg.Output.Status != pkgworkflow.FunctionSuccess {
+		a.Log().Error(
+			"async function result for workflow %s, execID %s failed with status %s",
+			fnResultMsg.WorkflowID,
+			fnResultMsg.ExecID,
+			fnResultMsg.Output.Status,
+		)
+		a.workflow.SetState(workflow.StateError)
+		// TODO handle function failure
+		return nil
+	}
+
+	action := a.workflow.Next(fnResultMsg.ExecID.Thread())
 	if action.Type() == workflow.ActionNoop {
 		a.Log().Warning("got noop action from workflow")
 		return nil

@@ -13,12 +13,12 @@ const (
 
 func newThreads() *threads {
 	return &threads{
-		threads: make(map[int]*thread),
+		threads: make(map[uint16]*thread),
 		mu:      &sync.Mutex{},
 	}
 }
 
-func newThread(id int, execID string) *thread {
+func newThread(id uint16, execID ExecID) *thread {
 	return &thread{
 		id:            id,
 		currentExecID: execID,
@@ -28,18 +28,18 @@ func newThread(id int, execID string) *thread {
 
 type (
 	threads struct {
-		threads map[int]*thread
+		threads map[uint16]*thread
 		mu      *sync.Mutex
 	}
 
 	thread struct {
-		id            int
-		currentExecID string
+		id            uint16
+		currentExecID ExecID
 		state         State
 	}
 )
 
-func (t *threads) New(threadID int, execID string) *thread {
+func (t *threads) New(threadID uint16, execID ExecID) *thread {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	createdThread := newThread(threadID, execID)
@@ -47,13 +47,13 @@ func (t *threads) New(threadID int, execID string) *thread {
 	return createdThread
 }
 
-func (t *threads) Get(threadID int) *thread {
+func (t *threads) Get(threadID uint16) *thread {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	return t.threads[threadID]
 }
 
-func (t *threads) AreAllParentsFinishedFor(parentThreadIDs []int) bool {
+func (t *threads) AreAllParentsFinishedFor(parentThreadIDs []uint16) bool {
 	for _, parentThreadID := range parentThreadIDs {
 		parentThread := t.Get(parentThreadID)
 		if parentThread.State() != ThreadFinished {
@@ -63,15 +63,15 @@ func (t *threads) AreAllParentsFinishedFor(parentThreadIDs []int) bool {
 	return true
 }
 
-func (t *thread) ID() int {
+func (t *thread) ID() uint16 {
 	return t.id
 }
 
-func (t *thread) CurrentExecID() string {
+func (t *thread) CurrentExecID() ExecID {
 	return t.currentExecID
 }
 
-func (t *thread) SetCurrentExecID(execID string) {
+func (t *thread) SetCurrentExecID(execID ExecID) {
 	t.currentExecID = execID
 }
 

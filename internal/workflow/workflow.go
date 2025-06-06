@@ -3,13 +3,13 @@ package workflow
 
 import (
 	"fmt"
+	"github.com/open-source-cloud/fuse/internal/uuid"
 	"reflect"
 	"strings"
 
 	"github.com/open-source-cloud/fuse/internal/typeschema"
 	"github.com/open-source-cloud/fuse/pkg/store"
 	"github.com/open-source-cloud/fuse/pkg/utils"
-	"github.com/open-source-cloud/fuse/pkg/uuid"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -83,11 +83,11 @@ type (
 
 // Trigger triggers a new workflow, results in an Action to be acted upon by the responsible actor
 func (w *Workflow) Trigger() Action {
-	execID := uuid.V7()
+	execID := NewExecID(0)
 	triggerNode := w.graph.Trigger()
 
 	triggerThread := w.threads.New(triggerNode.thread, execID)
-	w.auditLog.NewEntry(triggerThread.ID(), triggerNode.ID(), execID, nil)
+	w.auditLog.NewEntry(triggerThread.ID(), triggerNode.ID(), execID.String(), nil)
 
 	return &RunFunctionAction{
 		ThreadID:       triggerThread.ID(),
@@ -104,9 +104,9 @@ func (w *Workflow) Resume() Action {
 }
 
 // Next requests the next Action to be enacted by the responsible actor on this workflow
-func (w *Workflow) Next(threadID int) Action {
+func (w *Workflow) Next(threadID uint16) Action {
 	currentThread := w.threads.Get(threadID)
-	currentAuditEntry, _ := w.auditLog.Get(currentThread.CurrentExecID())
+	currentAuditEntry, _ := w.auditLog.Get(currentThread.CurrentExecID().String())
 	currentNode, _ := w.graph.FindNode(currentAuditEntry.FunctionNodeID)
 
 	switch len(currentNode.OutputEdges()) {
@@ -183,8 +183,8 @@ func (w *Workflow) filterOutputEdgesByConditionals(currentNode *Node) []*Edge {
 }
 
 // SetResultFor sets the result of a function execution in the workflow's AuditLog
-func (w *Workflow) SetResultFor(functionExecID string, result *workflow.FunctionResult) {
-	entry, exists := w.auditLog.Get(functionExecID)
+func (w *Workflow) SetResultFor(functionExecID ExecID, result *workflow.FunctionResult) {
+	entry, exists := w.auditLog.Get(functionExecID.String())
 	if !exists {
 		return
 	}
@@ -233,7 +233,7 @@ func (w *Workflow) AuditLogTrace() string {
 
 func (w *Workflow) newRunFunctionAction(currentThread *thread, edge *Edge) *RunFunctionAction {
 	node := edge.To()
-	execID := uuid.V7()
+	execID := NewExecID(node.thread)
 
 	newOrCurrentThread := currentThread
 	var mappings []InputMapping
@@ -250,7 +250,7 @@ func (w *Workflow) newRunFunctionAction(currentThread *thread, edge *Edge) *RunF
 	}
 	args := w.inputMapping(edge, mappings)
 
-	w.auditLog.NewEntry(newOrCurrentThread.ID(), edge.To().ID(), execID, args)
+	w.auditLog.NewEntry(newOrCurrentThread.ID(), edge.To().ID(), execID.String(), args)
 	return &RunFunctionAction{
 		ThreadID:       newOrCurrentThread.ID(),
 		FunctionID:     edge.To().FunctionID(),
