@@ -1,3 +1,4 @@
+// Package uuid internal UUID utility functions
 package uuid
 
 import (
@@ -8,7 +9,8 @@ import (
 )
 
 // V8ExecID generates a custom V8 UUID,
-//		with the same timestamping as V7 but using part of the bytes in the third group for threadID
+//
+//	with the same timestamping as V7 but using part of the bytes in the third group for threadID
 func V8ExecID(thread uint16) (string, error) {
 	if thread > 0xFFF {
 		return "", fmt.Errorf("value out of 12-bit range")
