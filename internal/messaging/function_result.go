@@ -9,13 +9,13 @@ import (
 // FunctionResultMessage defines a FunctionResult message
 type FunctionResultMessage struct {
 	WorkflowID workflow.ID                `json:"workflow_id"`
-	ThreadID   int                        `json:"thread_id"`
-	ExecID     string                     `json:"exec_id"`
+	ThreadID   uint16                     `json:"thread_id"`
+	ExecID     workflow.ExecID            `json:"exec_id"`
 	Result     pubworkflow.FunctionResult `json:"result"`
 }
 
 // NewFunctionResultMessage creates a new FunctionResult message
-func NewFunctionResultMessage(workflowID workflow.ID, thread int, execID string, result pubworkflow.FunctionResult) Message {
+func NewFunctionResultMessage(workflowID workflow.ID, thread uint16, execID workflow.ExecID, result pubworkflow.FunctionResult) Message {
 	return Message{
 		Type: FunctionResult,
 		Args: FunctionResultMessage{
@@ -27,10 +27,10 @@ func NewFunctionResultMessage(workflowID workflow.ID, thread int, execID string,
 	}
 }
 
-// NewFunctionResultMessage helper func to cast from a generic Message type
-func (m Message) NewFunctionResultMessage() (ExecuteFunctionMessage, error) {
-	if m.Type != ExecuteFunction {
-		return ExecuteFunctionMessage{}, fmt.Errorf("message type %s is not ExecuteFunction", m.Type)
+// FunctionResultMessage helper func to cast from a generic Message type
+func (m Message) FunctionResultMessage() (FunctionResultMessage, error) {
+	if m.Type != FunctionResult {
+		return FunctionResultMessage{}, fmt.Errorf("message type %s is not FunctionResultMessage", m.Type)
 	}
-	return m.Args.(ExecuteFunctionMessage), nil
+	return m.Args.(FunctionResultMessage), nil
 }

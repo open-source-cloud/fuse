@@ -21,7 +21,11 @@ func New(config *config.Config, graphFactory *workflow.GraphFactory, graphRepo r
 	app.Use(func(c fiber.Ctx) error {
 		start := time.Now()
 		err := c.Next()
-		log.Info().
+		logger := log.Info()
+		if err != nil {
+			logger = log.Error().Err(err)
+		}
+		logger.
 			Str("method", c.Method()).
 			Str("path", c.Path()).
 			Int("status", c.Response().StatusCode()).
@@ -32,6 +36,7 @@ func New(config *config.Config, graphFactory *workflow.GraphFactory, graphRepo r
 
 	app.Put("/api/workflow/schema", handlers.NewUpsertWorkflowSchemaHandler(graphFactory, graphRepo).Handle)
 	app.Post("/api/workflow", handlers.NewTriggerWorkflowHandler(messageChan).Handle)
+	app.Post("/api/workflow/:workflowID", handlers.NewAsyncFunctionResultHandler(messageChan).Handle)
 
 	go func() {
 		err := app.Listen(fmt.Sprintf(":%s", config.Server.Port), fiber.ListenConfig{

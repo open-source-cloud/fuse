@@ -8,12 +8,12 @@ import (
 
 // ExecuteFunctionMessage defines a ExecuteFunction message
 type ExecuteFunctionMessage struct {
-	WorkflowID workflow.ID    `json:"workflow_id"`
-	ThreadID   int            `json:"thread_id"`
-	ExecID     string         `json:"exec_id"`
-	PackageID  string         `json:"package_id"`
-	FunctionID string         `json:"function_id"`
-	Input      map[string]any `json:"input"`
+	WorkflowID workflow.ID     `json:"workflow_id"`
+	ExecID     workflow.ExecID `json:"exec_id"`
+	ThreadID   uint16          `json:"thread_id"`
+	PackageID  string          `json:"package_id"`
+	FunctionID string          `json:"function_id"`
+	Input      map[string]any  `json:"input"`
 }
 
 // NewExecuteFunctionMessage creates a new ExecuteFunction message
@@ -24,8 +24,8 @@ func NewExecuteFunctionMessage(workflowID workflow.ID, execAction *workflow.RunF
 		Type: ExecuteFunction,
 		Args: ExecuteFunctionMessage{
 			WorkflowID: workflowID,
-			ThreadID:   execAction.ThreadID,
 			ExecID:     execAction.FunctionExecID,
+			ThreadID:   execAction.ThreadID,
 			PackageID:  execAction.FunctionID[:lastSlashIndex],
 			FunctionID: execAction.FunctionID,
 			Input:      execAction.Args,

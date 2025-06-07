@@ -24,7 +24,8 @@ func NewWorkflowFuncFactory(packageRegistry packages.Registry) *WorkflowFuncFact
 }
 
 // WorkflowFunc defines a WorkflowFunc worker actor - used as a worker actor in WorkflowFuncPool actor for processing
-//		workflow Functions execution
+//
+//	workflow Functions execution
 type WorkflowFunc struct {
 	act.Actor
 
@@ -74,7 +75,7 @@ func (a *WorkflowFunc) HandleMessage(from gen.PID, message any) error {
 		a.Log().Error("failed to create function input: %s", err)
 		return nil
 	}
-	result, err := fn.Execute(input)
+	result, err := fn.Execute(msgPayload.WorkflowID.String(), msgPayload.ExecID.String(), input)
 	if err != nil {
 		a.Log().Error("failed to execute function %s: %s", fn.ID(), err)
 		return nil
