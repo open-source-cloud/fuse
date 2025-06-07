@@ -37,7 +37,7 @@ func NewTriggerWorkflowHandlerFactory() *TriggerWorkflowHandlerFactory {
 
 // HandlePost handles the http TriggerWorkflow endpoint
 // POST /v1/workflows/{schemaID}/trigger
-func (h *TriggerWorkflowHandler) HandlePost(w http.ResponseWriter, r *http.Request) error {
+func (h *TriggerWorkflowHandler) HandlePost(from gen.PID, w http.ResponseWriter, r *http.Request) error {
 	vars := mux.Vars(r)
 
 	schemaID, ok := vars["schemaID"]

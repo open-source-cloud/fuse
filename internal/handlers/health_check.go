@@ -24,7 +24,7 @@ func NewHealthCheckHandler() *HealthCheckHandlerFactory {
 	}
 }
 
-func (h *HealthCheckHandler) HandleGet(w http.ResponseWriter, r *http.Request) error {
+func (h *HealthCheckHandler) HandleGet(from gen.PID, w http.ResponseWriter, r *http.Request) error {
 	return SendJSON(w, http.StatusOK, Response{
 		"message": "OK",
 	})

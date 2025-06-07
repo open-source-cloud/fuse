@@ -7,6 +7,7 @@ import (
 
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
+	"github.com/gorilla/mux"
 	"github.com/open-source-cloud/fuse/internal/repos"
 	"github.com/open-source-cloud/fuse/internal/workflow"
 )
@@ -47,32 +48,53 @@ func (h *UpsertWorkflowSchemaHandler) Init(args ...any) error {
 
 // UpsertWorkflowSchema handles the UpsertWorkflowSchema http endpoint
 // PUT /v1/schemas/{schemaID}
-func (h *UpsertWorkflowSchemaHandler) HandlePut(w http.ResponseWriter, r *http.Request) error {
+func (h *UpsertWorkflowSchemaHandler) HandlePut(from gen.PID, w http.ResponseWriter, r *http.Request) error {
+	vars := mux.Vars(r)
+
+	schemaID, ok := vars["schemaID"]
+	if !ok {
+		return SendJSON(w, http.StatusBadRequest, Response{
+			"message": "schemaID is required",
+			"code":    BadRequest,
+		})
+	}
+
+	h.Log().Info("upserting workflow schema", "from", from, "schemaID", schemaID)
+
 	rawJSON, err := io.ReadAll(r.Body)
 	if err != nil {
+		msg := fmt.Sprintf("failed to read request body: %s", err)
+		h.Log().Error(msg)
 		return SendJSON(w, http.StatusBadRequest, Response{
-			"message": fmt.Sprintf("failed to read request body: %s", err),
+			"message": msg,
 			"code":    BadRequest,
 		})
 	}
 
 	graph, err := h.graphFactory.NewGraphFromJSON(rawJSON)
 	if err != nil {
+		msg := fmt.Sprintf("failed to parse request body: %s", err)
+		h.Log().Error(msg)
 		return SendJSON(w, http.StatusBadRequest, Response{
-			"message": fmt.Sprintf("failed to parse request body: %s", err),
+			"message": msg,
 			"code":    BadRequest,
 		})
 	}
 
 	err = h.graphRepo.Save(graph)
 	if err != nil {
+		msg := fmt.Sprintf("failed to save graph: %s", err)
+		h.Log().Error(msg)
 		return SendJSON(w, http.StatusInternalServerError, Response{
-			"message": fmt.Sprintf("failed to save graph: %s", err),
+			"message": msg,
 			"code":    InternalServerError,
 		})
 	}
 
+	h.Log().Info("upserted workflow schema", "from", from, "schemaID", schemaID, "workflowID", graph.ID())
+
 	return SendJSON(w, http.StatusOK, Response{
-		"workflowID": graph.ID,
+		"schemaID": schemaID,
+		"code":     "OK",
 	})
 }

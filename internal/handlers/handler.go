@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
+	"log"
 	"net/http"
 
 	"ergo.services/ergo/gen"
@@ -26,8 +28,28 @@ func BindJSON(w http.ResponseWriter, r *http.Request, v any) error {
 }
 
 // SendJSON sends a JSON response to the client
-func SendJSON(w http.ResponseWriter, status int, v any) error {
-	w.WriteHeader(status)
+// SendJSON sends a JSON response to the client
+func SendJSON(w http.ResponseWriter, status int, v Response) error {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 	w.Header().Set("Content-Type", "application/json")
-	return json.NewEncoder(w).Encode(v)
+	w.Header().Set("Accept", "application/json")
+
+	body, err := json.Marshal(v)
+	if err != nil {
+		log.Println("failed to marshal response", v, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(fmt.Sprintf(`{"message": "%s", "code": "%s"}`, err.Error(), InternalServerError)))
+		return err
+	}
+
+	w.WriteHeader(status) // Move this before w.Write
+	_, err = w.Write(body)
+	if err != nil {
+		log.Println("failed to write response", err)
+		return err
+	}
+
+	return nil
 }

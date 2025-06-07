@@ -83,7 +83,7 @@ func (m *muxServer) Init(args ...any) error {
 
 func (m *muxServer) createWorkerPool(route handlers.WebWorker, mux *mux.Router) error {
 	workerPool := meta.CreateWebHandler(meta.WebHandlerOptions{
-		Worker:         gen.Atom(route.PoolConfig.Name),
+		Worker:         route.PoolConfig.Name,
 		RequestTimeout: route.Timeout,
 	})
 

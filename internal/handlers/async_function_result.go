@@ -41,7 +41,7 @@ func NewAsyncFunctionResultHandlerFactory() *AsyncFunctionResultHandlerFactory {
 
 // HandlePost handles the http TriggerWorkflow endpoint
 // POST /v1/workflows/{workflowID}/async-function-result
-func (h *AsyncFunctionHandler) HandlePost(w http.ResponseWriter, r *http.Request) error {
+func (h *AsyncFunctionHandler) HandlePost(from gen.PID, w http.ResponseWriter, r *http.Request) error {
 	workflowID := r.URL.Query().Get("workflowID")
 	var req AsyncFunctionRequest
 	if err := BindJSON(w, r, &req); err != nil {
