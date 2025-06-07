@@ -13,7 +13,7 @@ import (
 const WorkflowSupervisorName = "workflow_sup"
 
 // WorkflowSupervisorFactory redefines the WorkflowSupervisor supervisor actor factory type for better readability
-type WorkflowSupervisorFactory Factory[*WorkflowSupervisor]
+type WorkflowSupervisorFactory ActorFactory[*WorkflowSupervisor]
 
 // NewWorkflowSupervisorFactory a dependency injection that creates a new WorkflowSupervisor actor factory
 func NewWorkflowSupervisorFactory(

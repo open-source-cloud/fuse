@@ -6,6 +6,7 @@ import (
 	"github.com/open-source-cloud/fuse/app"
 	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/open-source-cloud/fuse/internal/actors"
+	"github.com/open-source-cloud/fuse/internal/handlers"
 	"github.com/open-source-cloud/fuse/internal/packages"
 	"github.com/open-source-cloud/fuse/internal/packages/debug"
 	"github.com/open-source-cloud/fuse/internal/packages/logic"
@@ -36,8 +37,6 @@ var FuseAppModule = fx.Module(
 		// actors
 		actors.NewMuxServerSupFactory,
 		actors.NewMuxServerFactory,
-		actors.NewMuxServerPoolFactory,
-		actors.NewMuxWebWorkerFactory,
 		actors.NewWorkflowSupervisorFactory,
 		actors.NewWorkflowInstanceSupervisorFactory,
 		actors.NewWorkflowHandlerFactory,
@@ -49,6 +48,10 @@ var FuseAppModule = fx.Module(
 		// other services
 		workflow.NewGraphFactory,
 		packages.NewPackageRegistry,
+		// handlers
+		handlers.NewTriggerWorkflowHandlerFactory,
+		handlers.NewAsyncFunctionResultHandlerFactory,
+		handlers.NewUpsertWorkflowSchemaHandlerFactory,
 		// apps
 		app.NewApp,
 	),
