@@ -3,6 +3,7 @@ package actors
 import (
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
+	"github.com/open-source-cloud/fuse/internal/handlers"
 )
 
 // MuxServerSupName is the name of the MuxServerSup actor
@@ -12,11 +13,12 @@ const MuxServerSupName = "mux_server_sup"
 type MuxServerSupFactory ActorFactory[*MuxServerSup]
 
 // NewMuxServerSupFactory creates a new MuxServerSupFactory
-func NewMuxServerSupFactory(muxServer *MuxServerFactory) *MuxServerSupFactory {
+func NewMuxServerSupFactory(muxServer *MuxServerFactory, workers *handlers.Workers) *MuxServerSupFactory {
 	return &MuxServerSupFactory{
 		Factory: func() gen.ProcessBehavior {
 			return &MuxServerSup{
 				muxServer: muxServer,
+				workers:   workers,
 			}
 		},
 	}
@@ -26,20 +28,38 @@ func NewMuxServerSupFactory(muxServer *MuxServerFactory) *MuxServerSupFactory {
 type MuxServerSup struct {
 	act.Supervisor
 	muxServer *MuxServerFactory
+	workers   *handlers.Workers
 }
 
 // Init initializes the MuxServerSup actor
 func (m *MuxServerSup) Init(args ...any) (act.SupervisorSpec, error) {
 	m.Log().Info("starting mux server supervisor")
 
-	spec := act.SupervisorSpec{
-		Type: act.SupervisorTypeOneForOne,
-		Children: []act.SupervisorChildSpec{
-			{
-				Name:    MuxServerName,
-				Factory: m.muxServer.Factory,
-			},
+	children := []act.SupervisorChildSpec{
+		{
+			Name:    MuxServerName,
+			Factory: m.muxServer.Factory,
 		},
+	}
+
+	for _, worker := range m.workers.WebWorkers {
+		workerFactory, ok := m.workers.Factories[string(worker.Name)]
+		if !ok {
+			m.Log().Error("worker factory not found", "worker", worker.Name)
+			continue
+		}
+		// Creates the worker pool dynamically based on the worker name and pool config
+		pool := NewMuxWorkerPool(workerFactory, worker.PoolConfig)
+		children = append(children, act.SupervisorChildSpec{
+			Name:    worker.PoolConfig.Name,
+			Factory: pool.Factory,
+		})
+		m.Log().Info("added worker pool", "worker", worker.Name, "pool", worker.PoolConfig.Name)
+	}
+
+	spec := act.SupervisorSpec{
+		Type:     act.SupervisorTypeOneForOne,
+		Children: children,
 		Restart: act.SupervisorRestart{
 			Strategy:  act.SupervisorStrategyTransient,
 			Intensity: 2, // How big bursts of restarts you want to tolerate.

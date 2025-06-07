@@ -23,6 +23,7 @@ type (
 
 // UpsertWorkflowSchemaHandlerName is the name of the UpsertWorkflowSchemaHandler actor
 const UpsertWorkflowSchemaHandlerName = "upsert_workflow_schema_handler"
+const UpsertWorkflowSchemaHandlerPoolName = "upsert_workflow_schema_handler_pool"
 
 // UpsertWorkflowSchemaHandlerFactory is a factory for creating UpsertWorkflowSchemaHandler actors
 type UpsertWorkflowSchemaHandlerFactory HandlerFactory[*UpsertWorkflowSchemaHandler]
@@ -39,9 +40,14 @@ func NewUpsertWorkflowSchemaHandlerFactory(graphFactory *workflow.GraphFactory, 
 	}
 }
 
+func (h *UpsertWorkflowSchemaHandler) Init(args ...any) error {
+	h.Log().Info("starting upsert workflow schema handler")
+	return nil
+}
+
 // UpsertWorkflowSchema handles the UpsertWorkflowSchema http endpoint
 // PUT /v1/schemas/{schemaID}
-func (h *UpsertWorkflowSchemaHandler) Handle(w http.ResponseWriter, r *http.Request) error {
+func (h *UpsertWorkflowSchemaHandler) HandlePut(w http.ResponseWriter, r *http.Request) error {
 	rawJSON, err := io.ReadAll(r.Body)
 	if err != nil {
 		return SendJSON(w, http.StatusBadRequest, Response{

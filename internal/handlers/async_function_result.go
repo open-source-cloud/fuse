@@ -25,6 +25,7 @@ type (
 
 // AsyncFunctionResultHandlerName is the name of the AsyncFunctionResultHandler actor
 const AsyncFunctionResultHandlerName = "async_function_result_handler"
+const AsyncFunctionResultHandlerPoolName = "async_function_result_handler_pool"
 
 // AsyncFunctionResultHandlerFactory is a factory for creating AsyncFunctionHandler actors
 type AsyncFunctionResultHandlerFactory HandlerFactory[*AsyncFunctionHandler]

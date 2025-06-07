@@ -7,15 +7,12 @@ import (
 
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
+	"github.com/gorilla/mux"
 	"github.com/open-source-cloud/fuse/internal/messaging"
 	"github.com/open-source-cloud/fuse/internal/workflow"
 )
 
 type (
-	// TriggerWorkflowRequest is the request body for the TriggerWorkflowHandler
-	TriggerWorkflowRequest struct {
-		SchemaID string `json:"schemaId,omitempty"`
-	}
 	// TriggerWorkflowHandler is the handler for the TriggerWorkflow endpoint
 	TriggerWorkflowHandler struct {
 		act.WebWorker
@@ -24,6 +21,7 @@ type (
 
 // TriggerWorkflowHandlerName is the name of the TriggerWorkflowHandler actor
 const TriggerWorkflowHandlerName = "trigger_workflow_handler"
+const TriggerWorkflowHandlerPoolName = "trigger_workflow_handler_pool"
 
 // TriggerWorkflowHandlerFactory is a factory for creating TriggerWorkflowHandler actors
 type TriggerWorkflowHandlerFactory HandlerFactory[*TriggerWorkflowHandler]
@@ -38,26 +36,21 @@ func NewTriggerWorkflowHandlerFactory() *TriggerWorkflowHandlerFactory {
 }
 
 // HandlePost handles the http TriggerWorkflow endpoint
-// POST /v1/workflows/{workflowID}/trigger
+// POST /v1/workflows/{schemaID}/trigger
 func (h *TriggerWorkflowHandler) HandlePost(w http.ResponseWriter, r *http.Request) error {
-	var req TriggerWorkflowRequest
-	if err := BindJSON(w, r, req); err != nil {
-		return SendJSON(w, http.StatusBadRequest, Response{
-			"message": fmt.Sprintf("invalid request: %s", err),
-			"code":    BadRequest,
-		})
-	}
+	vars := mux.Vars(r)
 
-	if req.SchemaID == "" {
+	schemaID, ok := vars["schemaID"]
+	if !ok {
 		return SendJSON(w, http.StatusBadRequest, Response{
 			"message": "schemaId is required",
 			"code":    BadRequest,
 		})
 	}
 
-	senderID := workflow.NewID()
+	workflowID := workflow.NewID()
 
-	err := h.Send(senderID, messaging.NewTriggerWorkflowMessage(req.SchemaID))
+	err := h.Send(workflowID, messaging.NewTriggerWorkflowMessage(schemaID))
 	if err != nil {
 		return SendJSON(w, http.StatusInternalServerError, Response{
 			"message": fmt.Sprintf("failed to send message: %s", err),
@@ -66,7 +59,7 @@ func (h *TriggerWorkflowHandler) HandlePost(w http.ResponseWriter, r *http.Reque
 	}
 
 	return SendJSON(w, http.StatusOK, Response{
-		"workflowID": senderID,
-		"code":       "OK",
+		"schemaID": schemaID,
+		"code":     "OK",
 	})
 }

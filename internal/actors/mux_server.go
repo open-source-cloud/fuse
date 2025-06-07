@@ -1,11 +1,10 @@
 package actors
 
 import (
-	"net/http"
-
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
 	"ergo.services/ergo/meta"
+	"github.com/gorilla/mux"
 	"github.com/open-source-cloud/fuse/internal/handlers"
 )
 
@@ -16,10 +15,12 @@ const MuxServerName = "mux_server"
 type MuxServerFactory ActorFactory[*muxServer]
 
 // NewMuxServerFactory creates a new MuxServerFactory
-func NewMuxServerFactory() *MuxServerFactory {
+func NewMuxServerFactory(workers *handlers.Workers) *MuxServerFactory {
 	return &MuxServerFactory{
 		Factory: func() gen.ProcessBehavior {
-			return &muxServer{}
+			return &muxServer{
+				workers: workers,
+			}
 		},
 	}
 }
@@ -27,6 +28,7 @@ func NewMuxServerFactory() *MuxServerFactory {
 // muxServer is a mux server actor
 type muxServer struct {
 	act.Actor
+	workers *handlers.Workers
 }
 
 // NewMuxServer creates a new MuxServer actor
@@ -37,13 +39,12 @@ func NewMuxServer() *muxServer {
 func (m *muxServer) Init(args ...any) error {
 	m.Log().Info("starting mux server")
 
-	mux := http.NewServeMux()
+	mux := mux.NewRouter()
 
 	// create routes
-	workers := handlers.Workers()
-	for _, worker := range workers {
-		if err := m.createRoute(worker, mux); err != nil {
-			m.Log().Error("unable to create route for %s: %s", worker.WorkerName, err)
+	for _, worker := range m.workers.WebWorkers {
+		if err := m.createWorkerPool(worker, mux); err != nil {
+			m.Log().Error("unable to create route for %s: %s", worker.Name, err)
 			return err
 		}
 	}
@@ -80,21 +81,21 @@ func (m *muxServer) Init(args ...any) error {
 	return nil
 }
 
-func (m *muxServer) createRoute(route handlers.Worker, mux *http.ServeMux) error {
-	webHandler := meta.CreateWebHandler(meta.WebHandlerOptions{
-		Worker:         gen.Atom(route.WorkerName),
+func (m *muxServer) createWorkerPool(route handlers.WebWorker, mux *mux.Router) error {
+	workerPool := meta.CreateWebHandler(meta.WebHandlerOptions{
+		Worker:         gen.Atom(route.PoolConfig.Name),
 		RequestTimeout: route.Timeout,
 	})
 
-	workerID, err := m.SpawnMeta(webHandler, gen.MetaOptions{})
+	workerPoolID, err := m.SpawnMeta(workerPool, gen.MetaOptions{})
 	if err != nil {
 		m.Log().Error("unable to spawn WebHandler meta-process: %s", err)
 		return err
 	}
 
-	m.Log().Info("started WebHandler to serve '%s' (meta-process: %s)", route.Pattern, workerID)
+	m.Log().Info("started worker pool '%s' to serve '%s' (meta-process: %s)", route.PoolConfig.Name, route.Pattern, workerPoolID)
 
-	mux.Handle(route.Pattern, webHandler)
+	mux.Handle(route.Pattern, workerPool)
 
 	return nil
 }
