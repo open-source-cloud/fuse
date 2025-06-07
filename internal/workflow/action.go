@@ -20,9 +20,9 @@ type (
 
 	// RunFunctionAction run function action
 	RunFunctionAction struct {
-		ThreadID       int
+		ThreadID       uint16
 		FunctionID     string
-		FunctionExecID string
+		FunctionExecID ExecID
 		Args           map[string]any
 	}
 

@@ -1,8 +1,13 @@
 package packages
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
-	"github.com/open-source-cloud/fuse/pkg/workflow"
+	"github.com/open-source-cloud/fuse/app/config"
+	workflow "github.com/open-source-cloud/fuse/pkg/workflow"
+	"io"
+	"net/http"
 )
 
 type internalFunction struct {
@@ -28,6 +33,24 @@ func (f *internalFunction) Metadata() workflow.FunctionMetadata {
 	return f.metadata
 }
 
-func (f *internalFunction) Execute(input *workflow.FunctionInput) (workflow.FunctionResult, error) {
-	return f.fn(input)
+func (f *internalFunction) Execute(workflowID string, execID string, input *workflow.FunctionInput) (workflow.FunctionResult, error) {
+	return f.fn(&workflow.ExecutionInfo{
+		WorkflowID: workflowID,
+		ExecID:     execID,
+		Finish: func(result workflow.FunctionOutput) {
+			port := config.Instance().Server.Port
+			url := fmt.Sprintf("http://localhost:%s/api/workflow/%s", port, workflowID)
+
+			payload := map[string]any{"execID": execID, "result": result}
+			jsonPayload, _ := json.Marshal(payload)
+			req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonPayload))
+			req.Header.Set("Content-Type", "application/json")
+
+			client := &http.Client{}
+			resp, _ := client.Do(req)
+			defer func(Body io.ReadCloser) {
+				_ = Body.Close()
+			}(resp.Body)
+		},
+	}, input)
 }

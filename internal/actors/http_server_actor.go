@@ -68,6 +68,13 @@ func (a *HTTPServerActor) HandleMessage(from gen.PID, message any) error {
 			return nil
 		}
 	}
+	if msg.Type == messaging.AsyncFunctionResult {
+		asyncFnResultMsg, _ := msg.AsyncFunctionResultMessage()
+		err := a.Send(WorkflowHandlerName(asyncFnResultMsg.WorkflowID), message)
+		if err != nil {
+			a.Log().Error("failed to send message to workflow handler: %s", err)
+		}
+	}
 
 	return nil
 }

@@ -13,7 +13,7 @@ func NewAuditLog() *AuditLog {
 }
 
 // NewAuditLogEntry creates a new AuditLog entry
-func NewAuditLogEntry(threadID int, functionNodeID string, input map[string]any) *AuditLogEntry {
+func NewAuditLogEntry(threadID uint16, functionNodeID string, input map[string]any) *AuditLogEntry {
 	return &AuditLogEntry{
 		ThreadID:       threadID,
 		FunctionNodeID: functionNodeID,
@@ -30,7 +30,7 @@ type (
 
 	// AuditLogEntry an audit log entry
 	AuditLogEntry struct {
-		ThreadID       int                      `json:"thread_id"`
+		ThreadID       uint16                   `json:"thread_id"`
 		FunctionNodeID string                   `json:"function_node_id"`
 		Input          map[string]any           `json:"input,omitempty"`
 		Result         *workflow.FunctionResult `json:"result,omitempty"`
@@ -38,7 +38,7 @@ type (
 )
 
 // NewEntry creates a new entry within the context of an AuditLog instance
-func (a *AuditLog) NewEntry(threadID int, functionNodeID string, functionExecID string, input map[string]any) *AuditLogEntry {
+func (a *AuditLog) NewEntry(threadID uint16, functionNodeID string, functionExecID string, input map[string]any) *AuditLogEntry {
 	newEntry := NewAuditLogEntry(threadID, functionNodeID, input)
 	a.log.Set(functionExecID, newEntry)
 	return newEntry

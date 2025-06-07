@@ -47,7 +47,7 @@ func IfFunctionMetadata() workflow.FunctionMetadata {
 }
 
 // IfFunction executes the if function and returns the result
-func IfFunction(input *workflow.FunctionInput) (workflow.FunctionResult, error) {
+func IfFunction(_ *workflow.ExecutionInfo, input *workflow.FunctionInput) (workflow.FunctionResult, error) {
 	exprStr, ok := input.Get("expression").(string)
 	if !ok || exprStr == "" {
 		return workflow.NewFunctionResultError(fmt.Errorf("expression is empty"))

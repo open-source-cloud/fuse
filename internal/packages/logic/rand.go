@@ -48,7 +48,7 @@ func RandFunctionMetadata() workflow.FunctionMetadata {
 }
 
 // RandFunction executes the rand function and returns a random number
-func RandFunction(input *workflow.FunctionInput) (workflow.FunctionResult, error) {
+func RandFunction(_ *workflow.ExecutionInfo, input *workflow.FunctionInput) (workflow.FunctionResult, error) {
 	minValue := input.GetInt("min")
 	maxValue := input.GetInt("max")
 
