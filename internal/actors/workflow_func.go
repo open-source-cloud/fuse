@@ -2,6 +2,7 @@ package actors
 
 import (
 	"encoding/json"
+
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
 	"github.com/open-source-cloud/fuse/internal/messaging"
@@ -10,7 +11,7 @@ import (
 )
 
 // WorkflowFuncFactory redefines a WorkflowFunc worker actor factory type for better readability
-type WorkflowFuncFactory Factory[*WorkflowFunc]
+type WorkflowFuncFactory ActorFactory[*WorkflowFunc]
 
 // NewWorkflowFuncFactory creates a dependency injection factory of WorkflowFunc worker actor
 func NewWorkflowFuncFactory(packageRegistry packages.Registry) *WorkflowFuncFactory {

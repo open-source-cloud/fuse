@@ -1,9 +1,10 @@
 package actors
 
 import (
+	"fmt"
+
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
-	"fmt"
 	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/open-source-cloud/fuse/internal/messaging"
 	"github.com/open-source-cloud/fuse/internal/repos"
@@ -11,8 +12,9 @@ import (
 )
 
 // WorkflowInstanceSupervisorFactory redefines a WorkflowInstanceSupervisor supervisor actor factory type for
-//		better readability
-type WorkflowInstanceSupervisorFactory Factory[*WorkflowInstanceSupervisor]
+//
+//	better readability
+type WorkflowInstanceSupervisorFactory ActorFactory[*WorkflowInstanceSupervisor]
 
 // NewWorkflowInstanceSupervisorFactory creates a new dependency injection WorkflowInstanceSupervisor actor factory
 func NewWorkflowInstanceSupervisorFactory(
@@ -24,10 +26,10 @@ func NewWorkflowInstanceSupervisorFactory(
 	return &WorkflowInstanceSupervisorFactory{
 		Factory: func() gen.ProcessBehavior {
 			return &WorkflowInstanceSupervisor{
-				config:          cfg,
+				config:           cfg,
 				workflowFuncPool: workflowFuncPool,
-				workflowHandler: workflowHandler,
-				workflowRepo:    workflowRepo,
+				workflowHandler:  workflowHandler,
+				workflowRepo:     workflowRepo,
 			}
 		},
 	}
@@ -38,10 +40,10 @@ type (
 	WorkflowInstanceSupervisor struct {
 		act.Supervisor
 
-		config          *config.Config
+		config           *config.Config
 		workflowFuncPool *WorkflowFuncPoolFactory
-		workflowHandler *WorkflowHandlerFactory
-		workflowRepo    repos.WorkflowRepo
+		workflowHandler  *WorkflowHandlerFactory
+		workflowRepo     repos.WorkflowRepo
 	}
 )
 
@@ -62,8 +64,8 @@ func (a *WorkflowInstanceSupervisor) Init(args ...any) (act.SupervisorSpec, erro
 	}
 
 	handlerInitArgs := WorkflowHandlerInitArgs{
-		schemaID:      schemaID,
-		workflowID:    workflowID,
+		schemaID:   schemaID,
+		workflowID: workflowID,
 	}
 
 	// supervisor specification
@@ -77,9 +79,9 @@ func (a *WorkflowInstanceSupervisor) Init(args ...any) (act.SupervisorSpec, erro
 				Args:    []any{},
 			},
 			{
-				Name:        gen.Atom(WorkflowHandlerName(workflowID)),
-				Factory:     a.workflowHandler.Factory,
-				Args:        []any{handlerInitArgs},
+				Name:    gen.Atom(WorkflowHandlerName(workflowID)),
+				Factory: a.workflowHandler.Factory,
+				Args:    []any{handlerInitArgs},
 			},
 		},
 		// strategy
