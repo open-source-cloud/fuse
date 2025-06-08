@@ -5,6 +5,7 @@ import (
 	"ergo.services/ergo/gen"
 	"ergo.services/ergo/meta"
 	"github.com/gorilla/mux"
+	"github.com/open-source-cloud/fuse/app/config"
 )
 
 // MuxServerName is the name of the MuxServer actor
@@ -13,29 +14,27 @@ const MuxServerName = "mux_server"
 // MuxServerFactory is a factory for creating MuxServer actors
 type MuxServerFactory ActorFactory[*muxServer]
 
+// muxServer is a mux server actor
+type muxServer struct {
+	act.Actor
+	workers *Workers
+	config  *config.Config
+}
+
 // NewMuxServerFactory creates a new MuxServerFactory
-func NewMuxServerFactory(workers *Workers) *MuxServerFactory {
+func NewMuxServerFactory(workers *Workers, config *config.Config) *MuxServerFactory {
 	return &MuxServerFactory{
 		Factory: func() gen.ProcessBehavior {
 			return &muxServer{
 				workers: workers,
+				config:  config,
 			}
 		},
 	}
 }
 
-// muxServer is a mux server actor
-type muxServer struct {
-	act.Actor
-	workers *Workers
-}
-
-// NewMuxServer creates a new MuxServer actor
-func NewMuxServer() *muxServer {
-	return &muxServer{}
-}
-
-func (m *muxServer) Init(args ...any) error {
+// Init initializes the mux server
+func (m *muxServer) Init(_ ...any) error {
 	m.Log().Info("starting mux server")
 
 	mux := mux.NewRouter()
@@ -50,10 +49,9 @@ func (m *muxServer) Init(args ...any) error {
 
 	// create and spawn web server meta-process
 	serverOptions := meta.WebServerOptions{
-		Port:        9090,
-		Host:        "localhost",
-		CertManager: nil,
-		Handler:     mux,
+		Port:    m.config.Server.Port,
+		Host:    m.config.Server.Host,
+		Handler: mux,
 	}
 
 	webserver, err := meta.CreateWebServer(serverOptions)
@@ -68,22 +66,18 @@ func (m *muxServer) Init(args ...any) error {
 		return err
 	}
 
-	https := "http"
-	if serverOptions.CertManager != nil {
-		https = "https"
-	}
-
-	m.Log().Info("started Web server %s: use %s://%s:%d/", webserverid, https, serverOptions.Host, serverOptions.Port)
+	m.Log().Info("started web server %s: use http://%s:%d/", webserverid, serverOptions.Host, serverOptions.Port)
 	m.Log().Info("you may check it with command below:")
-	m.Log().Info("   $ curl -k %s://%s:%d", https, serverOptions.Host, serverOptions.Port)
+	m.Log().Info("$ curl -k http://%s:%d/health", serverOptions.Host, serverOptions.Port)
 
 	return nil
 }
 
-func (m *muxServer) createWorkerPool(route WebWorker, mux *mux.Router) error {
+// createWorkerPool creates a worker pool for a given route
+func (m *muxServer) createWorkerPool(webWorker WebWorker, mux *mux.Router) error {
 	workerPool := meta.CreateWebHandler(meta.WebHandlerOptions{
-		Worker:         route.PoolConfig.Name,
-		RequestTimeout: route.Timeout,
+		Worker:         webWorker.PoolConfig.Name,
+		RequestTimeout: webWorker.Timeout,
 	})
 
 	workerPoolID, err := m.SpawnMeta(workerPool, gen.MetaOptions{})
@@ -92,9 +86,9 @@ func (m *muxServer) createWorkerPool(route WebWorker, mux *mux.Router) error {
 		return err
 	}
 
-	m.Log().Info("started worker pool '%s' to serve '%s' (meta-process: %s)", route.PoolConfig.Name, route.Pattern, workerPoolID)
+	m.Log().Info("started worker pool '%s' to serve '%s' (meta-process: %s)", webWorker.PoolConfig.Name, webWorker.Pattern, workerPoolID)
 
-	mux.Handle(route.Pattern, workerPool)
+	mux.Handle(webWorker.Pattern, workerPool)
 
 	return nil
 }

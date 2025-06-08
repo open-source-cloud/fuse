@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"ergo.services/ergo/gen"
-	"github.com/gorilla/mux"
 	"github.com/open-source-cloud/fuse/internal/repos"
 	"github.com/open-source-cloud/fuse/internal/workflow"
 )
@@ -15,20 +14,21 @@ type (
 	// UpsertWorkflowSchemaHandler is the handler for the UpsertWorkflowSchema endpoint
 	UpsertWorkflowSchemaHandler struct {
 		Handler
-
 		graphFactory *workflow.GraphFactory
 		graphRepo    repos.GraphRepo
 	}
+	// UpsertWorkflowSchemaHandlerFactory is a factory for creating UpsertWorkflowSchemaHandler actors
+	UpsertWorkflowSchemaHandlerFactory HandlerFactory[*UpsertWorkflowSchemaHandler]
 )
 
-// UpsertWorkflowSchemaHandlerName is the name of the UpsertWorkflowSchemaHandler actor
-const UpsertWorkflowSchemaHandlerName = "upsert_workflow_schema_handler"
-const UpsertWorkflowSchemaHandlerPoolName = "upsert_workflow_schema_handler_pool"
+const (
+	// UpsertWorkflowSchemaHandlerName is the name of the UpsertWorkflowSchemaHandler actor
+	UpsertWorkflowSchemaHandlerName = "upsert_workflow_schema_handler"
+	// UpsertWorkflowSchemaHandlerPoolName is the name of the UpsertWorkflowSchemaHandler pool
+	UpsertWorkflowSchemaHandlerPoolName = "upsert_workflow_schema_handler_pool"
+)
 
-// UpsertWorkflowSchemaHandlerFactory is a factory for creating UpsertWorkflowSchemaHandler actors
-type UpsertWorkflowSchemaHandlerFactory HandlerFactory[*UpsertWorkflowSchemaHandler]
-
-// NewUpsertWorkflowSchemaHandler creates a new UpsertWorkflowSchemaHandler
+// NewUpsertWorkflowSchemaHandlerFactory creates a new NewUpsertWorkflowSchemaHandlerFactory
 func NewUpsertWorkflowSchemaHandlerFactory(graphFactory *workflow.GraphFactory, graphRepo repos.GraphRepo) *UpsertWorkflowSchemaHandlerFactory {
 	return &UpsertWorkflowSchemaHandlerFactory{
 		Factory: func() gen.ProcessBehavior {
@@ -40,18 +40,12 @@ func NewUpsertWorkflowSchemaHandlerFactory(graphFactory *workflow.GraphFactory, 
 	}
 }
 
-func (h *UpsertWorkflowSchemaHandler) Init(args ...any) error {
-	h.Log().Info("starting upsert workflow schema handler")
-	return nil
-}
-
-// UpsertWorkflowSchema handles the UpsertWorkflowSchema http endpoint
-// PUT /v1/schemas/{schemaID}
+// HandlePut handles the UpsertWorkflowSchema http endpoint (PUT /v1/schemas/{schemaID})
 func (h *UpsertWorkflowSchemaHandler) HandlePut(from gen.PID, w http.ResponseWriter, r *http.Request) error {
-	vars := mux.Vars(r)
+	h.Log().Info("received upsert workflow schema request", "from", from, "remoteAddr", r.RemoteAddr)
 
-	schemaID, ok := vars["schemaID"]
-	if !ok {
+	schemaID, err := h.GetPathParam(r, "schemaID")
+	if err != nil {
 		return h.SendJSON(w, http.StatusBadRequest, Response{
 			"message": "schemaID is required",
 			"code":    BadRequest,
@@ -80,8 +74,7 @@ func (h *UpsertWorkflowSchemaHandler) HandlePut(from gen.PID, w http.ResponseWri
 		})
 	}
 
-	err = h.graphRepo.Save(graph)
-	if err != nil {
+	if err = h.graphRepo.Save(graph); err != nil {
 		msg := fmt.Sprintf("failed to save graph: %s", err)
 		h.Log().Error(msg)
 		return h.SendJSON(w, http.StatusInternalServerError, Response{

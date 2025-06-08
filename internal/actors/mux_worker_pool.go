@@ -5,14 +5,17 @@ import (
 	"ergo.services/ergo/gen"
 )
 
+// MuxWorkerPoolFactory is a factory for creating MuxWorkerPool actors
 type MuxWorkerPoolFactory ActorFactory[*MuxWorkerPool]
 
+// MuxWorkerPool is a pool of workers that handle HTTP requests
 type MuxWorkerPool struct {
 	act.Pool
 	workerFactory gen.ProcessFactory
 	config        WorkerPoolConfig
 }
 
+// NewMuxWorkerPool creates a new MuxWorkerPoolFactory
 func NewMuxWorkerPool(workerFactory gen.ProcessFactory, config WorkerPoolConfig) *MuxWorkerPoolFactory {
 	return &MuxWorkerPoolFactory{
 		Factory: func() gen.ProcessBehavior {
@@ -24,7 +27,8 @@ func NewMuxWorkerPool(workerFactory gen.ProcessFactory, config WorkerPoolConfig)
 	}
 }
 
-func (w *MuxWorkerPool) Init(args ...any) (act.PoolOptions, error) {
+// Init initializes the MuxWorkerPool
+func (w *MuxWorkerPool) Init(_ ...any) (act.PoolOptions, error) {
 	w.Log().Info("starting worker pool")
 
 	opts := act.PoolOptions{

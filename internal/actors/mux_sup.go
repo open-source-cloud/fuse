@@ -31,7 +31,7 @@ type MuxServerSup struct {
 }
 
 // Init initializes the MuxServerSup actor
-func (m *MuxServerSup) Init(args ...any) (act.SupervisorSpec, error) {
+func (m *MuxServerSup) Init(_ ...any) (act.SupervisorSpec, error) {
 	m.Log().Info("starting mux server supervisor")
 
 	children := []act.SupervisorChildSpec{

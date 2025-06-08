@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"ergo.services/ergo/gen"
-	"github.com/gorilla/mux"
 	"github.com/open-source-cloud/fuse/internal/messaging"
 	"github.com/open-source-cloud/fuse/internal/workflow"
 )
@@ -16,14 +15,16 @@ type (
 	TriggerWorkflowHandler struct {
 		Handler
 	}
+	// TriggerWorkflowHandlerFactory is a factory for creating TriggerWorkflowHandler actors
+	TriggerWorkflowHandlerFactory HandlerFactory[*TriggerWorkflowHandler]
 )
 
-// TriggerWorkflowHandlerName is the name of the TriggerWorkflowHandler actor
-const TriggerWorkflowHandlerName = "trigger_workflow_handler"
-const TriggerWorkflowHandlerPoolName = "trigger_workflow_handler_pool"
-
-// TriggerWorkflowHandlerFactory is a factory for creating TriggerWorkflowHandler actors
-type TriggerWorkflowHandlerFactory HandlerFactory[*TriggerWorkflowHandler]
+const (
+	// TriggerWorkflowHandlerName is the name of the TriggerWorkflowHandler actor
+	TriggerWorkflowHandlerName = "trigger_workflow_handler"
+	// TriggerWorkflowHandlerPoolName is the name of the TriggerWorkflowHandler pool
+	TriggerWorkflowHandlerPoolName = "trigger_workflow_handler_pool"
+)
 
 // NewTriggerWorkflowHandlerFactory creates a new TriggerWorkflowHandlerFactory
 func NewTriggerWorkflowHandlerFactory() *TriggerWorkflowHandlerFactory {
@@ -34,13 +35,12 @@ func NewTriggerWorkflowHandlerFactory() *TriggerWorkflowHandlerFactory {
 	}
 }
 
-// HandlePost handles the http TriggerWorkflow endpoint
-// POST /v1/workflows/{schemaID}/trigger
+// HandlePost handles the http TriggerWorkflow endpoint (POST /v1/workflows/{schemaID}/trigger)
 func (h *TriggerWorkflowHandler) HandlePost(from gen.PID, w http.ResponseWriter, r *http.Request) error {
-	vars := mux.Vars(r)
+	h.Log().Info("received trigger workflow request", "from", from, "remoteAddr", r.RemoteAddr)
 
-	schemaID, ok := vars["schemaID"]
-	if !ok {
+	schemaID, err := h.GetPathParam(r, "schemaID")
+	if err != nil {
 		return h.SendJSON(w, http.StatusBadRequest, Response{
 			"message": "schemaId is required",
 			"code":    BadRequest,
@@ -49,8 +49,7 @@ func (h *TriggerWorkflowHandler) HandlePost(from gen.PID, w http.ResponseWriter,
 
 	workflowID := workflow.NewID()
 
-	err := h.Send(workflowID, messaging.NewTriggerWorkflowMessage(schemaID))
-	if err != nil {
+	if err := h.Send(workflowID, messaging.NewTriggerWorkflowMessage(schemaID)); err != nil {
 		return h.SendJSON(w, http.StatusInternalServerError, Response{
 			"message": fmt.Sprintf("failed to send message: %s", err),
 			"code":    InternalServerError,

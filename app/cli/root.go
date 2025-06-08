@@ -2,18 +2,19 @@
 package cli
 
 import (
+	"os"
+	"strings"
+
 	"github.com/fatih/color"
 	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
-	"os"
-	"strings"
 )
 
 var loglevel string
 var observer bool
-var port string
+var port uint16
 var nocolor bool
 
 // Run runs the CLI
@@ -83,11 +84,11 @@ func setupRootFlags(rootCmd *cobra.Command) {
 		false,
 		"Run the actor observer app",
 	)
-	rootCmd.PersistentFlags().StringVarP(
+	rootCmd.PersistentFlags().Uint16VarP(
 		&port,
 		"port",
 		"p",
-		"9090",
+		9090,
 		"Port to listen on for HTTP requests",
 	)
 	rootCmd.PersistentFlags().BoolVar(

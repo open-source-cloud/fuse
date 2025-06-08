@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/open-source-cloud/fuse/app/config"
-	workflow "github.com/open-source-cloud/fuse/pkg/workflow"
 	"io"
 	"net/http"
+
+	"github.com/open-source-cloud/fuse/app/config"
+	workflow "github.com/open-source-cloud/fuse/pkg/workflow"
 )
 
 type internalFunction struct {
@@ -39,7 +40,7 @@ func (f *internalFunction) Execute(workflowID string, execID string, input *work
 		ExecID:     execID,
 		Finish: func(result workflow.FunctionOutput) {
 			port := config.Instance().Server.Port
-			url := fmt.Sprintf("http://localhost:%s/api/workflow/%s", port, workflowID)
+			url := fmt.Sprintf("http://localhost:%d/v1/workflows/%s/execs/%s", port, workflowID, execID)
 
 			payload := map[string]any{"execID": execID, "result": result}
 			jsonPayload, _ := json.Marshal(payload)

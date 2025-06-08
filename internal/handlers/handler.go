@@ -2,33 +2,48 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
+	"github.com/gorilla/mux"
+)
+
+var (
+	// ErrQueryParamNotFound is returned when a query param is not found
+	ErrQueryParamNotFound = errors.New("query param not found")
+	// ErrQueryParamEmpty is returned when a query param is empty
+	ErrQueryParamEmpty = errors.New("query param is empty")
+	// ErrPathParamNotFound is returned when a path param is not found
+	ErrPathParamNotFound = errors.New("path param not found")
 )
 
 const (
-	BadRequest          = "BAD_REQUEST"
+	// BadRequest is the error code for bad requests
+	BadRequest = "BAD_REQUEST"
+	// InternalServerError is the error code for internal server errors
 	InternalServerError = "INTERNAL_SERVER_ERROR"
 )
 
-// HandlerFactory defines the factory type that all Handler Factories must implement
-type HandlerFactory[T gen.ProcessBehavior] struct {
-	Factory func() gen.ProcessBehavior
-}
-
-type Handler struct {
-	act.WebWorker
-}
-
-// Response is the type for all responses
-type Response = map[string]any
+type (
+	// HandlerFactory defines the factory type that all Handler Factories must implement
+	HandlerFactory[T gen.ProcessBehavior] struct {
+		Factory func() gen.ProcessBehavior
+	}
+	// Handler is the base handler for all handlers that implement the WebWorker interface from Ergo
+	// It provides a base implementation for all handlers that need to interact with the HTTP server
+	Handler struct {
+		act.WebWorker
+	}
+	// Response is the type for all responses
+	Response = map[string]any
+)
 
 // BindJSON binds a JSON request to the given struct
-func (h *Handler) BindJSON(w http.ResponseWriter, r *http.Request, v any) error {
+func (h *Handler) BindJSON(_ http.ResponseWriter, r *http.Request, v any) error {
 	return json.NewDecoder(r.Body).Decode(v)
 }
 
@@ -44,11 +59,11 @@ func (h *Handler) SendJSON(w http.ResponseWriter, status int, v Response) error 
 	if err != nil {
 		log.Println("failed to marshal response", v, err)
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(fmt.Sprintf(`{"message": "%s", "code": "%s"}`, err.Error(), InternalServerError)))
+		_, _ = fmt.Fprintf(w, `{"message": "%s", "code": "%s"}`, err.Error(), InternalServerError)
 		return err
 	}
 
-	w.WriteHeader(status) // Move this before w.Write
+	w.WriteHeader(status)
 	_, err = w.Write(body)
 	if err != nil {
 		log.Println("failed to write response", err)
@@ -56,4 +71,26 @@ func (h *Handler) SendJSON(w http.ResponseWriter, status int, v Response) error 
 	}
 
 	return nil
+}
+
+// GetQueryParam gets a query param from the request
+func (h *Handler) GetQueryParam(r *http.Request, key string) (string, error) {
+	values, ok := r.URL.Query()[key]
+	if !ok {
+		return "", ErrQueryParamNotFound
+	}
+	if len(values) == 0 {
+		return "", ErrQueryParamEmpty
+	}
+	return values[0], nil
+}
+
+// GetPathParam gets a path param from the request
+func (h *Handler) GetPathParam(r *http.Request, key string) (string, error) {
+	vars := mux.Vars(r)
+	value, ok := vars[key]
+	if !ok {
+		return "", ErrPathParamNotFound
+	}
+	return value, nil
 }

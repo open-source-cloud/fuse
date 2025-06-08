@@ -7,7 +7,6 @@ import (
 	"ergo.services/application/observer"
 	"ergo.services/ergo"
 	"ergo.services/ergo/gen"
-	"ergo.services/ergo/lib"
 	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/open-source-cloud/fuse/internal/actors"
 	"github.com/open-source-cloud/fuse/logging"
@@ -36,21 +35,6 @@ func NewApp(
 	// disable default logger to get rid of multiple logging to the os.Stdout
 	options.Log.DefaultLogger.Disable = true
 	options.Log.Level = parseLogLevel(config.Params.LogLevel)
-
-	// set cookie for the network layer
-	var cookie string = config.Server.Cookie
-	if cookie == "" {
-		cookie = lib.RandomString(16)
-	}
-	options.Network.Cookie = cookie
-
-	// generate self-signed cert for the network layer
-	cert, err := lib.GenerateSelfSignedCert("fuse", "localhost", "127.0.0.1", "::1")
-	if err != nil {
-		log.Error().Msgf("failed to generate self-signed cert: %s", err)
-		panic(err)
-	}
-	options.CertManager = gen.CreateCertManager(cert)
 
 	// add logger to the node
 	logger, err := logging.ErgoLogger()

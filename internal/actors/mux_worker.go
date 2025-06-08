@@ -20,7 +20,7 @@ type (
 		Name     gen.Atom
 		PoolSize int64
 	}
-	// Worker is a worker
+	// WebWorker is a worker
 	WebWorker struct {
 		Name       gen.Atom
 		Pattern    string
@@ -46,7 +46,7 @@ func NewWorkers() *Workers {
 			},
 			{
 				Name:    handlers.TriggerWorkflowHandlerName,
-				Pattern: "/v1/workflows/{schemaId}/trigger",
+				Pattern: "/v1/workflows/{schemaID}/trigger",
 				Methods: []string{"POST"},
 				Timeout: 10 * time.Second,
 				PoolConfig: WorkerPoolConfig{
@@ -56,7 +56,7 @@ func NewWorkers() *Workers {
 			},
 			{
 				Name:    handlers.AsyncFunctionResultHandlerName,
-				Pattern: "/v1/workflows/{workflowId}/execs/{execId}",
+				Pattern: "/v1/workflows/{workflowID}/execs/{execID}",
 				Methods: []string{"GET"},
 				Timeout: 10 * time.Second,
 				PoolConfig: WorkerPoolConfig{
@@ -66,7 +66,7 @@ func NewWorkers() *Workers {
 			},
 			{
 				Name:    handlers.UpsertWorkflowSchemaHandlerName,
-				Pattern: "/v1/schemas/{schemaId}",
+				Pattern: "/v1/schemas/{schemaID}",
 				Methods: []string{"PUT", "GET"},
 				Timeout: 10 * time.Second,
 				PoolConfig: WorkerPoolConfig{
