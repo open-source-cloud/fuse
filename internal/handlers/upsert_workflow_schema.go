@@ -5,7 +5,6 @@ import (
 	"io"
 	"net/http"
 
-	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
 	"github.com/gorilla/mux"
 	"github.com/open-source-cloud/fuse/internal/repos"
@@ -15,7 +14,7 @@ import (
 type (
 	// UpsertWorkflowSchemaHandler is the handler for the UpsertWorkflowSchema endpoint
 	UpsertWorkflowSchemaHandler struct {
-		act.WebWorker
+		Handler
 
 		graphFactory *workflow.GraphFactory
 		graphRepo    repos.GraphRepo
@@ -53,7 +52,7 @@ func (h *UpsertWorkflowSchemaHandler) HandlePut(from gen.PID, w http.ResponseWri
 
 	schemaID, ok := vars["schemaID"]
 	if !ok {
-		return SendJSON(w, http.StatusBadRequest, Response{
+		return h.SendJSON(w, http.StatusBadRequest, Response{
 			"message": "schemaID is required",
 			"code":    BadRequest,
 		})
@@ -65,7 +64,7 @@ func (h *UpsertWorkflowSchemaHandler) HandlePut(from gen.PID, w http.ResponseWri
 	if err != nil {
 		msg := fmt.Sprintf("failed to read request body: %s", err)
 		h.Log().Error(msg)
-		return SendJSON(w, http.StatusBadRequest, Response{
+		return h.SendJSON(w, http.StatusBadRequest, Response{
 			"message": msg,
 			"code":    BadRequest,
 		})
@@ -75,7 +74,7 @@ func (h *UpsertWorkflowSchemaHandler) HandlePut(from gen.PID, w http.ResponseWri
 	if err != nil {
 		msg := fmt.Sprintf("failed to parse request body: %s", err)
 		h.Log().Error(msg)
-		return SendJSON(w, http.StatusBadRequest, Response{
+		return h.SendJSON(w, http.StatusBadRequest, Response{
 			"message": msg,
 			"code":    BadRequest,
 		})
@@ -85,7 +84,7 @@ func (h *UpsertWorkflowSchemaHandler) HandlePut(from gen.PID, w http.ResponseWri
 	if err != nil {
 		msg := fmt.Sprintf("failed to save graph: %s", err)
 		h.Log().Error(msg)
-		return SendJSON(w, http.StatusInternalServerError, Response{
+		return h.SendJSON(w, http.StatusInternalServerError, Response{
 			"message": msg,
 			"code":    InternalServerError,
 		})
@@ -93,7 +92,7 @@ func (h *UpsertWorkflowSchemaHandler) HandlePut(from gen.PID, w http.ResponseWri
 
 	h.Log().Info("upserted workflow schema", "from", from, "schemaID", schemaID, "workflowID", graph.ID())
 
-	return SendJSON(w, http.StatusOK, Response{
+	return h.SendJSON(w, http.StatusOK, Response{
 		"schemaID": schemaID,
 		"code":     "OK",
 	})

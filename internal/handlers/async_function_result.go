@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
 	"github.com/open-source-cloud/fuse/internal/messaging"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
@@ -19,7 +18,7 @@ type (
 	}
 	// AsyncFunctionHandler Fiber http handler
 	AsyncFunctionHandler struct {
-		act.WebWorker
+		Handler
 	}
 )
 
@@ -44,15 +43,15 @@ func NewAsyncFunctionResultHandlerFactory() *AsyncFunctionResultHandlerFactory {
 func (h *AsyncFunctionHandler) HandlePost(from gen.PID, w http.ResponseWriter, r *http.Request) error {
 	workflowID := r.URL.Query().Get("workflowID")
 	var req AsyncFunctionRequest
-	if err := BindJSON(w, r, &req); err != nil {
-		return SendJSON(w, http.StatusBadRequest, Response{
+	if err := h.BindJSON(w, r, &req); err != nil {
+		return h.SendJSON(w, http.StatusBadRequest, Response{
 			"message": fmt.Sprintf("invalid request: %s", err),
 			"code":    BadRequest,
 		})
 	}
 
 	if req.ExecID == "" {
-		return SendJSON(w, http.StatusBadRequest, Response{
+		return h.SendJSON(w, http.StatusBadRequest, Response{
 			"message": "execID is required",
 			"code":    BadRequest,
 		})
@@ -60,13 +59,13 @@ func (h *AsyncFunctionHandler) HandlePost(from gen.PID, w http.ResponseWriter, r
 
 	err := h.Send(workflowID, messaging.NewAsyncFunctionResultMessage(workflowID, req.ExecID, req.Result))
 	if err != nil {
-		return SendJSON(w, http.StatusInternalServerError, Response{
+		return h.SendJSON(w, http.StatusInternalServerError, Response{
 			"message": fmt.Sprintf("failed to send message: %s", err),
 			"code":    InternalServerError,
 		})
 	}
 
-	return SendJSON(w, http.StatusOK, Response{
+	return h.SendJSON(w, http.StatusOK, Response{
 		"workflowID": workflowID,
 		"execID":     req.ExecID,
 		"code":       "OK",

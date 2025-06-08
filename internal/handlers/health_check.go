@@ -3,7 +3,6 @@ package handlers
 import (
 	"net/http"
 
-	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
 )
 
@@ -13,7 +12,7 @@ const HealthCheckHandlerPoolName = "health_check_handler_pool"
 type HealthCheckHandlerFactory HandlerFactory[*HealthCheckHandler]
 
 type HealthCheckHandler struct {
-	act.WebWorker
+	Handler
 }
 
 func NewHealthCheckHandler() *HealthCheckHandlerFactory {
@@ -25,7 +24,7 @@ func NewHealthCheckHandler() *HealthCheckHandlerFactory {
 }
 
 func (h *HealthCheckHandler) HandleGet(from gen.PID, w http.ResponseWriter, r *http.Request) error {
-	return SendJSON(w, http.StatusOK, Response{
+	return h.SendJSON(w, http.StatusOK, Response{
 		"message": "OK",
 	})
 }

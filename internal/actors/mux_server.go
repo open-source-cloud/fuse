@@ -5,7 +5,6 @@ import (
 	"ergo.services/ergo/gen"
 	"ergo.services/ergo/meta"
 	"github.com/gorilla/mux"
-	"github.com/open-source-cloud/fuse/internal/handlers"
 )
 
 // MuxServerName is the name of the MuxServer actor
@@ -15,7 +14,7 @@ const MuxServerName = "mux_server"
 type MuxServerFactory ActorFactory[*muxServer]
 
 // NewMuxServerFactory creates a new MuxServerFactory
-func NewMuxServerFactory(workers *handlers.Workers) *MuxServerFactory {
+func NewMuxServerFactory(workers *Workers) *MuxServerFactory {
 	return &MuxServerFactory{
 		Factory: func() gen.ProcessBehavior {
 			return &muxServer{
@@ -28,7 +27,7 @@ func NewMuxServerFactory(workers *handlers.Workers) *MuxServerFactory {
 // muxServer is a mux server actor
 type muxServer struct {
 	act.Actor
-	workers *handlers.Workers
+	workers *Workers
 }
 
 // NewMuxServer creates a new MuxServer actor
@@ -42,7 +41,7 @@ func (m *muxServer) Init(args ...any) error {
 	mux := mux.NewRouter()
 
 	// create routes
-	for _, worker := range m.workers.WebWorkers {
+	for _, worker := range m.workers.GetAll() {
 		if err := m.createWorkerPool(worker, mux); err != nil {
 			m.Log().Error("unable to create route for %s: %s", worker.Name, err)
 			return err
@@ -81,7 +80,7 @@ func (m *muxServer) Init(args ...any) error {
 	return nil
 }
 
-func (m *muxServer) createWorkerPool(route handlers.WebWorker, mux *mux.Router) error {
+func (m *muxServer) createWorkerPool(route WebWorker, mux *mux.Router) error {
 	workerPool := meta.CreateWebHandler(meta.WebHandlerOptions{
 		Worker:         route.PoolConfig.Name,
 		RequestTimeout: route.Timeout,

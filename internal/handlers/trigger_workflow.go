@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
 	"github.com/gorilla/mux"
 	"github.com/open-source-cloud/fuse/internal/messaging"
@@ -15,7 +14,7 @@ import (
 type (
 	// TriggerWorkflowHandler is the handler for the TriggerWorkflow endpoint
 	TriggerWorkflowHandler struct {
-		act.WebWorker
+		Handler
 	}
 )
 
@@ -42,7 +41,7 @@ func (h *TriggerWorkflowHandler) HandlePost(from gen.PID, w http.ResponseWriter,
 
 	schemaID, ok := vars["schemaID"]
 	if !ok {
-		return SendJSON(w, http.StatusBadRequest, Response{
+		return h.SendJSON(w, http.StatusBadRequest, Response{
 			"message": "schemaId is required",
 			"code":    BadRequest,
 		})
@@ -52,13 +51,13 @@ func (h *TriggerWorkflowHandler) HandlePost(from gen.PID, w http.ResponseWriter,
 
 	err := h.Send(workflowID, messaging.NewTriggerWorkflowMessage(schemaID))
 	if err != nil {
-		return SendJSON(w, http.StatusInternalServerError, Response{
+		return h.SendJSON(w, http.StatusInternalServerError, Response{
 			"message": fmt.Sprintf("failed to send message: %s", err),
 			"code":    InternalServerError,
 		})
 	}
 
-	return SendJSON(w, http.StatusOK, Response{
+	return h.SendJSON(w, http.StatusOK, Response{
 		"schemaID": schemaID,
 		"code":     "OK",
 	})

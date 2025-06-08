@@ -3,7 +3,6 @@ package actors
 import (
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
-	"github.com/open-source-cloud/fuse/internal/handlers"
 )
 
 type MuxWorkerPoolFactory ActorFactory[*MuxWorkerPool]
@@ -11,10 +10,10 @@ type MuxWorkerPoolFactory ActorFactory[*MuxWorkerPool]
 type MuxWorkerPool struct {
 	act.Pool
 	workerFactory gen.ProcessFactory
-	config        handlers.WorkerPoolConfig
+	config        WorkerPoolConfig
 }
 
-func NewMuxWorkerPool(workerFactory gen.ProcessFactory, config handlers.WorkerPoolConfig) *MuxWorkerPoolFactory {
+func NewMuxWorkerPool(workerFactory gen.ProcessFactory, config WorkerPoolConfig) *MuxWorkerPoolFactory {
 	return &MuxWorkerPoolFactory{
 		Factory: func() gen.ProcessBehavior {
 			return &MuxWorkerPool{

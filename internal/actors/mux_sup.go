@@ -3,7 +3,6 @@ package actors
 import (
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
-	"github.com/open-source-cloud/fuse/internal/handlers"
 )
 
 // MuxServerSupName is the name of the MuxServerSup actor
@@ -13,7 +12,7 @@ const MuxServerSupName = "mux_server_sup"
 type MuxServerSupFactory ActorFactory[*MuxServerSup]
 
 // NewMuxServerSupFactory creates a new MuxServerSupFactory
-func NewMuxServerSupFactory(muxServer *MuxServerFactory, workers *handlers.Workers) *MuxServerSupFactory {
+func NewMuxServerSupFactory(muxServer *MuxServerFactory, workers *Workers) *MuxServerSupFactory {
 	return &MuxServerSupFactory{
 		Factory: func() gen.ProcessBehavior {
 			return &MuxServerSup{
@@ -28,7 +27,7 @@ func NewMuxServerSupFactory(muxServer *MuxServerFactory, workers *handlers.Worke
 type MuxServerSup struct {
 	act.Supervisor
 	muxServer *MuxServerFactory
-	workers   *handlers.Workers
+	workers   *Workers
 }
 
 // Init initializes the MuxServerSup actor
@@ -42,8 +41,8 @@ func (m *MuxServerSup) Init(args ...any) (act.SupervisorSpec, error) {
 		},
 	}
 
-	for _, worker := range m.workers.WebWorkers {
-		workerFactory, ok := m.workers.Factories[string(worker.Name)]
+	for _, worker := range m.workers.GetAll() {
+		workerFactory, ok := m.workers.GetFactory(string(worker.Name))
 		if !ok {
 			m.Log().Error("worker factory not found", "worker", worker.Name)
 			continue

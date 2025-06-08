@@ -38,19 +38,19 @@ var WorkerModule = fx.Module(
 		handlers.NewUpsertWorkflowSchemaHandlerFactory,
 		handlers.NewTriggerWorkflowHandlerFactory,
 		handlers.NewHealthCheckHandler,
-		handlers.NewWorkers,
+		actors.NewWorkers,
 	),
 	fx.Invoke(func(
-		workers *handlers.Workers,
+		workers *actors.Workers,
 		healthCheckHandlerFactory *handlers.HealthCheckHandlerFactory,
 		asyncFunctionResultHandlerFactory *handlers.AsyncFunctionResultHandlerFactory,
 		upsertWorkflowSchemaHandlerFactory *handlers.UpsertWorkflowSchemaHandlerFactory,
 		triggerWorkflowHandlerFactory *handlers.TriggerWorkflowHandlerFactory,
 	) {
-		workers.Factories.Add(handlers.HealthCheckHandlerName, healthCheckHandlerFactory.Factory)
-		workers.Factories.Add(handlers.AsyncFunctionResultHandlerName, asyncFunctionResultHandlerFactory.Factory)
-		workers.Factories.Add(handlers.UpsertWorkflowSchemaHandlerName, upsertWorkflowSchemaHandlerFactory.Factory)
-		workers.Factories.Add(handlers.TriggerWorkflowHandlerName, triggerWorkflowHandlerFactory.Factory)
+		workers.AddFactory(handlers.HealthCheckHandlerName, healthCheckHandlerFactory.Factory)
+		workers.AddFactory(handlers.AsyncFunctionResultHandlerName, asyncFunctionResultHandlerFactory.Factory)
+		workers.AddFactory(handlers.UpsertWorkflowSchemaHandlerName, upsertWorkflowSchemaHandlerFactory.Factory)
+		workers.AddFactory(handlers.TriggerWorkflowHandlerName, triggerWorkflowHandlerFactory.Factory)
 	}),
 )
 

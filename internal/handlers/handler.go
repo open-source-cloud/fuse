@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 
+	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
 )
 
@@ -19,17 +20,20 @@ type HandlerFactory[T gen.ProcessBehavior] struct {
 	Factory func() gen.ProcessBehavior
 }
 
+type Handler struct {
+	act.WebWorker
+}
+
 // Response is the type for all responses
 type Response = map[string]any
 
 // BindJSON binds a JSON request to the given struct
-func BindJSON(w http.ResponseWriter, r *http.Request, v any) error {
+func (h *Handler) BindJSON(w http.ResponseWriter, r *http.Request, v any) error {
 	return json.NewDecoder(r.Body).Decode(v)
 }
 
 // SendJSON sends a JSON response to the client
-// SendJSON sends a JSON response to the client
-func SendJSON(w http.ResponseWriter, status int, v Response) error {
+func (h *Handler) SendJSON(w http.ResponseWriter, status int, v Response) error {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
