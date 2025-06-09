@@ -1,26 +1,77 @@
 services:
-  arangodb:
-    image: arangodb:latest
-    container_name: fuse-arangodb
+  # MongoDB Database
+  mongodb:
+    image: bitnami/mongodb:latest
+    container_name: fuse-mongodb
     restart: unless-stopped
     environment:
-      - ARANGO_ROOT_PASSWORD=${DB_PASS:-rootpassword}
+      - MONGODB_ROOT_USER=${DB_ROOT_USER:-admin}
+      - MONGODB_ROOT_PASSWORD=${DB_ROOT_PASS:-password}
+      - MONGODB_DATABASE=${DB_NAME:-fuse}
+      - MONGODB_USERNAME=${DB_USER:-app}
+      - MONGODB_PASSWORD=${DB_PASS:-apppassword}
+      - ALLOW_EMPTY_PASSWORD=no
     ports:
-      - "8529:8529"
+      - "27017:27017"
     volumes:
-      - arangodb_data:/var/lib/arangodb3
-      - arangodb_apps:/var/lib/arangodb3-apps
+      - mongodb_data:/bitnami/mongodb
     networks:
       - fuse-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  localstack:
+    image: localstack/localstack:latest
+    container_name: fuse-localstack
+    restart: unless-stopped
+    environment:
+      - SERVICES=s3,sqs,sns
+      - DEBUG=1
+      - DATA_DIR=/var/lib/localstack/data
+    ports:
+      - "4566:4566"
+      - "4510-4559:4510-4559"
+    volumes:
+      - localstack_data:/var/lib/localstack
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - fuse-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  s3-setup:
+    image: amazon/aws-cli:latest
+    container_name: fuse-s3-setup
+    volumes:
+      - ./scripts:/scripts
+    networks:
+      - fuse-network
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-test}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-test}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
+      - WORKFLOW_BUCKET_NAME=${WORKFLOW_BUCKET_NAME:-fuse-workflows}
+    entrypoint: ["/bin/bash"]
+    command: ["/scripts/setup-s3.sh"]
+    restart: "no"
+    depends_on:
+      localstack:
+        condition: service_healthy
 
 volumes:
-  arangodb_data:
+  mongodb_data:
     driver: local
-  arangodb_apps:
+  localstack_data:
     driver: local
 
 networks:
   fuse-network:
-    external: true
-    name: fuse-network
     driver: bridge

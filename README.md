@@ -215,3 +215,7 @@ Please see [CONTRIBUTE.md](docs/CONTRIBUTE.md) for detailed information about:
 ## License
 
 [License information to be added]
+
+## Setup
+
+Follow the instructions on [SETUP](./SETUP.md)
