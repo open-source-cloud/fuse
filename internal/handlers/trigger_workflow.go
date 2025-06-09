@@ -7,7 +7,6 @@ import (
 
 	"ergo.services/ergo/gen"
 	"github.com/open-source-cloud/fuse/internal/messaging"
-	"github.com/open-source-cloud/fuse/internal/workflow"
 )
 
 type (
@@ -24,6 +23,8 @@ const (
 	TriggerWorkflowHandlerName = "trigger_workflow_handler"
 	// TriggerWorkflowHandlerPoolName is the name of the TriggerWorkflowHandler pool
 	TriggerWorkflowHandlerPoolName = "trigger_workflow_handler_pool"
+	// WorkflowSupervisorName is the name of the WorkflowSupervisor actor
+	WorkflowSupervisorName = "workflow_sup"
 )
 
 // NewTriggerWorkflowHandlerFactory creates a new TriggerWorkflowHandlerFactory
@@ -47,9 +48,7 @@ func (h *TriggerWorkflowHandler) HandlePost(from gen.PID, w http.ResponseWriter,
 		})
 	}
 
-	workflowID := workflow.NewID()
-
-	if err := h.Send(workflowID, messaging.NewTriggerWorkflowMessage(schemaID)); err != nil {
+	if err := h.Send(WorkflowSupervisorName, messaging.NewTriggerWorkflowMessage(schemaID)); err != nil {
 		return h.SendJSON(w, http.StatusInternalServerError, Response{
 			"message": fmt.Sprintf("failed to send message: %s", err),
 			"code":    InternalServerError,

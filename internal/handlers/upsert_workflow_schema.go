@@ -86,7 +86,7 @@ func (h *UpsertWorkflowSchemaHandler) HandlePut(from gen.PID, w http.ResponseWri
 	h.Log().Info("upserted workflow schema", "from", from, "schemaID", schemaID, "workflowID", graph.ID())
 
 	return h.SendJSON(w, http.StatusOK, Response{
-		"schemaID": schemaID,
+		"schemaId": schemaID,
 		"code":     "OK",
 	})
 }
