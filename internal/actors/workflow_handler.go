@@ -2,9 +2,10 @@ package actors
 
 import (
 	"encoding/json"
+	"fmt"
+
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
-	"fmt"
 	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/open-source-cloud/fuse/internal/messaging"
 	"github.com/open-source-cloud/fuse/internal/repos"
@@ -13,7 +14,7 @@ import (
 )
 
 // WorkflowHandlerFactory redefines the WorkflowHandler factory generic type for better readability
-type WorkflowHandlerFactory Factory[*WorkflowHandler]
+type WorkflowHandlerFactory ActorFactory[*WorkflowHandler]
 
 // NewWorkflowHandlerFactory DI method for creating the WorkflowHandler factory
 func NewWorkflowHandlerFactory(
@@ -92,7 +93,8 @@ func (a *WorkflowHandler) HandleMessage(from gen.PID, message any) error {
 		return a.handleMsgActorInit(msg)
 	case messaging.FunctionResult:
 		return a.handleMsgFunctionResult(msg)
-	case messaging.AsyncFunctionResult: return a.handleMsgAsyncFunctionResult(msg)
+	case messaging.AsyncFunctionResult:
+		return a.handleMsgAsyncFunctionResult(msg)
 	}
 
 	return nil
@@ -183,7 +185,7 @@ func (a *WorkflowHandler) handleMsgAsyncFunctionResult(msg messaging.Message) er
 	}
 
 	a.workflow.SetResultFor(fnResultMsg.ExecID, &pkgworkflow.FunctionResult{
-		Async: true,
+		Async:  true,
 		Output: fnResultMsg.Output,
 	})
 	if fnResultMsg.Output.Status != pkgworkflow.FunctionSuccess {

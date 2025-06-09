@@ -1,14 +1,15 @@
 package actors
 
 import (
+	"fmt"
+
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
-	"fmt"
 	"github.com/open-source-cloud/fuse/internal/workflow"
 )
 
 // WorkflowFuncPoolFactory redefines a WorkflowFuncPool actor factory type for better readability
-type WorkflowFuncPoolFactory Factory[*WorkflowFuncPool]
+type WorkflowFuncPoolFactory ActorFactory[*WorkflowFuncPool]
 
 // NewWorkflowFuncPoolFactory creates a dependency injection WorkflowFuncPool actor factory
 func NewWorkflowFuncPoolFactory(workflowFunc *WorkflowFuncFactory) *WorkflowFuncPoolFactory {
@@ -36,8 +37,8 @@ type WorkflowFuncPool struct {
 // Init called when a WorkflowFuncPool is getting initialized
 func (a *WorkflowFuncPool) Init(_ ...any) (act.PoolOptions, error) {
 	opts := act.PoolOptions{
-		PoolSize:          3,
-		WorkerFactory:     a.workflowFunc.Factory,
+		PoolSize:      3,
+		WorkerFactory: a.workflowFunc.Factory,
 	}
 
 	a.Log().Debug("starting pool %s with %d workers", a.PID(), opts.PoolSize)

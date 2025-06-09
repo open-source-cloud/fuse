@@ -2,6 +2,8 @@
 package app
 
 import (
+	"strings"
+
 	"ergo.services/application/observer"
 	"ergo.services/ergo"
 	"ergo.services/ergo/gen"
@@ -9,14 +11,13 @@ import (
 	"github.com/open-source-cloud/fuse/internal/actors"
 	"github.com/open-source-cloud/fuse/logging"
 	"github.com/rs/zerolog/log"
-	"strings"
 )
 
 // NewApp creates a new FUSE application, in the context of the FX dependency injection engine and the Ergo framework
 func NewApp(
 	config *config.Config,
 	workflowSup *actors.WorkflowSupervisorFactory,
-	httpServer *actors.HTTPServerActorFactory,
+	serverSup *actors.MuxServerSupFactory,
 ) (gen.Node, error) {
 	var options gen.NodeOptions
 
@@ -24,7 +25,7 @@ func NewApp(
 	apps = append(apps, &Fuse{
 		config:      config,
 		workflowSup: workflowSup,
-		httpServer:  httpServer,
+		serverSup:   serverSup,
 	})
 	if config.Params.ActorObserver {
 		apps = append(apps, observer.CreateApp(observer.Options{}))
@@ -35,7 +36,7 @@ func NewApp(
 	options.Log.DefaultLogger.Disable = true
 	options.Log.Level = parseLogLevel(config.Params.LogLevel)
 
-	// add logger.
+	// add logger to the node
 	logger, err := logging.ErgoLogger()
 	if err != nil {
 		panic(err)
@@ -54,7 +55,7 @@ func NewApp(
 type Fuse struct {
 	config      *config.Config
 	workflowSup *actors.WorkflowSupervisorFactory
-	httpServer  *actors.HTTPServerActorFactory
+	serverSup   *actors.MuxServerSupFactory
 }
 
 // Load invoked on loading application using the method ApplicationLoad of gen.Node interface.
@@ -68,8 +69,8 @@ func (app *Fuse) Load(_ gen.Node, _ ...any) (gen.ApplicationSpec, error) {
 				Factory: app.workflowSup.Factory,
 			},
 			{
-				Name:    actors.HTTPServerActorName,
-				Factory: app.httpServer.Factory,
+				Name:    actors.MuxServerSupName,
+				Factory: app.serverSup.Factory,
 			},
 		},
 		Mode:     gen.ApplicationModeTemporary,

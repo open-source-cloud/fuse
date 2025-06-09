@@ -6,6 +6,7 @@ import (
 	"github.com/open-source-cloud/fuse/app"
 	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/open-source-cloud/fuse/internal/actors"
+	"github.com/open-source-cloud/fuse/internal/handlers"
 	"github.com/open-source-cloud/fuse/internal/packages"
 	"github.com/open-source-cloud/fuse/internal/packages/debug"
 	"github.com/open-source-cloud/fuse/internal/packages/logic"
@@ -29,24 +30,73 @@ var CommonModule = fx.Module(
 	}),
 )
 
-// FuseAppModule FX module with the FUSE application providers
-var FuseAppModule = fx.Module(
-	"fuse_app",
+// WorkerModule FX module with the worker providers
+var WorkerModule = fx.Module(
+	"worker",
 	fx.Provide(
-		// actors
-		actors.NewHTTPServerActorFactory,
+		handlers.NewAsyncFunctionResultHandlerFactory,
+		handlers.NewUpsertWorkflowSchemaHandlerFactory,
+		handlers.NewTriggerWorkflowHandlerFactory,
+		handlers.NewHealthCheckHandler,
+		actors.NewWorkers,
+	),
+	fx.Invoke(func(
+		workers *actors.Workers,
+		healthCheckHandlerFactory *handlers.HealthCheckHandlerFactory,
+		asyncFunctionResultHandlerFactory *handlers.AsyncFunctionResultHandlerFactory,
+		upsertWorkflowSchemaHandlerFactory *handlers.UpsertWorkflowSchemaHandlerFactory,
+		triggerWorkflowHandlerFactory *handlers.TriggerWorkflowHandlerFactory,
+	) {
+		workers.AddFactory(handlers.HealthCheckHandlerName, healthCheckHandlerFactory.Factory)
+		workers.AddFactory(handlers.AsyncFunctionResultHandlerName, asyncFunctionResultHandlerFactory.Factory)
+		workers.AddFactory(handlers.UpsertWorkflowSchemaHandlerName, upsertWorkflowSchemaHandlerFactory.Factory)
+		workers.AddFactory(handlers.TriggerWorkflowHandlerName, triggerWorkflowHandlerFactory.Factory)
+	}),
+)
+
+// ActorModule FX module with the actor providers
+var ActorModule = fx.Module(
+	"actor",
+	fx.Provide(
+		actors.NewMuxServerSupFactory,
+		actors.NewMuxServerFactory,
 		actors.NewWorkflowSupervisorFactory,
 		actors.NewWorkflowInstanceSupervisorFactory,
 		actors.NewWorkflowHandlerFactory,
 		actors.NewWorkflowFuncPoolFactory,
 		actors.NewWorkflowFuncFactory,
-		// repositories
+	),
+)
+
+// RepoModule FX module with the repo providers
+var RepoModule = fx.Module(
+	"repo",
+	fx.Provide(
 		repos.NewMemoryGraphRepo,
 		repos.NewMemoryWorkflowRepo,
-		// other services
-		workflow.NewGraphFactory,
+	),
+)
+
+// PackageModule FX module with the package providers
+var PackageModule = fx.Module(
+	"package",
+	fx.Provide(
 		packages.NewPackageRegistry,
-		// apps
+	),
+)
+
+// WorkflowModule FX module with the workflow providers
+var WorkflowModule = fx.Module(
+	"workflow",
+	fx.Provide(
+		workflow.NewGraphFactory,
+	),
+)
+
+// FuseAppModule FX module with the FUSE application providers
+var FuseAppModule = fx.Module(
+	"fuse_app",
+	fx.Provide(
 		app.NewApp,
 	),
 	// eager loading
@@ -69,6 +119,11 @@ var FuseAppModule = fx.Module(
 // AllModules FX module with the complete application + base providers
 var AllModules = fx.Options(
 	CommonModule,
+	WorkerModule,
+	ActorModule,
+	RepoModule,
+	PackageModule,
+	WorkflowModule,
 	FuseAppModule,
 	fx.WithLogger(logging.NewFxLogger()),
 )
