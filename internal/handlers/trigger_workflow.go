@@ -3,6 +3,7 @@ package handlers
 
 import (
 	"fmt"
+	"github.com/open-source-cloud/fuse/internal/workflow"
 	"net/http"
 
 	"ergo.services/ergo/gen"
@@ -60,7 +61,8 @@ func (h *TriggerWorkflowHandler) HandlePost(from gen.PID, w http.ResponseWriter,
 		})
 	}
 
-	if err := h.Send(WorkflowSupervisorName, messaging.NewTriggerWorkflowMessage(req.SchemaID)); err != nil {
+	workflowID := workflow.NewID()
+	if err := h.Send(WorkflowSupervisorName, messaging.NewTriggerWorkflowMessage(req.SchemaID, workflowID)); err != nil {
 		return h.SendJSON(w, http.StatusInternalServerError, Response{
 			"message": fmt.Sprintf("failed to send message: %s", err),
 			"code":    InternalServerError,
@@ -68,7 +70,8 @@ func (h *TriggerWorkflowHandler) HandlePost(from gen.PID, w http.ResponseWriter,
 	}
 
 	return h.SendJSON(w, http.StatusOK, Response{
-		"schemaID": req.SchemaID,
-		"code":     "OK",
+		"schema_id":   req.SchemaID,
+		"workflow_id": workflowID,
+		"code":        "OK",
 	})
 }

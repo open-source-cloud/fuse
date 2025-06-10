@@ -86,7 +86,7 @@ func (a *WorkflowSupervisor) HandleMessage(from gen.PID, message any) error {
 			a.Log().Error("failed to get trigger workflow message from message: %s", msg)
 			return nil
 		}
-		err = a.spawnWorkflowActor(triggerMsg.SchemaID, true)
+		err = a.spawnWorkflowActor(triggerMsg.SchemaID, triggerMsg.WorkflowID)
 		if err != nil {
 			a.Log().Error("failed to spawn workflow actor for schema id %s : %s", triggerMsg.SchemaID, err)
 			return nil
@@ -113,24 +113,10 @@ func (a *WorkflowSupervisor) HandleEvent(event gen.MessageEvent) error {
 	return nil
 }
 
-func (a *WorkflowSupervisor) spawnWorkflowActor(workflowOrSchemaID string, newWorkflow bool) error {
-	var schemaID string
-	var workflowID workflow.ID
-	if newWorkflow {
-		schemaID = workflowOrSchemaID
-		workflowID = workflow.NewID()
-	} else {
-		existingWorkflow, err := a.workflowRepo.Get(workflowOrSchemaID)
-		if err != nil {
-			a.Log().Error("failed to get workflow %s: %s", workflowOrSchemaID, err)
-			return err
-		}
-		workflowID = existingWorkflow.ID()
-		schemaID = existingWorkflow.Schema().ID
-	}
+func (a *WorkflowSupervisor) spawnWorkflowActor(schemaID string, workflowID workflow.ID) error {
 	err := a.StartChild(actornames.WorkflowInstanceSupervisor, workflowID, schemaID)
 	if err != nil {
-		a.Log().Error("failed to spawn child for schema id %s : %s", workflowOrSchemaID, err)
+		a.Log().Error("failed to spawn child for schema id %s : %s", schemaID, err)
 		return err
 	}
 	return nil

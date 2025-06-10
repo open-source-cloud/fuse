@@ -95,4 +95,12 @@ func workflowRunner(graphFactory *workflow.GraphFactory, graphRepo repos.GraphRe
 			log.Error().Err(err).Msg("Failed to close response body")
 		}
 	}(resp.Body)
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to trigger workflow: failed reading response body")
+		return
+	}
+
+	log.Info().Msgf("Workflow triggered: %s", body)
 }
