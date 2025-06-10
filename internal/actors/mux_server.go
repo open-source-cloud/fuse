@@ -8,7 +8,6 @@ import (
 	"github.com/open-source-cloud/fuse/app/config"
 )
 
-
 // MuxServerFactory is a factory for creating MuxServer actors
 type MuxServerFactory ActorFactory[*muxServer]
 
@@ -33,7 +32,7 @@ func NewMuxServerFactory(workers *Workers, config *config.Config) *MuxServerFact
 
 // Init initializes the mux server
 func (m *muxServer) Init(_ ...any) error {
-	m.Log().Info("starting muxRouter server")
+	m.Log().Info("starting mux server")
 
 	muxRouter := mux.NewRouter()
 
