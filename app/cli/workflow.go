@@ -84,7 +84,7 @@ func workflowRunner(graphFactory *workflow.GraphFactory, graphRepo repos.GraphRe
 		return
 	}
 
-	resp, err := http.Post("http://localhost:9090/api/workflow", "application/json", bytes.NewBuffer(jsonPayload))
+	resp, err := http.Post("http://localhost:9090/v1/workflows/trigger", "application/json", bytes.NewBuffer(jsonPayload))
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to trigger workflow: failed making http request")
 		return

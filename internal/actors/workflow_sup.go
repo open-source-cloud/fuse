@@ -4,13 +4,11 @@ import (
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
 	"github.com/open-source-cloud/fuse/app/config"
+	"github.com/open-source-cloud/fuse/internal/actors/actornames"
 	"github.com/open-source-cloud/fuse/internal/messaging"
 	"github.com/open-source-cloud/fuse/internal/repos"
 	"github.com/open-source-cloud/fuse/internal/workflow"
 )
-
-// WorkflowSupervisorName WorkflowSupervisor supervisor actor name
-const WorkflowSupervisorName = "workflow_sup"
 
 // WorkflowSupervisorFactory redefines the WorkflowSupervisor supervisor actor factory type for better readability
 type WorkflowSupervisorFactory ActorFactory[*WorkflowSupervisor]
@@ -54,7 +52,7 @@ func (a *WorkflowSupervisor) Init(_ ...any) (act.SupervisorSpec, error) {
 		// children
 		Children: []act.SupervisorChildSpec{
 			{
-				Name:    "workflow_instance_sup",
+				Name:    actornames.WorkflowInstanceSupervisor,
 				Factory: a.workflowInstanceSup.Factory,
 			},
 		},
@@ -130,7 +128,7 @@ func (a *WorkflowSupervisor) spawnWorkflowActor(workflowOrSchemaID string, newWo
 		workflowID = existingWorkflow.ID()
 		schemaID = existingWorkflow.Schema().ID
 	}
-	err := a.StartChild("workflow_instance_sup", workflowID, schemaID)
+	err := a.StartChild(actornames.WorkflowInstanceSupervisor, workflowID, schemaID)
 	if err != nil {
 		a.Log().Error("failed to spawn child for schema id %s : %s", workflowOrSchemaID, err)
 		return err

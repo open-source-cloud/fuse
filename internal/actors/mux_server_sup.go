@@ -3,10 +3,9 @@ package actors
 import (
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
+	"github.com/open-source-cloud/fuse/internal/actors/actornames"
 )
 
-// MuxServerSupName is the name of the MuxServerSup actor
-const MuxServerSupName = "mux_server_sup"
 
 // MuxServerSupFactory is a factory for creating MuxServerSup actors
 type MuxServerSupFactory ActorFactory[*MuxServerSup]
@@ -36,7 +35,7 @@ func (m *MuxServerSup) Init(_ ...any) (act.SupervisorSpec, error) {
 
 	children := []act.SupervisorChildSpec{
 		{
-			Name:    MuxServerName,
+			Name:    actornames.MuxServerName,
 			Factory: m.muxServer.Factory,
 		},
 	}
@@ -64,7 +63,7 @@ func (m *MuxServerSup) Init(_ ...any) (act.SupervisorSpec, error) {
 			Intensity: 2, // How big bursts of restarts you want to tolerate.
 			Period:    5, // In seconds.
 		},
-		EnableHandleChild:   true,
+		EnableHandleChild:   false,
 		DisableAutoShutdown: true,
 	}
 
