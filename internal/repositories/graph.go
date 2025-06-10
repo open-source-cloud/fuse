@@ -1,8 +1,9 @@
-// Package repos Data repositories for the application
+// Package repositories data repositories for the application
 package repositories
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/open-source-cloud/fuse/internal/workflow"
 )
@@ -22,12 +23,15 @@ type (
 	}
 	// DefaultGraphRepository is the default implementation of the GraphRepository interface (in-memory)
 	DefaultGraphRepository struct {
+		mu     sync.RWMutex
 		graphs map[string]*workflow.Graph
 	}
 )
 
 // FindByID retrieves a graph from the repository
 func (m *DefaultGraphRepository) FindByID(id string) (*workflow.Graph, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	graph, ok := m.graphs[id]
 	if !ok {
 		return nil, fmt.Errorf("graph %s not found", id)
@@ -37,6 +41,8 @@ func (m *DefaultGraphRepository) FindByID(id string) (*workflow.Graph, error) {
 
 // Save stores a graph in the repository
 func (m *DefaultGraphRepository) Save(graph *workflow.Graph) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.graphs[graph.ID()] = graph
 	return nil
 }

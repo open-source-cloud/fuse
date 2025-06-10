@@ -4,22 +4,31 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/open-source-cloud/fuse/internal/workflow"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
+const (
+	// graphCollection is the name of the collection in MongoDB
+	graphCollection = "graphs"
+)
+
+// MongoGraphRepository is a MongoDB implementation of the GraphRepository interface
 type MongoGraphRepository struct {
+	config     *config.Config
 	client     *mongo.Client
 	database   *mongo.Database
 	collection *mongo.Collection
 }
 
-func NewMongoGraphRepository(client *mongo.Client) GraphRepository {
-	database := client.Database("fuse")
-	collection := database.Collection("graphs")
-
+// NewMongoGraphRepository creates a new MongoDB GraphRepository
+func NewMongoGraphRepository(client *mongo.Client, config *config.Config) GraphRepository {
+	database := client.Database(config.Database.Name)
+	collection := database.Collection(graphCollection)
 	return &MongoGraphRepository{
+		config:     config,
 		client:     client,
 		database:   database,
 		collection: collection,

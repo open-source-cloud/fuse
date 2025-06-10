@@ -4,23 +4,34 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/open-source-cloud/fuse/internal/workflow"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
+const (
+	// workflowCollection is the name of the collection in MongoDB
+	workflowCollection = "workflows"
+)
+
+// MongoWorkflowRepository is a MongoDB implementation of the WorkflowRepository interface
 type MongoWorkflowRepository struct {
 	WorkflowRepository
+
+	config     *config.Config
 	client     *mongo.Client
 	database   *mongo.Database
 	collection *mongo.Collection
 }
 
-func NewMongoWorkflowRepository(client *mongo.Client) WorkflowRepository {
-	database := client.Database("fuse")
-	collection := database.Collection("workflows")
+// NewMongoWorkflowRepository creates a new MongoDB WorkflowRepository
+func NewMongoWorkflowRepository(client *mongo.Client, config *config.Config) WorkflowRepository {
+	database := client.Database(config.Database.Name)
+	collection := database.Collection(workflowCollection)
 
 	return &MongoWorkflowRepository{
+		config:     config,
 		client:     client,
 		database:   database,
 		collection: collection,
