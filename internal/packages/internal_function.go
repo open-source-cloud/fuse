@@ -39,8 +39,8 @@ func (f *internalFunction) Execute(workflowID string, execID string, input *work
 		WorkflowID: workflowID,
 		ExecID:     execID,
 		Finish: func(result workflow.FunctionOutput) {
-			port := config.Instance().Server.Port
-			url := fmt.Sprintf("http://localhost:%d/v1/workflows/%s/execs/%s", port, workflowID, execID)
+			cfg := config.Instance()
+			url := fmt.Sprintf("http://localhost:%s/v1/workflows/%s/execs/%s", cfg.Server.Port, workflowID, execID)
 
 			payload := map[string]any{"execID": execID, "result": result}
 			jsonPayload, _ := json.Marshal(payload)
