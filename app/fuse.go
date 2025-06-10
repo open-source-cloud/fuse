@@ -2,6 +2,7 @@
 package app
 
 import (
+	"github.com/open-source-cloud/fuse/internal/actors/actornames"
 	"strings"
 
 	"ergo.services/application/observer"
@@ -65,11 +66,11 @@ func (app *Fuse) Load(_ gen.Node, _ ...any) (gen.ApplicationSpec, error) {
 		Description: "FUSE application",
 		Group: []gen.ApplicationMemberSpec{
 			{
-				Name:    actors.WorkflowSupervisorName,
+				Name:    actornames.WorkflowSupervisorName,
 				Factory: app.workflowSup.Factory,
 			},
 			{
-				Name:    actors.MuxServerSupName,
+				Name:    actornames.MuxServerSupName,
 				Factory: app.serverSup.Factory,
 			},
 		},

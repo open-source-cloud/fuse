@@ -8,9 +8,6 @@ import (
 	"github.com/open-source-cloud/fuse/app/config"
 )
 
-// MuxServerName is the name of the MuxServer actor
-const MuxServerName = "mux_server"
-
 // MuxServerFactory is a factory for creating MuxServer actors
 type MuxServerFactory ActorFactory[*muxServer]
 
@@ -37,21 +34,21 @@ func NewMuxServerFactory(workers *Workers, config *config.Config) *MuxServerFact
 func (m *muxServer) Init(_ ...any) error {
 	m.Log().Info("starting mux server")
 
-	mux := mux.NewRouter()
+	muxRouter := mux.NewRouter()
 
 	// create routes
 	for _, worker := range m.workers.GetAll() {
-		if err := m.createWorkerPool(worker, mux); err != nil {
+		if err := m.createWorkerPool(worker, muxRouter); err != nil {
 			m.Log().Error("unable to create route for %s: %s", worker.Name, err)
 			return err
 		}
 	}
 
-	// create and spawn web server meta-process
+	// create and spawn a web server meta-process
 	serverOptions := meta.WebServerOptions{
 		Port:    m.config.Server.Port,
 		Host:    m.config.Server.Host,
-		Handler: mux,
+		Handler: muxRouter,
 	}
 
 	webserver, err := meta.CreateWebServer(serverOptions)
@@ -60,15 +57,16 @@ func (m *muxServer) Init(_ ...any) error {
 		return err
 	}
 
-	webserverid, err := m.SpawnMeta(webserver, gen.MetaOptions{})
+	webServerID, err := m.SpawnMeta(webserver, gen.MetaOptions{})
 	if err != nil {
 		m.Log().Error("unable to spawn Web server meta-process: %s", err)
 		return err
 	}
 
-	m.Log().Info("started web server %s: use http://%s:%d/", webserverid, serverOptions.Host, serverOptions.Port)
+	httpProtocol := "http"
+	m.Log().Info("started web server %s: use %s://%s:%d/", webServerID, httpProtocol, serverOptions.Host, serverOptions.Port)
 	m.Log().Info("you may check it with command below:")
-	m.Log().Info("$ curl -k http://%s:%d/health", serverOptions.Host, serverOptions.Port)
+	m.Log().Info("$ curl -k %s://%s:%d/health", httpProtocol, serverOptions.Host, serverOptions.Port)
 
 	return nil
 }
@@ -86,7 +84,7 @@ func (m *muxServer) createWorkerPool(webWorker WebWorker, mux *mux.Router) error
 		return err
 	}
 
-	m.Log().Info("started worker pool '%s' to serve '%s' (meta-process: %s)", webWorker.PoolConfig.Name, webWorker.Pattern, workerPoolID)
+	m.Log().Info("started worker pool %s to serve %s (meta-process: %s)", webWorker.PoolConfig.Name, webWorker.Pattern, workerPoolID)
 
 	mux.Handle(webWorker.Pattern, workerPool)
 

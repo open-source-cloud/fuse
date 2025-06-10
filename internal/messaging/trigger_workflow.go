@@ -1,18 +1,23 @@
 package messaging
 
-import "fmt"
+import (
+	"fmt"
+	"github.com/open-source-cloud/fuse/internal/workflow"
+)
 
 // TriggerWorkflowMessage defines a TriggerWorkflow message
 type TriggerWorkflowMessage struct {
-	SchemaID string
+	SchemaID   string
+	WorkflowID workflow.ID
 }
 
 // NewTriggerWorkflowMessage creates a new TriggerWorkflow message
-func NewTriggerWorkflowMessage(schemaID string) Message {
+func NewTriggerWorkflowMessage(schemaID string, workflowID workflow.ID) Message {
 	return Message{
-		Type:   TriggerWorkflow,
+		Type: TriggerWorkflow,
 		Args: TriggerWorkflowMessage{
-			SchemaID: schemaID,
+			SchemaID:   schemaID,
+			WorkflowID: workflowID,
 		},
 	}
 }

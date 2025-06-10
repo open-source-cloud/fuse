@@ -3,6 +3,7 @@ package handlers
 
 import (
 	"fmt"
+	"github.com/open-source-cloud/fuse/internal/actors/actornames"
 	"net/http"
 
 	"ergo.services/ergo/gen"
@@ -13,7 +14,6 @@ import (
 type (
 	// AsyncFunctionRequest is the request body for the AsyncFunctionHandler
 	AsyncFunctionRequest struct {
-		ExecID string                  `json:"execID"`
 		Result workflow.FunctionOutput `json:"result"`
 	}
 	// AsyncFunctionHandler Fiber http handler
@@ -42,9 +42,17 @@ func NewAsyncFunctionResultHandlerFactory() *AsyncFunctionResultHandlerFactory {
 
 // HandlePost handles the http AsyncFunctionResult endpoint (POST /v1/workflows/{workflowID}/execs/{execID})
 func (h *AsyncFunctionHandler) HandlePost(from gen.PID, w http.ResponseWriter, r *http.Request) error {
-	h.Log().Info("received async function result", "from", from, "remoteAddr", r.RemoteAddr)
+	h.Log().Info("received async function result from: %v remoteAddr: %s", from, r.RemoteAddr)
 
 	workflowID, err := h.GetPathParam(r, "workflowID")
+	if err != nil {
+		return h.SendJSON(w, http.StatusBadRequest, Response{
+			"message": fmt.Sprintf("invalid request: %s", err),
+			"code":    BadRequest,
+		})
+	}
+
+	execID, err := h.GetPathParam(r, "execID")
 	if err != nil {
 		return h.SendJSON(w, http.StatusBadRequest, Response{
 			"message": fmt.Sprintf("invalid request: %s", err),
@@ -60,14 +68,7 @@ func (h *AsyncFunctionHandler) HandlePost(from gen.PID, w http.ResponseWriter, r
 		})
 	}
 
-	if req.ExecID == "" {
-		return h.SendJSON(w, http.StatusBadRequest, Response{
-			"message": "execID is required",
-			"code":    BadRequest,
-		})
-	}
-
-	err = h.Send(workflowID, messaging.NewAsyncFunctionResultMessage(workflowID, req.ExecID, req.Result))
+	err = h.Send(actornames.WorkflowHandlerNameFromStr(workflowID), messaging.NewAsyncFunctionResultMessage(workflowID, execID, req.Result))
 	if err != nil {
 		return h.SendJSON(w, http.StatusInternalServerError, Response{
 			"message": fmt.Sprintf("failed to send message: %s", err),
@@ -77,7 +78,7 @@ func (h *AsyncFunctionHandler) HandlePost(from gen.PID, w http.ResponseWriter, r
 
 	return h.SendJSON(w, http.StatusOK, Response{
 		"workflowID": workflowID,
-		"execID":     req.ExecID,
+		"execID":     execID,
 		"code":       "OK",
 	})
 }

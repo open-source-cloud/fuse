@@ -2,6 +2,7 @@ package actors
 
 import (
 	"encoding/json"
+	"github.com/open-source-cloud/fuse/internal/actors/actornames"
 
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
@@ -85,7 +86,7 @@ func (a *WorkflowFunc) HandleMessage(from gen.PID, message any) error {
 	a.Log().Debug("execute function %s result: %s", fn.ID(), string(jsonResult))
 
 	resultMsg := messaging.NewFunctionResultMessage(msgPayload.WorkflowID, msgPayload.ThreadID, msgPayload.ExecID, result)
-	err = a.Send(WorkflowHandlerName(msgPayload.WorkflowID), resultMsg)
+	err = a.Send(actornames.WorkflowHandlerName(msgPayload.WorkflowID), resultMsg)
 	if err != nil {
 		return err
 	}
