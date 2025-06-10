@@ -24,13 +24,13 @@ type (
 
 	// DatabaseConfig represents the configuration settings required to connect to a database.
 	DatabaseConfig struct {
-		Driver string `env:"DB_DRIVER"`
+		Driver string `env:"DB_DRIVER" envDefault:"memory"`
 		Host   string `env:"DB_HOST"`
 		Port   string `env:"DB_PORT"`
 		User   string `env:"DB_USER"`
 		Pass   string `env:"DB_PASS"`
-		Name   string `env:"DB_NAME"`
-		TLS    bool   `env:"DB_TLS" `
+		Name   string `env:"DB_NAME" envDefault:"fuse"`
+		TLS    bool   `env:"DB_TLS" envDefault:"false"`
 	}
 
 	// ServerConfig http server config

@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"ergo.services/ergo/gen"
-	"github.com/open-source-cloud/fuse/internal/repos"
+	"github.com/open-source-cloud/fuse/internal/repositories"
 	"github.com/open-source-cloud/fuse/internal/workflow"
 )
 
@@ -14,8 +14,8 @@ type (
 	// UpsertWorkflowSchemaHandler is the handler for the UpsertWorkflowSchema endpoint
 	UpsertWorkflowSchemaHandler struct {
 		Handler
-		graphFactory *workflow.GraphFactory
-		graphRepo    repos.GraphRepo
+		graphFactory    *workflow.GraphFactory
+		graphRepository repositories.GraphRepository
 	}
 	// UpsertWorkflowSchemaHandlerFactory is a factory for creating UpsertWorkflowSchemaHandler actors
 	UpsertWorkflowSchemaHandlerFactory HandlerFactory[*UpsertWorkflowSchemaHandler]
@@ -29,12 +29,12 @@ const (
 )
 
 // NewUpsertWorkflowSchemaHandlerFactory creates a new NewUpsertWorkflowSchemaHandlerFactory
-func NewUpsertWorkflowSchemaHandlerFactory(graphFactory *workflow.GraphFactory, graphRepo repos.GraphRepo) *UpsertWorkflowSchemaHandlerFactory {
+func NewUpsertWorkflowSchemaHandlerFactory(graphFactory *workflow.GraphFactory, graphRepository repositories.GraphRepository) *UpsertWorkflowSchemaHandlerFactory {
 	return &UpsertWorkflowSchemaHandlerFactory{
 		Factory: func() gen.ProcessBehavior {
 			return &UpsertWorkflowSchemaHandler{
-				graphFactory: graphFactory,
-				graphRepo:    graphRepo,
+				graphFactory:    graphFactory,
+				graphRepository: graphRepository,
 			}
 		},
 	}
@@ -74,7 +74,7 @@ func (h *UpsertWorkflowSchemaHandler) HandlePut(from gen.PID, w http.ResponseWri
 		})
 	}
 
-	if err = h.graphRepo.Save(graph); err != nil {
+	if err = h.graphRepository.Save(graph); err != nil {
 		msg := fmt.Sprintf("failed to save graph: %s", err)
 		h.Log().Error(msg)
 		return h.SendJSON(w, http.StatusInternalServerError, Response{

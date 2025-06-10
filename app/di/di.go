@@ -2,6 +2,9 @@
 package di
 
 import (
+	"context"
+	"fmt"
+
 	"ergo.services/ergo/gen"
 	"github.com/open-source-cloud/fuse/app"
 	"github.com/open-source-cloud/fuse/app/config"
@@ -10,10 +13,12 @@ import (
 	"github.com/open-source-cloud/fuse/internal/packages"
 	"github.com/open-source-cloud/fuse/internal/packages/debug"
 	"github.com/open-source-cloud/fuse/internal/packages/logic"
-	"github.com/open-source-cloud/fuse/internal/repos"
+	"github.com/open-source-cloud/fuse/internal/repositories"
 	"github.com/open-source-cloud/fuse/internal/workflow"
 	"github.com/open-source-cloud/fuse/logging"
 	"github.com/rs/zerolog"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 	"go.uber.org/fx"
 )
 
@@ -68,14 +73,84 @@ var ActorModule = fx.Module(
 	),
 )
 
-// RepoModule FX module with the repo providers
+// RepoModule FX module with the repo providers based on config
 var RepoModule = fx.Module(
 	"repo",
 	fx.Provide(
-		repos.NewMemoryGraphRepo,
-		repos.NewMemoryWorkflowRepo,
+		provideGraphRepository,
+		provideWorkflowRepository,
+		provideMongoClient,
 	),
 )
+
+// provideGraphRepository provides the appropriate GraphRepository based on config
+func provideGraphRepository(cfg *config.Config, mongoClient *mongo.Client) repositories.GraphRepository {
+	switch cfg.Database.Driver {
+	case "mongodb", "mongo":
+		return repositories.NewMongoGraphRepository(mongoClient)
+	case "memory", "":
+		return repositories.NewMemoryGraphRepository()
+	default:
+		// Default to memory if unknown driver
+		return repositories.NewMemoryGraphRepository()
+	}
+}
+
+// provideWorkflowRepository provides the appropriate WorkflowRepository based on config
+func provideWorkflowRepository(cfg *config.Config, mongoClient *mongo.Client) repositories.WorkflowRepository {
+	switch cfg.Database.Driver {
+	case "mongodb", "mongo":
+		return repositories.NewMongoWorkflowRepository(mongoClient)
+	case "memory", "":
+		return repositories.NewMemoryWorkflowRepository()
+	default:
+		return repositories.NewMemoryWorkflowRepository()
+	}
+}
+
+// provideMongoClient provides a MongoDB client if the driver is MongoDB, otherwise returns nil
+func provideMongoClient(cfg *config.Config) *mongo.Client {
+	if cfg.Database.Driver != "mongodb" && cfg.Database.Driver != "mongo" {
+		return nil
+	}
+
+	// Build MongoDB connection string
+	connectionString := fmt.Sprintf("mongodb://%s:%s/%s",
+		cfg.Database.Host,
+		cfg.Database.Port,
+		cfg.Database.Name,
+	)
+
+	if cfg.Database.User != "" && cfg.Database.Pass != "" {
+		connectionString = fmt.Sprintf("mongodb://%s:%s@%s:%s/%s",
+			cfg.Database.User,
+			cfg.Database.Pass,
+			cfg.Database.Host,
+			cfg.Database.Port,
+			cfg.Database.Name,
+		)
+	}
+
+	clientOptions := options.Client().ApplyURI(connectionString)
+
+	// Handle TLS configuration
+	if cfg.Database.TLS {
+		clientOptions = clientOptions.SetTLSConfig(nil) // Use default TLS config
+	}
+
+	client, err := mongo.Connect(clientOptions)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to connect to MongoDB: %v", err))
+	}
+
+	// Test the connection
+	ctx := context.Background()
+	if err := client.Ping(ctx, nil); err != nil {
+		panic(fmt.Sprintf("Failed to ping MongoDB: %v", err))
+	}
+
+	return client
+}
 
 // PackageModule FX module with the package providers
 var PackageModule = fx.Module(
@@ -101,8 +176,8 @@ var FuseAppModule = fx.Module(
 	),
 	// eager loading
 	fx.Invoke(func(
-		_ repos.GraphRepo,
-		_ repos.WorkflowRepo,
+		_ repositories.GraphRepository,
+		_ repositories.WorkflowRepository,
 		registry packages.Registry,
 		_ gen.Node,
 	) {
