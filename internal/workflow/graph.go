@@ -2,9 +2,10 @@ package workflow
 
 import (
 	"fmt"
+	"sort"
+
 	"github.com/TyphonHill/go-mermaid/diagrams/flowchart"
 	"gopkg.in/yaml.v3"
-	"sort"
 )
 
 func newGraphSchemaFromJSON(jsonSpec []byte) (*GraphSchema, error) {
@@ -158,7 +159,9 @@ func (g *Graph) MermaidFlowchart() string {
 // calculateThreads assigns thread IDs and parentThreads for nodes in the workflow graph.
 //
 // It handles forks (where a node has multiple outgoing edges) by assigning new threads to each branch. It
-//  handles joins (where a node has multiple incoming edges) by collecting unique parent thread IDs and
+//
+//	handles joins (where a node has multiple incoming edges) by collecting unique parent thread IDs and
+//
 // issuing a new thread for the merged path. Cycles/loops are supported, and parentThreads are stabilized
 // in a second pass to avoid capturing "ghost" threads that never actually contribute a live path.
 //

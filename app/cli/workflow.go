@@ -3,16 +3,17 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/open-source-cloud/fuse/app/di"
-	"github.com/open-source-cloud/fuse/internal/repos"
-	"github.com/open-source-cloud/fuse/internal/workflow"
-	"github.com/rs/zerolog/log"
-	"github.com/spf13/cobra"
-	"go.uber.org/fx"
 	"io"
 	"net/http"
 	"os"
 	"path"
+
+	"github.com/open-source-cloud/fuse/app/di"
+	"github.com/open-source-cloud/fuse/internal/repositories"
+	"github.com/open-source-cloud/fuse/internal/workflow"
+	"github.com/rs/zerolog/log"
+	"github.com/spf13/cobra"
+	"go.uber.org/fx"
 )
 
 func newWorkflowCommand() *cobra.Command {
@@ -40,7 +41,7 @@ func setupWorkflowFlags(workflowCmd *cobra.Command) {
 	workflowCmd.Flags().StringVarP(&workflowSpecFile, "config", "c", "", "Path to the workflow config file")
 }
 
-func workflowRunner(graphFactory *workflow.GraphFactory, graphRepo repos.GraphRepo) {
+func workflowRunner(graphFactory *workflow.GraphFactory, graphRepository repositories.GraphRepository) {
 	// We are ok with reading the file here because we are in the CLI
 	spec, err := os.ReadFile(workflowSpecFile) //nolint:gosec
 	if err != nil {
@@ -69,7 +70,7 @@ func workflowRunner(graphFactory *workflow.GraphFactory, graphRepo repos.GraphRe
 		return
 	}
 
-	err = graphRepo.Save(graph)
+	err = graphRepository.Save(graph)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to save workflow graph")
 		return

@@ -1,6 +1,8 @@
 package actors
 
 import (
+	"strconv"
+
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
 	"ergo.services/ergo/meta"
@@ -45,8 +47,17 @@ func (m *muxServer) Init(_ ...any) error {
 	}
 
 	// create and spawn a web server meta-process
+	// nolint:gosec // port is validated by the config
+
+	port, err := strconv.Atoi(m.config.Server.Port)
+	if err != nil {
+		m.Log().Error("unable to convert port to int: %s", err)
+		return err
+	}
+
+	// nolint:gosec // port is validated by the config
 	serverOptions := meta.WebServerOptions{
-		Port:    m.config.Server.Port,
+		Port:    uint16(port),
 		Host:    m.config.Server.Host,
 		Handler: muxRouter,
 	}
