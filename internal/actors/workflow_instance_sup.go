@@ -2,6 +2,7 @@ package actors
 
 import (
 	"fmt"
+	"github.com/open-source-cloud/fuse/internal/actors/actornames"
 
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
@@ -79,7 +80,7 @@ func (a *WorkflowInstanceSupervisor) Init(args ...any) (act.SupervisorSpec, erro
 				Args:    []any{},
 			},
 			{
-				Name:    gen.Atom(WorkflowHandlerName(workflowID)),
+				Name:    gen.Atom(actornames.WorkflowHandlerName(workflowID)),
 				Factory: a.workflowHandler.Factory,
 				Args:    []any{handlerInitArgs},
 			},

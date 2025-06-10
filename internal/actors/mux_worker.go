@@ -46,7 +46,7 @@ func NewWorkers() *Workers {
 			},
 			{
 				Name:    handlers.TriggerWorkflowHandlerName,
-				Pattern: "/v1/workflows/{schemaID}/trigger",
+				Pattern: "/v1/workflows/trigger",
 				Methods: []string{"POST"},
 				Timeout: 10 * time.Second,
 				PoolConfig: WorkerPoolConfig{
