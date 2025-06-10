@@ -70,8 +70,8 @@ func (h *TriggerWorkflowHandler) HandlePost(from gen.PID, w http.ResponseWriter,
 	}
 
 	return h.SendJSON(w, http.StatusOK, Response{
-		"schema_id":   req.SchemaID,
-		"workflow_id": workflowID,
+		"schemaId":   req.SchemaID,
+		"workflowId": workflowID,
 		"code":        "OK",
 	})
 }
