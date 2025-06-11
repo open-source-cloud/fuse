@@ -3,7 +3,7 @@ package handlers
 
 import (
 	"fmt"
-	"github.com/open-source-cloud/fuse/internal/workflow"
+	"github.com/open-source-cloud/fuse/pkg/workflow"
 	"net/http"
 
 	"ergo.services/ergo/gen"

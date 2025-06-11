@@ -3,14 +3,15 @@ package actors
 import (
 	"encoding/json"
 	"fmt"
+	internalworkflow "github.com/open-source-cloud/fuse/internal/workflow"
+	"github.com/open-source-cloud/fuse/internal/workflow/workflowactions"
+	"github.com/open-source-cloud/fuse/pkg/workflow"
 
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
 	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/open-source-cloud/fuse/internal/messaging"
 	"github.com/open-source-cloud/fuse/internal/repos"
-	"github.com/open-source-cloud/fuse/internal/workflow"
-	pkgworkflow "github.com/open-source-cloud/fuse/pkg/workflow"
 )
 
 // WorkflowHandlerFactory redefines the WorkflowHandler factory generic type for better readability
@@ -42,7 +43,7 @@ type (
 		graphRepo    repos.GraphRepo
 		workflowRepo repos.WorkflowRepo
 
-		workflow *workflow.Workflow
+		workflow *internalworkflow.Workflow
 	}
 
 	// WorkflowHandlerInitArgs defines the typed arguments for the WorkflowHandler Actor Init message
@@ -109,8 +110,8 @@ func (a *WorkflowHandler) handleMsgActorInit(msg messaging.Message) error {
 
 	if a.workflowRepo.Exists(initArgs.workflowID.String()) {
 		a.workflow, _ = a.workflowRepo.Get(initArgs.workflowID.String())
-		var action workflow.Action
-		if a.workflow.State() == workflow.StateUntriggered {
+		var action workflowactions.Action
+		if a.workflow.State() == internalworkflow.StateUntriggered {
 			action = a.workflow.Trigger()
 		} else {
 			// TODO : add Resume
@@ -126,7 +127,7 @@ func (a *WorkflowHandler) handleMsgActorInit(msg messaging.Message) error {
 		a.Log().Error("failed to get graph for schema id %s: %s", initArgs.schemaID, err)
 		return gen.TerminateReasonPanic
 	}
-	a.workflow = workflow.New(initArgs.workflowID, graphRef)
+	a.workflow = internalworkflow.New(initArgs.workflowID, graphRef)
 	if a.workflowRepo.Save(a.workflow) != nil {
 		a.Log().Error("failed to save workflow for id %s: %s", initArgs.workflowID, err)
 		return nil
@@ -151,20 +152,20 @@ func (a *WorkflowHandler) handleMsgFunctionResult(msg messaging.Message) error {
 		// TODO handle async
 		return nil
 	}
-	if fnResultMsg.Result.Output.Status != pkgworkflow.FunctionSuccess {
+	if fnResultMsg.Result.Output.Status != workflow.FunctionSuccess {
 		a.Log().Error(
 			"function result for workflow %s, execID %s failed with status %s",
 			fnResultMsg.WorkflowID,
 			fnResultMsg.ExecID,
 			fnResultMsg.Result.Output.Status,
 		)
-		a.workflow.SetState(workflow.StateError)
+		a.workflow.SetState(internalworkflow.StateError)
 		// TODO handle function failure
 		return nil
 	}
 
 	action := a.workflow.Next(fnResultMsg.ThreadID)
-	if action.Type() == workflow.ActionNoop {
+	if action.Type() == workflowactions.ActionNoop {
 		a.Log().Warning("got noop action from workflow")
 		return nil
 	}
@@ -179,24 +180,24 @@ func (a *WorkflowHandler) handleMsgAsyncFunctionResult(msg messaging.Message) er
 		a.Log().Error("failed to get async function result from %s", msg)
 	}
 
-	a.workflow.SetResultFor(fnResultMsg.ExecID, &pkgworkflow.FunctionResult{
+	a.workflow.SetResultFor(fnResultMsg.ExecID, &workflow.FunctionResult{
 		Async:  true,
 		Output: fnResultMsg.Output,
 	})
-	if fnResultMsg.Output.Status != pkgworkflow.FunctionSuccess {
+	if fnResultMsg.Output.Status != workflow.FunctionSuccess {
 		a.Log().Error(
 			"async function result for workflow %s, execID %s failed with status %s",
 			fnResultMsg.WorkflowID,
 			fnResultMsg.ExecID,
 			fnResultMsg.Output.Status,
 		)
-		a.workflow.SetState(workflow.StateError)
+		a.workflow.SetState(internalworkflow.StateError)
 		// TODO handle function failure
 		return nil
 	}
 
 	action := a.workflow.Next(fnResultMsg.ExecID.Thread())
-	if action.Type() == workflow.ActionNoop {
+	if action.Type() == workflowactions.ActionNoop {
 		a.Log().Warning("got noop action from workflow")
 		return nil
 	}
@@ -205,20 +206,20 @@ func (a *WorkflowHandler) handleMsgAsyncFunctionResult(msg messaging.Message) er
 	return nil
 }
 
-func (a *WorkflowHandler) handleWorkflowAction(action workflow.Action) {
+func (a *WorkflowHandler) handleWorkflowAction(action workflowactions.Action) {
 	switch action.Type() {
-	case workflow.ActionRunFunction:
+	case workflowactions.ActionRunFunction:
 		a.handleWorkflowRunFunctionAction(action)
-	case workflow.ActionRunParallelFunctions:
-		for _, runFuncAction := range action.(*workflow.RunParallelFunctionsAction).Actions {
+	case workflowactions.ActionRunParallelFunctions:
+		for _, runFuncAction := range action.(*workflowactions.RunParallelFunctionsAction).Actions {
 			a.handleWorkflowRunFunctionAction(runFuncAction)
 		}
 	}
 }
 
-func (a *WorkflowHandler) handleWorkflowRunFunctionAction(action workflow.Action) {
+func (a *WorkflowHandler) handleWorkflowRunFunctionAction(action workflowactions.Action) {
 	workflowPool := WorkflowFuncPoolName(a.workflow.ID())
-	execAction := action.(*workflow.RunFunctionAction)
+	execAction := action.(*workflowactions.RunFunctionAction)
 
 	execFnMsg := messaging.NewExecuteFunctionMessage(a.workflow.ID(), execAction)
 	err := a.Send(workflowPool, execFnMsg)
@@ -226,6 +227,5 @@ func (a *WorkflowHandler) handleWorkflowRunFunctionAction(action workflow.Action
 		a.Log().Error("failed to send execute function message to %s: %s", workflowPool, err)
 		return
 	}
-	a.workflow.SetState(workflow.StateRunning)
-
+	a.workflow.SetState(internalworkflow.StateRunning)
 }

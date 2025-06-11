@@ -2,7 +2,7 @@ package workflow
 
 import (
 	"encoding/hex"
-	"github.com/open-source-cloud/fuse/internal/uuid"
+	"github.com/open-source-cloud/fuse/pkg/uuid"
 	"strings"
 )
 

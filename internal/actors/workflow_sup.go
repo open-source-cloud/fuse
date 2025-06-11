@@ -7,7 +7,7 @@ import (
 	"github.com/open-source-cloud/fuse/internal/actors/actornames"
 	"github.com/open-source-cloud/fuse/internal/messaging"
 	"github.com/open-source-cloud/fuse/internal/repos"
-	"github.com/open-source-cloud/fuse/internal/workflow"
+	"github.com/open-source-cloud/fuse/pkg/workflow"
 )
 
 // WorkflowSupervisorFactory redefines the WorkflowSupervisor supervisor actor factory type for better readability

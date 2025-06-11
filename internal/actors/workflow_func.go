@@ -77,7 +77,7 @@ func (a *WorkflowFunc) HandleMessage(from gen.PID, message any) error {
 		a.Log().Error("failed to create function input: %s", err)
 		return nil
 	}
-	result, err := fn.Execute(msgPayload.WorkflowID.String(), msgPayload.ExecID.String(), input)
+	result, err := fn.Execute(a, msgPayload.WorkflowID, msgPayload.ExecID, input)
 	if err != nil {
 		a.Log().Error("failed to execute function %s: %s", fn.ID(), err)
 		return nil

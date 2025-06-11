@@ -44,21 +44,23 @@ func NewAsyncFunctionResultHandlerFactory() *AsyncFunctionResultHandlerFactory {
 func (h *AsyncFunctionHandler) HandlePost(from gen.PID, w http.ResponseWriter, r *http.Request) error {
 	h.Log().Info("received async function result from: %v remoteAddr: %s", from, r.RemoteAddr)
 
-	workflowID, err := h.GetPathParam(r, "workflowID")
+	strWorkflowID, err := h.GetPathParam(r, "workflowID")
 	if err != nil {
 		return h.SendJSON(w, http.StatusBadRequest, Response{
 			"message": fmt.Sprintf("invalid request: %s", err),
 			"code":    BadRequest,
 		})
 	}
+	workflowID := workflow.ID(strWorkflowID)
 
-	execID, err := h.GetPathParam(r, "execID")
+	strExecID, err := h.GetPathParam(r, "execID")
 	if err != nil {
 		return h.SendJSON(w, http.StatusBadRequest, Response{
 			"message": fmt.Sprintf("invalid request: %s", err),
 			"code":    BadRequest,
 		})
 	}
+	execID := workflow.ExecID(strExecID)
 
 	var req AsyncFunctionRequest
 	if err := h.BindJSON(w, r, &req); err != nil {
@@ -68,8 +70,10 @@ func (h *AsyncFunctionHandler) HandlePost(from gen.PID, w http.ResponseWriter, r
 		})
 	}
 
-	err = h.Send(actornames.WorkflowHandlerNameFromStr(workflowID), messaging.NewAsyncFunctionResultMessage(workflowID, execID, req.Result))
-	if err != nil {
+	if err = h.Send(
+		actornames.WorkflowHandlerName(workflowID),
+		messaging.NewAsyncFunctionResultMessage(workflowID, execID, req.Result),
+	); err != nil {
 		return h.SendJSON(w, http.StatusInternalServerError, Response{
 			"message": fmt.Sprintf("failed to send message: %s", err),
 			"code":    InternalServerError,
