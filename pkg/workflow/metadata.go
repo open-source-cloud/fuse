@@ -1,6 +1,6 @@
 package workflow
 
-import "github.com/open-source-cloud/fuse/pkg/packages/transport"
+import "github.com/open-source-cloud/fuse/pkg/transport"
 
 // FunctionMetadata defines the metadata structure for a Function
 type FunctionMetadata struct {

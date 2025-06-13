@@ -2,8 +2,8 @@ package handlers
 
 import (
 	"fmt"
-	. "github.com/open-source-cloud/fuse/internal/packages"
-	"github.com/open-source-cloud/fuse/pkg/packages"
+	"github.com/open-source-cloud/fuse/internal/packages"
+	"github.com/open-source-cloud/fuse/pkg/workflow"
 	"net/http"
 
 	"ergo.services/ergo/gen"
@@ -23,17 +23,17 @@ type (
 	// RegisterPackagesHandler is the handler for the register packages endpoint
 	RegisterPackagesHandler struct {
 		Handler
-		packageRegistry Registry
+		packageRegistry packages.Registry
 	}
 
 	// RegisterPackagesRequest register packages request data
 	RegisterPackagesRequest struct {
-		Packages []*packages.Package `json:"packages"`
+		Packages []*workflow.Package `json:"packages"`
 	}
 )
 
 // NewRegisterPackagesHandler creates a new packages' handler factory
-func NewRegisterPackagesHandler(packageRegistry Registry) *RegisterPackagesHandlerFactory {
+func NewRegisterPackagesHandler(packageRegistry packages.Registry) *RegisterPackagesHandlerFactory {
 	return &RegisterPackagesHandlerFactory{
 		Factory: func() gen.ProcessBehavior {
 			return &RegisterPackagesHandler{

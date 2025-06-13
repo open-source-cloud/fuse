@@ -3,14 +3,14 @@ package packages
 
 import (
 	"fmt"
-	"github.com/open-source-cloud/fuse/pkg/packages"
+	"github.com/open-source-cloud/fuse/pkg/workflow"
 	"github.com/rs/zerolog/log"
 )
 
 type (
 	// Registry defines the interface of a package Registry service
 	Registry interface {
-		Register(pkg *packages.Package)
+		Register(pkg *workflow.Package)
 		Get(pkgID string) (*LoadedPackage, error)
 	}
 
@@ -28,7 +28,7 @@ func NewPackageRegistry() Registry {
 }
 
 // Register registers a provider by id
-func (r *MemoryRegistry) Register(pkg *packages.Package) {
+func (r *MemoryRegistry) Register(pkg *workflow.Package) {
 	log.Info().Str("packageID", pkg.ID).Msg("Package registered")
 	r.packages[pkg.ID] = MapToRegistryPackage(pkg)
 }

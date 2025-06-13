@@ -1,7 +1,7 @@
 package packages
 
 import (
-	"github.com/open-source-cloud/fuse/pkg/packages/transport"
+	"github.com/open-source-cloud/fuse/pkg/transport"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 )
 

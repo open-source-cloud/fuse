@@ -2,16 +2,16 @@
 package debug
 
 import (
-	"github.com/open-source-cloud/fuse/pkg/packages"
+	"github.com/open-source-cloud/fuse/pkg/workflow"
 )
 
 // PackageID is the id of the debug function package
 const PackageID = "fuse/pkg/debug"
 
 // New creates a new debug Package
-func New() *packages.Package {
-	return packages.NewPackage(
+func New() *workflow.Package {
+	return workflow.NewPackage(
 		PackageID,
-		packages.NewFunction(NilFunctionID, NilFunctionMetadata(), NilFunction),
+		workflow.NewFunction(NilFunctionID, NilFunctionMetadata(), NilFunction),
 	)
 }

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/open-source-cloud/fuse/internal/actors/actor"
 	"github.com/open-source-cloud/fuse/internal/packages/transport"
-	"github.com/open-source-cloud/fuse/pkg/packages"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 )
 
@@ -42,7 +41,7 @@ func (p *LoadedPackage) ExecuteFunction(handle actor.Handle, functionID string, 
 }
 
 // MapToRegistryPackage converts from pkg/packages.Package into internal/packages.LoadedPackage
-func MapToRegistryPackage(pkg *packages.Package) *LoadedPackage {
+func MapToRegistryPackage(pkg *workflow.Package) *LoadedPackage {
 	functions := make(map[string]*LoadedFunction, len(pkg.Functions))
 	for _, function := range pkg.Functions {
 		functionID := fmt.Sprintf("%s/%s", pkg.ID, function.ID)

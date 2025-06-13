@@ -2,15 +2,15 @@
 package internalpackages
 
 import (
-	privpackages "github.com/open-source-cloud/fuse/internal/packages"
+	"github.com/open-source-cloud/fuse/internal/packages"
 	"github.com/open-source-cloud/fuse/internal/packages/internalpackages/debug"
 	"github.com/open-source-cloud/fuse/internal/packages/internalpackages/logic"
 	"github.com/open-source-cloud/fuse/internal/packages/transport"
-	"github.com/open-source-cloud/fuse/pkg/packages"
+	"github.com/open-source-cloud/fuse/pkg/workflow"
 )
 
 // New creates new InternalPackages service
-func New(registry privpackages.Registry) *InternalPackages {
+func New(registry packages.Registry) *InternalPackages {
 	return &InternalPackages{
 		registry: registry,
 	}
@@ -18,12 +18,12 @@ func New(registry privpackages.Registry) *InternalPackages {
 
 // InternalPackages service for registering internal packages
 type InternalPackages struct {
-	registry privpackages.Registry
+	registry packages.Registry
 }
 
 // Register registers internal packages
 func (p *InternalPackages) Register() {
-	listOfInternalPackages := []*packages.Package{
+	listOfInternalPackages := []*workflow.Package{
 		debug.New(),
 		logic.New(),
 	}
