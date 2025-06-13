@@ -1,4 +1,4 @@
-// LoadedPackage di dependency injection
+// Package di dependency injection
 package di
 
 import (
