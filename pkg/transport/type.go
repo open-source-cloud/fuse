@@ -1,3 +1,4 @@
+// Package transport communication between core<->package-providers
 package transport
 
 // Type defines the type of transport driver to use for core<->package-provider communication

@@ -1,4 +1,3 @@
-// Package packages workflow function packages
 package workflow
 
 // NewPackage creates a new Package
