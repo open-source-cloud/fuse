@@ -42,7 +42,7 @@ func NewAsyncFunctionResultHandlerFactory() *AsyncFunctionResultHandlerFactory {
 
 // HandlePost handles the http AsyncFunctionResult endpoint (POST /v1/workflows/{workflowID}/execs/{execID})
 func (h *AsyncFunctionHandler) HandlePost(from gen.PID, w http.ResponseWriter, r *http.Request) error {
-	h.Log().Info("received async function result from: %v remoteAddr: %s", from, r.RemoteAddr)
+	h.Log().Info("received async functionRequestData result from: %v remoteAddr: %s", from, r.RemoteAddr)
 
 	strWorkflowID, err := h.GetPathParam(r, "workflowID")
 	if err != nil {

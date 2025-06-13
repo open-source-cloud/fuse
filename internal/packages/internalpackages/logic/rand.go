@@ -15,8 +15,8 @@ const RandFunctionID = "rand"
 func RandFunctionMetadata() workflow.FunctionMetadata {
 	return workflow.FunctionMetadata{
 		Input: workflow.InputMetadata{
-			Parameters: workflow.Parameters{
-				"min": workflow.ParameterSchema{
+			Parameters: []workflow.ParameterSchema{
+				{
 					Name:        "min",
 					Type:        "int",
 					Required:    false,
@@ -24,7 +24,7 @@ func RandFunctionMetadata() workflow.FunctionMetadata {
 					Description: "Minimum value of the random number",
 					Default:     0,
 				},
-				"max": workflow.ParameterSchema{
+				{
 					Name:        "max",
 					Type:        "int",
 					Required:    false,
@@ -35,8 +35,8 @@ func RandFunctionMetadata() workflow.FunctionMetadata {
 			},
 		},
 		Output: workflow.OutputMetadata{
-			Parameters: workflow.Parameters{
-				"rand": workflow.ParameterSchema{
+			Parameters: []workflow.ParameterSchema{
+				{
 					Name:        "rand",
 					Type:        "int",
 					Validations: nil,
@@ -48,7 +48,9 @@ func RandFunctionMetadata() workflow.FunctionMetadata {
 }
 
 // RandFunction executes the rand function and returns a random number
-func RandFunction(_ *workflow.ExecutionInfo, input *workflow.FunctionInput) (workflow.FunctionResult, error) {
+func RandFunction(execInfo *workflow.ExecutionInfo) (workflow.FunctionResult, error) {
+	input := execInfo.Input
+
 	minValue := input.GetInt("min")
 	maxValue := input.GetInt("max")
 

@@ -14,8 +14,8 @@ func IfFunctionMetadata() workflow.FunctionMetadata {
 	return workflow.FunctionMetadata{
 		Input: workflow.InputMetadata{
 			CustomParameters: true,
-			Parameters: workflow.Parameters{
-				"expression": workflow.ParameterSchema{
+			Parameters: []workflow.ParameterSchema{
+				{
 					Name:        "expression",
 					Type:        "string",
 					Required:    true,
@@ -28,14 +28,14 @@ func IfFunctionMetadata() workflow.FunctionMetadata {
 		Output: workflow.OutputMetadata{
 			ConditionalOutput: true,
 			ConditionalOutputField: "result",
-			Edges: map[string]workflow.OutputEdgeMetadata{
-				"if-true": {
+			Edges: []workflow.OutputEdgeMetadata{
+				{
 					Name: "if-true",
 					ConditionalEdge: workflow.ConditionalEdgeMetadata{
 						Value:     true,
 					},
 				},
-				"if-false": {
+				{
 					Name: "if-false",
 					ConditionalEdge: workflow.ConditionalEdgeMetadata{
 						Value:     false,
@@ -47,7 +47,9 @@ func IfFunctionMetadata() workflow.FunctionMetadata {
 }
 
 // IfFunction executes the if function and returns the result
-func IfFunction(_ *workflow.ExecutionInfo, input *workflow.FunctionInput) (workflow.FunctionResult, error) {
+func IfFunction(execInfo *workflow.ExecutionInfo) (workflow.FunctionResult, error) {
+	input := execInfo.Input
+
 	exprStr, ok := input.Get("expression").(string)
 	if !ok || exprStr == "" {
 		return workflow.NewFunctionResultError(fmt.Errorf("expression is empty"))

@@ -2,14 +2,14 @@ package workflow
 
 import (
 	"fmt"
-	"github.com/open-source-cloud/fuse/pkg/workflow"
+	"github.com/open-source-cloud/fuse/internal/packages"
 )
 
 type (
 	// Node is a Graph Node
 	Node struct {
 		schema           *NodeSchema
-		functionMetadata workflow.FunctionMetadata
+		functionMetadata *packages.FunctionMetadata
 		thread           uint16
 		parentThreads    []uint16
 		inputEdges       []*Edge
@@ -54,7 +54,7 @@ func (n *Node) Thread() uint16 {
 }
 
 // FunctionMetadata function metadata for this Node
-func (n *Node) FunctionMetadata() workflow.FunctionMetadata {
+func (n *Node) FunctionMetadata() *packages.FunctionMetadata {
 	return n.functionMetadata
 }
 

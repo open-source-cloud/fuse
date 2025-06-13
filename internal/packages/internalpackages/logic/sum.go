@@ -11,8 +11,8 @@ const SumFunctionID = "sum"
 func SumFunctionMetadata() workflow.FunctionMetadata {
 	return workflow.FunctionMetadata{
 		Input: workflow.InputMetadata{
-			Parameters: workflow.Parameters{
-				"values": workflow.ParameterSchema{
+			Parameters: []workflow.ParameterSchema{
+				{
 					Name:        "values",
 					Type:        "[]float64",
 					Required:    true,
@@ -23,8 +23,8 @@ func SumFunctionMetadata() workflow.FunctionMetadata {
 			},
 		},
 		Output: workflow.OutputMetadata{
-			Parameters: workflow.Parameters{
-				"result": workflow.ParameterSchema{
+			Parameters: []workflow.ParameterSchema{
+				{
 					Name:        "sum",
 					Type:        "float64",
 					Validations: nil,
@@ -37,9 +37,9 @@ func SumFunctionMetadata() workflow.FunctionMetadata {
 }
 
 // SumFunction executes the sum function and returns the sum of the values
-func SumFunction(_ *workflow.ExecutionInfo, input *workflow.FunctionInput) (workflow.FunctionResult, error) {
+func SumFunction(execInfo *workflow.ExecutionInfo) (workflow.FunctionResult, error) {
 	sum := float64(0)
-	values := input.GetFloat64SliceOrDefault("values", []float64{})
+	values := execInfo.Input.GetFloat64SliceOrDefault("values", []float64{})
 
 	for _, value := range values {
 		sum += value

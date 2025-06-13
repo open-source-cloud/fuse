@@ -60,11 +60,10 @@ func (f *GraphFactory) populateMetadata(graph *Graph) error {
 		if err != nil {
 			return err
 		}
-		pkgFn, err := pkg.GetFunction(node.schema.Function)
+		node.functionMetadata, err = pkg.GetFunctionMetadata(node.schema.Function)
 		if err != nil {
 			return err
 		}
-		node.functionMetadata = pkgFn.Metadata()
 	}
 	return nil
 }

@@ -1,4 +1,4 @@
-// Package di dependency injection
+// LoadedPackage di dependency injection
 package di
 
 import (
@@ -8,8 +8,7 @@ import (
 	"github.com/open-source-cloud/fuse/internal/actors"
 	"github.com/open-source-cloud/fuse/internal/handlers"
 	"github.com/open-source-cloud/fuse/internal/packages"
-	"github.com/open-source-cloud/fuse/internal/packages/debug"
-	"github.com/open-source-cloud/fuse/internal/packages/logic"
+	"github.com/open-source-cloud/fuse/internal/packages/internalpackages"
 	"github.com/open-source-cloud/fuse/internal/repos"
 	"github.com/open-source-cloud/fuse/internal/workflow"
 	"github.com/open-source-cloud/fuse/logging"
@@ -38,6 +37,8 @@ var WorkerModule = fx.Module(
 		handlers.NewUpsertWorkflowSchemaHandlerFactory,
 		handlers.NewTriggerWorkflowHandlerFactory,
 		handlers.NewHealthCheckHandler,
+		handlers.NewPackagesHandler,
+		handlers.NewRegisterPackagesHandler,
 		actors.NewWorkers,
 	),
 	fx.Invoke(func(
@@ -46,11 +47,15 @@ var WorkerModule = fx.Module(
 		asyncFunctionResultHandlerFactory *handlers.AsyncFunctionResultHandlerFactory,
 		upsertWorkflowSchemaHandlerFactory *handlers.UpsertWorkflowSchemaHandlerFactory,
 		triggerWorkflowHandlerFactory *handlers.TriggerWorkflowHandlerFactory,
+		packagesHandlerFactory *handlers.PackagesHandlerFactory,
+		registerPackagesHandlerFactory *handlers.RegisterPackagesHandlerFactory,
 	) {
 		workers.AddFactory(handlers.HealthCheckHandlerName, healthCheckHandlerFactory.Factory)
 		workers.AddFactory(handlers.AsyncFunctionResultHandlerName, asyncFunctionResultHandlerFactory.Factory)
 		workers.AddFactory(handlers.UpsertWorkflowSchemaHandlerName, upsertWorkflowSchemaHandlerFactory.Factory)
 		workers.AddFactory(handlers.TriggerWorkflowHandlerName, triggerWorkflowHandlerFactory.Factory)
+		workers.AddFactory(handlers.PackagesHandlerName, packagesHandlerFactory.Factory)
+		workers.AddFactory(handlers.RegisterPackagesHandlerName, registerPackagesHandlerFactory.Factory)
 	}),
 )
 
@@ -98,21 +103,17 @@ var FuseAppModule = fx.Module(
 	"fuse_app",
 	fx.Provide(
 		app.NewApp,
+		internalpackages.New,
 	),
 	// eager loading
 	fx.Invoke(func(
 		_ repos.GraphRepo,
 		_ repos.WorkflowRepo,
-		registry packages.Registry,
 		_ gen.Node,
+		internalPackages *internalpackages.InternalPackages,
 	) {
-		listOfInternalPackages := []packages.Package{
-			debug.New(),
-			logic.New(),
-		}
-		for _, pkg := range listOfInternalPackages {
-			registry.Register(pkg.ID(), pkg)
-		}
+		// register internal packages
+		internalPackages.Register()
 	}),
 )
 
