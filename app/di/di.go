@@ -61,6 +61,7 @@ var FuseAppModule = fx.Module(
 			debug.New(),
 			logic.New(),
 		}
+
 		for _, pkg := range listOfInternalPackages {
 			registry.Register(pkg.ID(), pkg)
 		}
@@ -70,9 +71,10 @@ var FuseAppModule = fx.Module(
 // AllModules FX module with the complete application + base providers
 var AllModules = fx.Options(
 	CommonModule,
+	MongoModule,
+	RepoModule,
 	WorkerModule,
 	ActorModule,
-	RepoModule,
 	PackageModule,
 	WorkflowModule,
 	FuseAppModule,

@@ -24,9 +24,10 @@ type (
 
 	// DatabaseConfig represents the configuration settings required to connect to a database.
 	DatabaseConfig struct {
-		Driver string `env:"DB_DRIVER" envDefault:"memory"`
-		Name   string `env:"DB_NAME" envDefault:"fuse"`
-		URL    string `env:"DB_URL"`
+		Driver     string `env:"DB_DRIVER" envDefault:"memory"`
+		Name       string `env:"DB_NAME" envDefault:"fuse"`
+		URL        string `env:"DB_URL"`
+		AuthSource string `env:"DB_AUTH_SOURCE" envDefault:"admin"`
 	}
 
 	// ServerConfig http server config

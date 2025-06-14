@@ -14,7 +14,6 @@ var RepoModule = fx.Module(
 	fx.Provide(
 		provideGraphRepository,
 		provideWorkflowRepository,
-		provideMongoClient,
 	),
 )
 
@@ -22,30 +21,25 @@ var RepoModule = fx.Module(
 func provideGraphRepository(cfg *config.Config, mongoClient *mongo.Client) repositories.GraphRepository {
 	log.Info().Msgf("using graph repository driver: %s", cfg.Database.Driver)
 
-	switch cfg.Database.Driver {
-	case mongodbDriver, mongoDriver:
+	if IsDriverEnabled(cfg.Database.Driver, mongoDriver) && mongoClient != nil {
 		log.Info().Msg("using mongodb graph repository")
 		return repositories.NewMongoGraphRepository(mongoClient, cfg)
-	case memoryDriver, "":
-		log.Info().Msg("using memory graph repository")
-		return repositories.NewMemoryGraphRepository()
-	default:
-		return repositories.NewMemoryGraphRepository()
 	}
+
+	log.Info().Msg("using memory graph repository")
+	return repositories.NewMemoryGraphRepository()
 }
 
 // provideWorkflowRepository provides the appropriate WorkflowRepository based on config
 func provideWorkflowRepository(cfg *config.Config, mongoClient *mongo.Client) repositories.WorkflowRepository {
 	log.Info().Msgf("using workflow repository driver: %s", cfg.Database.Driver)
 
-	switch cfg.Database.Driver {
-	case mongodbDriver, mongoDriver:
+	if IsDriverEnabled(cfg.Database.Driver, mongoDriver) && mongoClient != nil {
 		log.Info().Msg("using mongodb workflow repository")
 		return repositories.NewMongoWorkflowRepository(mongoClient, cfg)
-	case memoryDriver, "":
-		log.Info().Msg("using memory workflow repository")
-		return repositories.NewMemoryWorkflowRepository()
-	default:
-		return repositories.NewMemoryWorkflowRepository()
 	}
+
+	log.Info().Msg("using memory workflow repository")
+
+	return repositories.NewMemoryWorkflowRepository()
 }

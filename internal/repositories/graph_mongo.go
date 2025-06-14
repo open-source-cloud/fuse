@@ -2,17 +2,19 @@ package repositories
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/open-source-cloud/fuse/internal/workflow"
+	"github.com/open-source-cloud/fuse/pkg/utils"
+	"github.com/rs/zerolog/log"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 const (
 	// graphCollection is the name of the collection in MongoDB
-	graphCollection = "graphs"
+	GraphCollection = "graphs"
 )
 
 // MongoGraphRepository is a MongoDB implementation of the GraphRepository interface
@@ -25,8 +27,9 @@ type MongoGraphRepository struct {
 
 // NewMongoGraphRepository creates a new MongoDB GraphRepository
 func NewMongoGraphRepository(client *mongo.Client, config *config.Config) GraphRepository {
-	database := client.Database(config.Database.Name)
-	collection := database.Collection(graphCollection)
+	dbName := utils.SerializeString(config.Database.Name)
+	database := client.Database(dbName)
+	collection := database.Collection(GraphCollection)
 	return &MongoGraphRepository{
 		config:     config,
 		client:     client,
@@ -39,40 +42,71 @@ func NewMongoGraphRepository(client *mongo.Client, config *config.Config) GraphR
 func (m *MongoGraphRepository) FindByID(id string) (*workflow.Graph, error) {
 	ctx := context.Background()
 
-	var result bson.M
-	err := m.collection.FindOne(ctx, bson.M{"_id": id}).Decode(&result)
+	var schema workflow.GraphSchema
+	err := m.collection.FindOne(ctx, bson.M{"id": id}).Decode(&schema)
 	if err != nil {
+		log.Error().Msgf("failed to find graph %s: %v", id, err)
 		if err == mongo.ErrNoDocuments {
-			return nil, fmt.Errorf("graph %s not found", id)
+			return nil, ErrGraphNotFound
 		}
-		return nil, fmt.Errorf("failed to find graph %s: %w", id, err)
+		return nil, err
 	}
 
-	// TODO: Implement proper BSON to Graph conversion
-	// For now, this is a placeholder - you'll need to implement proper serialization
-	return nil, fmt.Errorf("MongoDB FindByID not fully implemented yet")
+	graph, err := workflow.NewGraphFromSchema(&schema)
+	if err != nil {
+		log.Error().Msgf("failed to create graph from schema: %v", err)
+		return nil, err
+	}
+
+	return graph, nil
 }
 
 // Save stores a graph in MongoDB
 func (m *MongoGraphRepository) Save(graph *workflow.Graph) error {
 	ctx := context.Background()
 
-	// TODO: Implement proper Graph to BSON conversion
-	// For now, this is a placeholder - you'll need to implement proper serialization
-	document := bson.M{
-		"_id": graph.ID(),
-		// Add other graph fields here
-	}
+	log.Info().Msgf("saving graph %s", graph.ID())
 
-	_, err := m.collection.ReplaceOne(
+	schema := graph.Schema()
+
+	result, err := m.collection.ReplaceOne(
 		ctx,
-		bson.M{"_id": graph.ID()},
-		document,
-		nil, // Use default ReplaceOptions
+		bson.M{"id": schema.ID},
+		schema,
+		options.Replace().SetUpsert(true),
 	)
 	if err != nil {
-		return fmt.Errorf("failed to save graph %s: %w", graph.ID(), err)
+		log.Error().Msgf("failed to save graph %s: %v", schema.ID, err)
+		return err
 	}
+
+	if result.UpsertedCount > 0 {
+		log.Info().Msgf("graph %s upserted", schema.ID)
+		return nil
+	}
+
+	if result.ModifiedCount > 0 {
+		log.Info().Msgf("graph %s modified", schema.ID)
+		return nil
+	}
+
+	log.Info().Msgf("graph %s not found, creating new one", schema.ID)
+	return m.createGraph(schema)
+}
+
+// createGraph creates a new graph in graphs collection
+func (m *MongoGraphRepository) createGraph(graph *workflow.GraphSchema) error {
+	ctx := context.Background()
+
+	log.Info().Msgf("creating graph %s", graph.ID)
+
+	_, err := m.collection.InsertOne(ctx, graph)
+	if err != nil {
+		log.Error().Msgf("failed to create graph %s: %v", graph.ID, err)
+		return err
+	}
+
+	log.Info().Msgf("graph %s created", graph.ID)
 
 	return nil
 }
