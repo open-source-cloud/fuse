@@ -30,6 +30,7 @@ type (
 		Mongo  MongoConfig
 	}
 
+	// MongoConfig represents the configuration settings required to connect to a MongoDB database.
 	MongoConfig struct {
 		AuthSource string `env:"MONGO_AUTH_SOURCE" envDefault:"admin"`
 	}
