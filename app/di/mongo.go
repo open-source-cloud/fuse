@@ -44,15 +44,20 @@ func provideMongoClient(cfg *config.Config) *mongo.Client {
 		return nil
 	}
 
-	uri := fmt.Sprintf("%s?authSource=%s", cfg.Database.URL, cfg.Database.AuthSource)
+	mongoCfg := cfg.Database.Mongo
+	authSource := utils.SerializeString(mongoCfg.AuthSource)
+	uri := cfg.Database.URL
+	if authSource != "" {
+		uri = fmt.Sprintf("%s?authSource=%s", uri, authSource)
+	}
 	clientOptions := options.Client().ApplyURI(uri)
 
 	// To understand the options, see: https://www.mongodb.com/docs/drivers/go/current/fundamentals/bson/
 	clientOptions.SetBSONOptions(&options.BSONOptions{
 		UseJSONStructTags:   true,
-		NilMapAsEmpty:       true,
-		NilSliceAsEmpty:     true,
-		NilByteSliceAsEmpty: true,
+		NilMapAsEmpty:       false,
+		NilSliceAsEmpty:     false,
+		NilByteSliceAsEmpty: false,
 		OmitEmpty:           true,
 	})
 
