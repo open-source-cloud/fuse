@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	// graphCollection is the name of the collection in MongoDB
-	GraphCollection = "graphs"
+	// GraphMongoCollection is the name of the collection in MongoDB
+	GraphMongoCollection = "graphs"
 )
 
 // MongoGraphRepository is a MongoDB implementation of the GraphRepository interface
@@ -29,7 +29,7 @@ type MongoGraphRepository struct {
 func NewMongoGraphRepository(client *mongo.Client, config *config.Config) GraphRepository {
 	dbName := utils.SerializeString(config.Database.Name)
 	database := client.Database(dbName)
-	collection := database.Collection(GraphCollection)
+	collection := database.Collection(GraphMongoCollection)
 	return &MongoGraphRepository{
 		config:     config,
 		client:     client,

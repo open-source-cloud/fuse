@@ -1,19 +1,22 @@
 package repositories
 
 import (
-	"context"
-	"fmt"
+	"errors"
 
 	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/open-source-cloud/fuse/internal/workflow"
 	"github.com/open-source-cloud/fuse/pkg/utils"
-	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
+var (
+	// ErrWorkflowMongoNotImplemented is returned when a workflow operation is not implemented
+	ErrWorkflowMongoNotImplemented = errors.New("workflow mongo not implemented")
+)
+
 const (
-	// workflowCollection is the name of the collection in MongoDB
-	WorkflowCollection = "workflows"
+	// WorkflowMongoCollection is the name of the collection in MongoDB
+	WorkflowMongoCollection = "workflows"
 )
 
 // MongoWorkflowRepository is a MongoDB implementation of the WorkflowRepository interface
@@ -30,7 +33,7 @@ type MongoWorkflowRepository struct {
 func NewMongoWorkflowRepository(client *mongo.Client, config *config.Config) WorkflowRepository {
 	dbName := utils.SerializeString(config.Database.Name)
 	database := client.Database(dbName)
-	collection := database.Collection(WorkflowCollection)
+	collection := database.Collection(WorkflowMongoCollection)
 
 	return &MongoWorkflowRepository{
 		config:     config,
@@ -41,55 +44,16 @@ func NewMongoWorkflowRepository(client *mongo.Client, config *config.Config) Wor
 }
 
 // Exists checks if a workflow exists in MongoDB
-func (m *MongoWorkflowRepository) Exists(id string) bool {
-	ctx := context.Background()
-
-	count, err := m.collection.CountDocuments(ctx, bson.M{"_id": id})
-	if err != nil {
-		return false
-	}
-
-	return count > 0
+func (m *MongoWorkflowRepository) Exists(_ string) bool {
+	return false
 }
 
 // Get retrieves a workflow from MongoDB
-func (m *MongoWorkflowRepository) Get(id string) (*workflow.Workflow, error) {
-	ctx := context.Background()
-
-	var result bson.M
-	err := m.collection.FindOne(ctx, bson.M{"_id": id}).Decode(&result)
-	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			return nil, fmt.Errorf("workflow %s not found", id)
-		}
-		return nil, fmt.Errorf("failed to find workflow %s: %w", id, err)
-	}
-
-	// TODO: Implement proper BSON to Workflow conversion
-	// For now, this is a placeholder - you'll need to implement proper serialization
-	return nil, fmt.Errorf("MongoDB Get not fully implemented yet")
+func (m *MongoWorkflowRepository) Get(_ string) (*workflow.Workflow, error) {
+	return nil, ErrWorkflowMongoNotImplemented
 }
 
 // Save stores a workflow in MongoDB
-func (m *MongoWorkflowRepository) Save(workflow *workflow.Workflow) error {
-	ctx := context.Background()
-
-	// TODO: Implement proper Workflow to BSON conversion
-	// For now, this is a placeholder - you'll need to implement proper serialization
-	document := bson.M{
-		"_id": workflow.ID().String(),
-		// Add other workflow fields here
-	}
-
-	_, err := m.collection.ReplaceOne(
-		ctx,
-		bson.M{"_id": workflow.ID().String()},
-		document,
-		nil, // Use default ReplaceOptions
-	)
-	if err != nil {
-		return fmt.Errorf("failed to save workflow %s: %w", workflow.ID().String(), err)
-	}
-
-	return nil
+func (m *MongoWorkflowRepository) Save(_ *workflow.Workflow) error {
+	return ErrWorkflowMongoNotImplemented
 }

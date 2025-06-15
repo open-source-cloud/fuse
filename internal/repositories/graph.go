@@ -8,6 +8,7 @@ import (
 )
 
 var (
+	// ErrGraphNotFound is returned when a graph is not found
 	ErrGraphNotFound = errors.New("graph not found")
 )
 
