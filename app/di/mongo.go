@@ -31,16 +31,16 @@ var MongoModule = fx.Module(
 
 // mongoCollections is the list of collections that will have indexes created
 var mongoCollections = []string{
-	repositories.GraphCollection,
-	repositories.WorkflowCollection,
+	repositories.GraphMongoCollection,
+	repositories.WorkflowMongoCollection,
 }
 
 // provideMongoClient provides a MongoDB client if the driver is MongoDB, otherwise returns nil
 func provideMongoClient(cfg *config.Config) *mongo.Client {
-	log.Info().Msgf("providing mongo client, driver: %s", cfg.Database.Driver)
+	log.Debug().Msgf("providing mongo client, driver: %s", cfg.Database.Driver)
 
 	if !IsDriverEnabled(cfg.Database.Driver, mongoDriver) {
-		log.Info().Msgf("not providing mongo client, driver: %s", cfg.Database.Driver)
+		log.Debug().Msgf("not providing mongo client, driver: %s", cfg.Database.Driver)
 		return nil
 	}
 
@@ -56,14 +56,14 @@ func provideMongoClient(cfg *config.Config) *mongo.Client {
 		OmitEmpty:           true,
 	})
 
-	log.Info().Msg("connecting to mongodb")
+	log.Debug().Msg("connecting to mongodb")
 
 	client, err := mongo.Connect(clientOptions)
 	if err != nil {
 		log.Fatal().Msgf("Failed to connect to MongoDB: %v", err)
 	}
 
-	log.Info().Msg("connected to mongodb")
+	log.Debug().Msg("connected to mongodb")
 
 	// Test the connection
 	ctx := context.Background()
@@ -71,7 +71,7 @@ func provideMongoClient(cfg *config.Config) *mongo.Client {
 		log.Fatal().Msgf("Failed to ping MongoDB: %v", err)
 	}
 
-	log.Info().Msg("pinged mongodb")
+	log.Debug().Msg("pinged mongodb")
 
 	return client
 }
@@ -85,46 +85,37 @@ func createCollectionsIndexes(
 	database := mongoClient.Database(dbName)
 
 	for _, collectionName := range mongoCollections {
-		log.Info().Msgf("creating indexes for collection: %s", collectionName)
-
-		collection := database.Collection(collectionName)
-		idxView := collection.Indexes()
-
-		idxList, err := idxView.List(context.Background(), options.ListIndexes().SetBatchSize(100))
-		if err != nil {
-			log.Error().Msgf("failed to list indexes for collection: %s, error: %v", collectionName, err)
-			return err
-		}
-
 		idxName := fmt.Sprintf("%s_id_idx", collectionName)
-
-		for idxList.Next(context.Background()) {
-			idx := bson.M{}
-			if err := idxList.Decode(&idx); err != nil {
-				log.Error().Msgf("failed to decode index for collection: %s, error: %v", collectionName, err)
-				return err
-			}
-			log.Info().Msgf("index: %v", idx)
-			if idx["name"] == idxName {
-				log.Info().Msgf("index already exists for collection: %s", collectionName)
-				continue
-			}
-		}
-
-		opts := options.Index().SetUnique(true).SetName(idxName)
-
-		// create the index
-		_, err = idxView.CreateOne(context.Background(), mongo.IndexModel{
-			Keys:    bson.M{"id": 1},
-			Options: opts,
-		})
-
-		if err != nil {
-			log.Error().Msgf("failed to create index for collection: %s, error: %v", collectionName, err)
+		log.Debug().Msgf("creating index for collection: %s, name: %s", collectionName, idxName)
+		if err := createIndexIfNotExists(database.Collection(collectionName), idxName); err != nil {
 			return err
 		}
+		log.Debug().Msgf("index created for collection: %s, idx: %s", collectionName, idxName)
+	}
 
-		log.Info().Msgf("index created for collection: %s", collectionName)
+	return nil
+}
+
+// createIndexIfNotExists creates an index for a collection if it does not exist
+func createIndexIfNotExists(
+	collection *mongo.Collection,
+	idxName string,
+) error {
+	idxView := collection.Indexes()
+
+	opts := options.Index().SetUnique(true).SetName(idxName)
+
+	_, err := idxView.CreateOne(context.Background(), mongo.IndexModel{
+		Keys:    bson.M{"id": 1},
+		Options: opts,
+	})
+
+	if err != nil {
+		if mongo.IsDuplicateKeyError(err) {
+			log.Debug().Msgf("index already exists for collection: %s", collection.Name())
+			return nil
+		}
+		return fmt.Errorf("failed to create index for collection: %s, error: %v", collection.Name(), err)
 	}
 
 	return nil
