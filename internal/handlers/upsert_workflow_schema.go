@@ -1,12 +1,13 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 
 	"ergo.services/ergo/gen"
-	"github.com/open-source-cloud/fuse/internal/repos"
+	"github.com/open-source-cloud/fuse/internal/repositories"
 	"github.com/open-source-cloud/fuse/internal/workflow"
 )
 
@@ -14,8 +15,8 @@ type (
 	// UpsertWorkflowSchemaHandler is the handler for the UpsertWorkflowSchema endpoint
 	UpsertWorkflowSchemaHandler struct {
 		Handler
-		graphFactory *workflow.GraphFactory
-		graphRepo    repos.GraphRepo
+		graphFactory    *workflow.GraphFactory
+		graphRepository repositories.GraphRepository
 	}
 	// UpsertWorkflowSchemaHandlerFactory is a factory for creating UpsertWorkflowSchemaHandler actors
 	UpsertWorkflowSchemaHandlerFactory HandlerFactory[*UpsertWorkflowSchemaHandler]
@@ -29,64 +30,70 @@ const (
 )
 
 // NewUpsertWorkflowSchemaHandlerFactory creates a new NewUpsertWorkflowSchemaHandlerFactory
-func NewUpsertWorkflowSchemaHandlerFactory(graphFactory *workflow.GraphFactory, graphRepo repos.GraphRepo) *UpsertWorkflowSchemaHandlerFactory {
+func NewUpsertWorkflowSchemaHandlerFactory(graphFactory *workflow.GraphFactory, graphRepository repositories.GraphRepository) *UpsertWorkflowSchemaHandlerFactory {
 	return &UpsertWorkflowSchemaHandlerFactory{
 		Factory: func() gen.ProcessBehavior {
 			return &UpsertWorkflowSchemaHandler{
-				graphFactory: graphFactory,
-				graphRepo:    graphRepo,
+				graphFactory:    graphFactory,
+				graphRepository: graphRepository,
 			}
 		},
 	}
 }
 
-// HandlePut handles the UpsertWorkflowSchema http endpoint (PUT /v1/schemas/{schemaID})
+// HandlePut handles the UpsertWorkflowSchema http endpoint -- PUT /v1/schemas/{schemaID}
 func (h *UpsertWorkflowSchemaHandler) HandlePut(from gen.PID, w http.ResponseWriter, r *http.Request) error {
 	h.Log().Info("received upsert workflow schema request", "from", from, "remoteAddr", r.RemoteAddr)
 
 	schemaID, err := h.GetPathParam(r, "schemaID")
 	if err != nil {
-		return h.SendJSON(w, http.StatusBadRequest, Response{
-			"message": "schemaID is required",
-			"code":    BadRequest,
-		})
+		return h.SendBadRequest(w, err, []string{"schemaID is required"})
 	}
 
 	h.Log().Info("upserting workflow schema", "from", from, "schemaID", schemaID)
 
 	rawJSON, err := io.ReadAll(r.Body)
 	if err != nil {
-		msg := fmt.Sprintf("failed to read request body: %s", err)
-		h.Log().Error(msg)
-		return h.SendJSON(w, http.StatusBadRequest, Response{
-			"message": msg,
-			"code":    BadRequest,
-		})
+		return h.SendBadRequest(w, err, EmptyFields)
 	}
 
 	graph, err := h.graphFactory.NewGraphFromJSON(rawJSON)
 	if err != nil {
-		msg := fmt.Sprintf("failed to parse request body: %s", err)
-		h.Log().Error(msg)
-		return h.SendJSON(w, http.StatusBadRequest, Response{
-			"message": msg,
-			"code":    BadRequest,
-		})
+		return h.SendBadRequest(w, err, EmptyFields)
 	}
 
-	if err = h.graphRepo.Save(graph); err != nil {
-		msg := fmt.Sprintf("failed to save graph: %s", err)
-		h.Log().Error(msg)
-		return h.SendJSON(w, http.StatusInternalServerError, Response{
-			"message": msg,
-			"code":    InternalServerError,
-		})
+	if err = h.graphRepository.Save(graph); err != nil {
+		// TODO: Handle better the message & code when graphRepo.save returns err != nil
+		return h.SendInternalError(w, err)
 	}
 
 	h.Log().Info("upserted workflow schema", "from", from, "schemaID", schemaID, "workflowID", graph.ID())
 
 	return h.SendJSON(w, http.StatusOK, Response{
 		"schemaId": schemaID,
-		"code":     "OK",
 	})
+}
+
+// HandleGet returns the graph schema to the client -- GET /schemas/:schemaId
+func (h *UpsertWorkflowSchemaHandler) HandleGet(from gen.PID, w http.ResponseWriter, r *http.Request) error {
+	h.Log().Info("received get workflow schema request", "from", from, "remoteAddr", r.RemoteAddr)
+
+	schemaID, err := h.GetPathParam(r, "schemaID")
+	if err != nil {
+		return h.SendJSON(w, http.StatusBadRequest, Response{})
+	}
+
+	h.Log().Info("fetching workflow schema", "from", from, "schemaID", schemaID)
+
+	graph, err := h.graphRepository.FindByID(schemaID)
+	if err != nil {
+		if errors.Is(err, repositories.ErrGraphNotFound) {
+			return h.SendNotFound(w, fmt.Sprintf("schema %s not found", schemaID), EmptyFields)
+		}
+		return h.SendInternalError(w, err)
+	}
+
+	h.Log().Info("schema found", "from", from, "schemaID", schemaID)
+
+	return h.SendJSON(w, http.StatusOK, graph.Schema())
 }

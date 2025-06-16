@@ -5,12 +5,10 @@ import (
 	"ergo.services/ergo/gen"
 	"github.com/open-source-cloud/fuse/app"
 	"github.com/open-source-cloud/fuse/app/config"
-	"github.com/open-source-cloud/fuse/internal/actors"
-	"github.com/open-source-cloud/fuse/internal/handlers"
 	"github.com/open-source-cloud/fuse/internal/packages"
 	"github.com/open-source-cloud/fuse/internal/packages/debug"
 	"github.com/open-source-cloud/fuse/internal/packages/logic"
-	"github.com/open-source-cloud/fuse/internal/repos"
+	"github.com/open-source-cloud/fuse/internal/repositories"
 	"github.com/open-source-cloud/fuse/internal/workflow"
 	"github.com/open-source-cloud/fuse/logging"
 	"github.com/rs/zerolog"
@@ -28,53 +26,6 @@ var CommonModule = fx.Module(
 	fx.Invoke(func(_ zerolog.Logger) {
 		// forces the initialization of the zerolog.Logger dependency
 	}),
-)
-
-// WorkerModule FX module with the worker providers
-var WorkerModule = fx.Module(
-	"worker",
-	fx.Provide(
-		handlers.NewAsyncFunctionResultHandlerFactory,
-		handlers.NewUpsertWorkflowSchemaHandlerFactory,
-		handlers.NewTriggerWorkflowHandlerFactory,
-		handlers.NewHealthCheckHandler,
-		actors.NewWorkers,
-	),
-	fx.Invoke(func(
-		workers *actors.Workers,
-		healthCheckHandlerFactory *handlers.HealthCheckHandlerFactory,
-		asyncFunctionResultHandlerFactory *handlers.AsyncFunctionResultHandlerFactory,
-		upsertWorkflowSchemaHandlerFactory *handlers.UpsertWorkflowSchemaHandlerFactory,
-		triggerWorkflowHandlerFactory *handlers.TriggerWorkflowHandlerFactory,
-	) {
-		workers.AddFactory(handlers.HealthCheckHandlerName, healthCheckHandlerFactory.Factory)
-		workers.AddFactory(handlers.AsyncFunctionResultHandlerName, asyncFunctionResultHandlerFactory.Factory)
-		workers.AddFactory(handlers.UpsertWorkflowSchemaHandlerName, upsertWorkflowSchemaHandlerFactory.Factory)
-		workers.AddFactory(handlers.TriggerWorkflowHandlerName, triggerWorkflowHandlerFactory.Factory)
-	}),
-)
-
-// ActorModule FX module with the actor providers
-var ActorModule = fx.Module(
-	"actor",
-	fx.Provide(
-		actors.NewMuxServerSupFactory,
-		actors.NewMuxServerFactory,
-		actors.NewWorkflowSupervisorFactory,
-		actors.NewWorkflowInstanceSupervisorFactory,
-		actors.NewWorkflowHandlerFactory,
-		actors.NewWorkflowFuncPoolFactory,
-		actors.NewWorkflowFuncFactory,
-	),
-)
-
-// RepoModule FX module with the repo providers
-var RepoModule = fx.Module(
-	"repo",
-	fx.Provide(
-		repos.NewMemoryGraphRepo,
-		repos.NewMemoryWorkflowRepo,
-	),
 )
 
 // PackageModule FX module with the package providers
@@ -101,8 +52,8 @@ var FuseAppModule = fx.Module(
 	),
 	// eager loading
 	fx.Invoke(func(
-		_ repos.GraphRepo,
-		_ repos.WorkflowRepo,
+		_ repositories.GraphRepository,
+		_ repositories.WorkflowRepository,
 		registry packages.Registry,
 		_ gen.Node,
 	) {
@@ -110,6 +61,7 @@ var FuseAppModule = fx.Module(
 			debug.New(),
 			logic.New(),
 		}
+
 		for _, pkg := range listOfInternalPackages {
 			registry.Register(pkg.ID(), pkg)
 		}
@@ -119,9 +71,10 @@ var FuseAppModule = fx.Module(
 // AllModules FX module with the complete application + base providers
 var AllModules = fx.Options(
 	CommonModule,
+	MongoModule,
+	RepoModule,
 	WorkerModule,
 	ActorModule,
-	RepoModule,
 	PackageModule,
 	WorkflowModule,
 	FuseAppModule,

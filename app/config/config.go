@@ -24,18 +24,20 @@ type (
 
 	// DatabaseConfig represents the configuration settings required to connect to a database.
 	DatabaseConfig struct {
-		Driver string `env:"DB_DRIVER"`
-		Host   string `env:"DB_HOST"`
-		Port   string `env:"DB_PORT"`
-		User   string `env:"DB_USER"`
-		Pass   string `env:"DB_PASS"`
-		Name   string `env:"DB_NAME"`
-		TLS    bool   `env:"DB_TLS" `
+		Driver string `env:"DB_DRIVER" envDefault:"memory"`
+		Name   string `env:"DB_NAME" envDefault:"fuse"`
+		URL    string `env:"DB_URL"`
+		Mongo  MongoConfig
+	}
+
+	// MongoConfig represents the configuration settings required to connect to a MongoDB database.
+	MongoConfig struct {
+		AuthSource string `env:"MONGO_AUTH_SOURCE" envDefault:"admin"`
 	}
 
 	// ServerConfig http server config
 	ServerConfig struct {
-		Port uint16 `env:"SERVER_PORT" envDefault:"9090"`
+		Port string `env:"SERVER_PORT" envDefault:"9090"`
 		Host string `env:"SERVER_HOST" envDefault:"localhost"`
 	}
 )

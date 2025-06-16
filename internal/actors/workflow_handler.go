@@ -8,7 +8,7 @@ import (
 	"ergo.services/ergo/gen"
 	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/open-source-cloud/fuse/internal/messaging"
-	"github.com/open-source-cloud/fuse/internal/repos"
+	"github.com/open-source-cloud/fuse/internal/repositories"
 	"github.com/open-source-cloud/fuse/internal/workflow"
 	pkgworkflow "github.com/open-source-cloud/fuse/pkg/workflow"
 )
@@ -19,15 +19,15 @@ type WorkflowHandlerFactory ActorFactory[*WorkflowHandler]
 // NewWorkflowHandlerFactory DI method for creating the WorkflowHandler factory
 func NewWorkflowHandlerFactory(
 	cfg *config.Config,
-	graphRepo repos.GraphRepo,
-	workflowRepo repos.WorkflowRepo,
+	graphRepository repositories.GraphRepository,
+	workflowRepository repositories.WorkflowRepository,
 ) *WorkflowHandlerFactory {
 	return &WorkflowHandlerFactory{
 		Factory: func() gen.ProcessBehavior {
 			return &WorkflowHandler{
-				config:       cfg,
-				graphRepo:    graphRepo,
-				workflowRepo: workflowRepo,
+				config:             cfg,
+				graphRepository:    graphRepository,
+				workflowRepository: workflowRepository,
 			}
 		},
 	}
@@ -38,9 +38,9 @@ type (
 	WorkflowHandler struct {
 		act.Actor
 
-		config       *config.Config
-		graphRepo    repos.GraphRepo
-		workflowRepo repos.WorkflowRepo
+		config             *config.Config
+		graphRepository    repositories.GraphRepository
+		workflowRepository repositories.WorkflowRepository
 
 		workflow *workflow.Workflow
 	}
@@ -107,8 +107,8 @@ func (a *WorkflowHandler) handleMsgActorInit(msg messaging.Message) error {
 		return nil
 	}
 
-	if a.workflowRepo.Exists(initArgs.workflowID.String()) {
-		a.workflow, _ = a.workflowRepo.Get(initArgs.workflowID.String())
+	if a.workflowRepository.Exists(initArgs.workflowID.String()) {
+		a.workflow, _ = a.workflowRepository.Get(initArgs.workflowID.String())
 		var action workflow.Action
 		if a.workflow.State() == workflow.StateUntriggered {
 			action = a.workflow.Trigger()
@@ -121,13 +121,13 @@ func (a *WorkflowHandler) handleMsgActorInit(msg messaging.Message) error {
 	}
 
 	// doesnt exist - create
-	graphRef, err := a.graphRepo.Get(initArgs.schemaID)
+	graphRef, err := a.graphRepository.FindByID(initArgs.schemaID)
 	if err != nil {
 		a.Log().Error("failed to get graph for schema id %s: %s", initArgs.schemaID, err)
 		return gen.TerminateReasonPanic
 	}
 	a.workflow = workflow.New(initArgs.workflowID, graphRef)
-	if a.workflowRepo.Save(a.workflow) != nil {
+	if a.workflowRepository.Save(a.workflow) != nil {
 		a.Log().Error("failed to save workflow for id %s: %s", initArgs.workflowID, err)
 		return nil
 	}

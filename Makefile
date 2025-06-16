@@ -4,7 +4,8 @@ GOTESTSUM := $(shell go env GOPATH)/bin/gotestsum
 GOLANGCI_LINT := $(shell go env GOPATH)/bin/golangci-lint
 
 run:
-	go run cmd/fuse/main.go
+	go build -o bin/fuse cmd/fuse/main.go
+	./bin/fuse server -o -p 9090 -l debug
 
 test:
 	$(GOTESTSUM) --junitfile test-report.xml --format testdox -- ./pkg/... ./internal/...

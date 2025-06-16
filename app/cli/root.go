@@ -14,7 +14,7 @@ import (
 
 var loglevel string
 var observer bool
-var port uint16
+var port string
 var nocolor bool
 
 // Run runs the CLI
@@ -64,7 +64,6 @@ func setupGlobalConfig() {
 	cfg.Params.LogLevel = loglevel
 	cfg.Params.ActorObserver = observer
 	cfg.Server.Port = port
-
 	color.NoColor = color.NoColor || nocolor
 }
 
@@ -84,11 +83,11 @@ func setupRootFlags(rootCmd *cobra.Command) {
 		false,
 		"Run the actor observer app",
 	)
-	rootCmd.PersistentFlags().Uint16VarP(
+	rootCmd.PersistentFlags().StringVarP(
 		&port,
 		"port",
 		"p",
-		9090,
+		"9090",
 		"Port to listen on for HTTP requests",
 	)
 	rootCmd.PersistentFlags().BoolVar(

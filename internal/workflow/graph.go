@@ -2,9 +2,10 @@ package workflow
 
 import (
 	"fmt"
+	"sort"
+
 	"github.com/TyphonHill/go-mermaid/diagrams/flowchart"
 	"gopkg.in/yaml.v3"
-	"sort"
 )
 
 func newGraphSchemaFromJSON(jsonSpec []byte) (*GraphSchema, error) {
@@ -30,7 +31,7 @@ func newGraphFromJSON(jsonSpec []byte) (*Graph, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newGraphFromSchema(schema)
+	return NewGraphFromSchema(schema)
 }
 
 func newGraphFromYAML(yamlSpec []byte) (*Graph, error) {
@@ -38,10 +39,11 @@ func newGraphFromYAML(yamlSpec []byte) (*Graph, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newGraphFromSchema(schema)
+	return NewGraphFromSchema(schema)
 }
 
-func newGraphFromSchema(schema *GraphSchema) (*Graph, error) {
+// NewGraphFromSchema creates a new graph from a schema
+func NewGraphFromSchema(schema *GraphSchema) (*Graph, error) {
 	graph := &Graph{
 		schema: schema,
 		nodes:  make(map[string]*Node),
@@ -158,7 +160,9 @@ func (g *Graph) MermaidFlowchart() string {
 // calculateThreads assigns thread IDs and parentThreads for nodes in the workflow graph.
 //
 // It handles forks (where a node has multiple outgoing edges) by assigning new threads to each branch. It
-//  handles joins (where a node has multiple incoming edges) by collecting unique parent thread IDs and
+//
+//	handles joins (where a node has multiple incoming edges) by collecting unique parent thread IDs and
+//
 // issuing a new thread for the merged path. Cycles/loops are supported, and parentThreads are stabilized
 // in a second pass to avoid capturing "ghost" threads that never actually contribute a live path.
 //
@@ -333,4 +337,9 @@ func (g *Graph) calculateThreads() {
 			node.parentThreads = nil
 		}
 	}
+}
+
+// Schema returns the schema of the graph
+func (g *Graph) Schema() *GraphSchema {
+	return g.schema
 }
