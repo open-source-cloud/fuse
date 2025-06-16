@@ -1,14 +1,18 @@
 # Fuse Engine - Docker Compose Setup
 
-This setup includes MongoDB (Bitnami) and LocalStack with S3 functionality.
+This setup includes MongoDB and LocalStack with AWS resources.
 
 ## Services
 
-### MongoDB (Bitnami)
+### MongoDB
 
-- **Image**: `bitnami/mongodb:latest`
+- **Image**: `mongo:latest`
 - **Port**: `27017`
 - **Volume**: `mongodb_data:/bitnami/mongodb`
+
+#### ARM
+
+For arm use `arm64v8/mongo` as `$MONGO_DOCKER_IMAGE` instead.
 
 ### LocalStack
 
@@ -17,35 +21,17 @@ This setup includes MongoDB (Bitnami) and LocalStack with S3 functionality.
 - **Services**: S3, SQS, SNS
 - **Volume**: `localstack_data:/tmp/localstack`
 
-### S3 Setup Container
+### Localstack Setup Container
 
 - Automatically runs after LocalStack is ready
-- Creates three S3 buckets:
-  - `fuse-app-bucket` (private)
-  - `fuse-uploads` (public read)
-  - `fuse-backups` (private)
 
 ## Environment Variables
 
-Create a `.env` file with the following variables:
+Create a `.env` file from the .env.example 
 
-```env
-# Env configuration
-APP_NAME="Fuse"
-
-SERVER_PORT=9090
-SERVER_HOST="localhost"
-
-DB_DRIVER="mongodb"
-DB_HOST="localhost"
-DB_PORT=27017
-DB_NAME="fuse"
-DB_USER="fuse"
-DB_PASS="password123"
-DB_TLS=false
+```bash
+cp .env.example .env
 ```
-
-Or just copy the example from .env.example
 
 ## Usage
 
@@ -74,7 +60,7 @@ Or just copy the example from .env.example
 
 ## Accessing Services
 
-- **MongoDB**: `mongodb://admin:password@localhost:27017/fuse`
+- **MongoDB**: `mongodb://root:toor@localhost:27017/fuse`
 - **LocalStack S3**: `http://localhost:4566`
 - **S3 Buckets** (via AWS CLI):
   ```bash
