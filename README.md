@@ -92,43 +92,6 @@ FUSE includes several example workflows in the `examples/` directory:
 4. **Conditional Test** (`small-cond-test.json`): Shows conditional branching
 5. **Random Branch** (`sum-rand-branch.json`): Example of random number generation and branching
 
-### Example Workflow Structure
-
-```json
-{
-  "id": "smallest-test",
-  "name": "Smallest test",
-  "nodes": [
-    {
-      "id": "debug-nil",
-      "function": "fuse/pkg/debug/nil"
-    },
-    {
-      "id": "logic-rand",
-      "function": "fuse/pkg/logic/rand"
-    },
-    {
-      "id": "logic-sum",
-      "function": "fuse/pkg/logic/sum"
-    }
-  ],
-  "edges": [
-    {
-      "id": "edge-1",
-      "from": "debug-nil",
-      "to": "logic-rand",
-      "input": [
-        {
-          "source": "schema",
-          "value": 10,
-          "mapTo": "min"
-        }
-      ]
-    }
-  ]
-}
-```
-
 ## Getting Started
 
 ### Prerequisites
@@ -155,57 +118,9 @@ make test
 make lint
 ```
 
-## Example Usage
-
-```go
-// Define a custom node
-type MyNode struct {
-    id string
-    metadata NodeMetadata
-}
-
-func (n *MyNode) ID() string {
-    return n.id
-}
-
-func (n *MyNode) Metadata() NodeMetadata {
-    return n.metadata
-}
-
-func (n *MyNode) Execute(input NodeInput) (NodeResult, error) {
-    // Process input
-    result := processData(input)
-
-    // Return synchronous result
-    return NewNodeResult(NodeOutputStatusSuccess, result), nil
-}
-
-// Create node metadata
-metadata := NewNodeMetadata(
-    InputOutputMetadata{
-        Parameters: Parameters{
-            "input": ParameterSchema{
-                Name:        "input",
-                Type:        "string",
-                Required:    true,
-                Validations: []string{"len>0"},
-            },
-        },
-    },
-    InputOutputMetadata{
-        Parameters: Parameters{
-            "output": ParameterSchema{
-                Name: "output",
-                Type: "string",
-            },
-        },
-    },
-)
-```
-
 ## Contributing
 
-Please see [CONTRIBUTE.md](docs/CONTRIBUTE.md) for detailed information about:
+Please see [./docs/CONTRIBUTE.md](docs/CONTRIBUTE.md) for detailed information about:
 
 - Setting up your development environment
 - Code conventions and project structure
@@ -218,4 +133,4 @@ Please see [CONTRIBUTE.md](docs/CONTRIBUTE.md) for detailed information about:
 
 ## Setup
 
-Follow the instructions on [SETUP](./SETUP.md)
+Follow the instructions on [SETUP](./docs/SETUP.md)
