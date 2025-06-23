@@ -1,7 +1,10 @@
 package workflow
 
 import (
+	"encoding/json"
 	"errors"
+	"maps"
+
 	"github.com/go-playground/validator/v10"
 )
 
@@ -16,19 +19,18 @@ type GraphSchema struct {
 	Name     string            `json:"name" validate:"required,lte=100"`
 	Nodes    []*NodeSchema     `json:"nodes" validate:"required,dive"`
 	Edges    []*EdgeSchema     `json:"edges" validate:"required,dive"`
-	Version  int               `json:"version" validate:"required,gte=1"`
 	Metadata map[string]string `json:"metadata,omitempty"`
 	Tags     map[string]string `json:"tags,omitempty"`
 }
 
-// IsVersion checks if the target version is equal to the actual version
-func (gs *GraphSchema) IsVersion(version int) bool {
-	return gs.Version == version
-}
-
-// IncrVersion increases the version
-func (gs *GraphSchema) IncrVersion() {
-	gs.Version++
+// NewGraphSchemaFromJSON creates a new graph schema from a JSON specification
+func NewGraphSchemaFromJSON(jsonSpec []byte) (*GraphSchema, error) {
+	var schema *GraphSchema
+	err := json.Unmarshal(jsonSpec, &schema)
+	if err != nil {
+		return nil, err
+	}
+	return schema, nil
 }
 
 // Validate validates the graph schema
@@ -37,7 +39,25 @@ func (f *GraphSchema) Validate() error {
 	return validate.Struct(f)
 }
 
-// SetID sets the id of the schema
-func (f *GraphSchema) SetID(id string) {
-	f.ID = id
+// Clone clones the graph schema and returns a new instance
+func (f *GraphSchema) Clone() GraphSchema {
+	nodes := make([]*NodeSchema, len(f.Nodes))
+	edges := make([]*EdgeSchema, len(f.Edges))
+
+	for i, node := range f.Nodes {
+		nodes[i] = node.Clone()
+	}
+
+	for i, edge := range f.Edges {
+		edges[i] = edge.Clone()
+	}
+
+	return GraphSchema{
+		ID:       f.ID,
+		Name:     f.Name,
+		Nodes:    nodes,
+		Edges:    edges,
+		Metadata: maps.Clone(f.Metadata),
+		Tags:     maps.Clone(f.Tags),
+	}
 }

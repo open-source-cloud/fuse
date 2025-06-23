@@ -5,4 +5,4 @@ import (
 	"go.uber.org/fx"
 )
 
-var ServicesModule = fx.Module("services", fx.Provide(services.NewGraphSchemaService))
+var ServicesModule = fx.Module("services", fx.Provide(services.NewGraphService))

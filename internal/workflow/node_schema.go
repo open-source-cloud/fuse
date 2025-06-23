@@ -10,3 +10,11 @@ type (
 	// NodeConfig represents the configuration schema for a node. TODO
 	NodeConfig struct{}
 )
+
+func (n *NodeSchema) Clone() *NodeSchema {
+	return &NodeSchema{
+		ID:       n.ID,
+		Function: n.Function,
+		Config:   &NodeConfig{},
+	}
+}

@@ -9,7 +9,6 @@ import (
 	"github.com/open-source-cloud/fuse/internal/packages/debug"
 	"github.com/open-source-cloud/fuse/internal/packages/logic"
 	"github.com/open-source-cloud/fuse/internal/repositories"
-	"github.com/open-source-cloud/fuse/internal/workflow"
 	"github.com/open-source-cloud/fuse/logging"
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
@@ -33,14 +32,6 @@ var PackageModule = fx.Module(
 	"package",
 	fx.Provide(
 		packages.NewPackageRegistry,
-	),
-)
-
-// WorkflowModule FX module with the workflow providers
-var WorkflowModule = fx.Module(
-	"workflow",
-	fx.Provide(
-		workflow.NewGraphFactory,
 	),
 )
 
@@ -73,7 +64,6 @@ var AllModules = fx.Options(
 	CommonModule,
 	MongoModule,
 	RepoModule,
-	WorkflowModule,
 	ServicesModule,
 	WorkerModule,
 	ActorModule,

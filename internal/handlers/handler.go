@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/go-playground/validator/v10"
 	"log"
 	"net/http"
+
+	"github.com/go-playground/validator/v10"
 
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"

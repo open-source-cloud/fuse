@@ -3,20 +3,22 @@ package handlers
 import (
 	"errors"
 	"fmt"
-	"github.com/open-source-cloud/fuse/internal/services"
 	"io"
 	"net/http"
 
+	"github.com/go-playground/validator/v10"
+	"github.com/open-source-cloud/fuse/internal/services"
+	"github.com/open-source-cloud/fuse/internal/workflow"
+
 	"ergo.services/ergo/gen"
 	"github.com/open-source-cloud/fuse/internal/repositories"
-	"github.com/open-source-cloud/fuse/internal/workflow"
 )
 
 type (
 	// UpsertWorkflowSchemaHandler is the handler for the UpsertWorkflowSchema endpoint
 	UpsertWorkflowSchemaHandler struct {
 		Handler
-		graphSchemaService *services.GraphSchemaService
+		graphService services.GraphService
 	}
 	// UpsertWorkflowSchemaHandlerFactory is a factory for creating UpsertWorkflowSchemaHandler actors
 	UpsertWorkflowSchemaHandlerFactory HandlerFactory[*UpsertWorkflowSchemaHandler]
@@ -30,11 +32,11 @@ const (
 )
 
 // NewUpsertWorkflowSchemaHandlerFactory creates a new NewUpsertWorkflowSchemaHandlerFactory
-func NewUpsertWorkflowSchemaHandlerFactory(graphSchemaService *services.GraphSchemaService) *UpsertWorkflowSchemaHandlerFactory {
+func NewUpsertWorkflowSchemaHandlerFactory(graphService services.GraphService) *UpsertWorkflowSchemaHandlerFactory {
 	return &UpsertWorkflowSchemaHandlerFactory{
 		Factory: func() gen.ProcessBehavior {
 			return &UpsertWorkflowSchemaHandler{
-				graphSchemaService: graphSchemaService,
+				graphService: graphService,
 			}
 		},
 	}
@@ -51,26 +53,28 @@ func (h *UpsertWorkflowSchemaHandler) HandlePut(from gen.PID, w http.ResponseWri
 
 	h.Log().Info("upserting workflow schema", "from", from, "schemaID", schemaID)
 
-	//rawJSON, err := io.ReadAll(r.Body)
-	//if err != nil {
-	//	return h.SendBadRequest(w, err, EmptyFields)
-	//}
+	rawJSON, err := io.ReadAll(r.Body)
+	if err != nil {
+		return h.SendBadRequest(w, err, EmptyFields)
+	}
 
-	//graph, err := h.graphFactory.NewGraphFromJSON(rawJSON)
-	//if err != nil {
-	//	return h.SendBadRequest(w, err, EmptyFields)
-	//}
-	//
-	//if err := graph.Schema().Validate(); err != nil {
-	//	return h.SendValidationErr(w, err)
-	//}
-	//
-	//if err = h.graphRepository.Save(graph); err != nil {
-	//	// TODO: Handle better the message & code when graphRepo.save returns err != nil
-	//	return h.SendInternalError(w, err)
-	//}
+	schema, err := workflow.NewGraphSchemaFromJSON(rawJSON)
+	if err != nil {
+		return h.SendBadRequest(w, err, EmptyFields)
+	}
 
-	//h.Log().Info("upserted workflow schema", "from", from, "schemaID", schemaID, "workflowID", graph.ID())
+	_, err = h.graphService.Upsert(schemaID, schema)
+	if err != nil {
+		if errors.Is(err, validator.ValidationErrors{}) {
+			return h.SendValidationErr(w, err)
+		}
+		if errors.Is(err, repositories.ErrGraphNotFound) {
+			return h.SendNotFound(w, fmt.Sprintf("schema %s not found", schemaID), EmptyFields)
+		}
+		return h.SendInternalError(w, err)
+	}
+
+	h.Log().Info("upserted workflow schema", "from", from, "schemaID", schemaID)
 
 	return h.SendJSON(w, http.StatusOK, Response{
 		"schemaId": schemaID,
@@ -88,7 +92,7 @@ func (h *UpsertWorkflowSchemaHandler) HandleGet(from gen.PID, w http.ResponseWri
 
 	h.Log().Info("fetching workflow schema", "from", from, "schemaID", schemaID)
 
-	graph, err := h.graphRepository.FindByID(schemaID)
+	graph, err := h.graphService.FindByID(schemaID)
 	if err != nil {
 		if errors.Is(err, repositories.ErrGraphNotFound) {
 			return h.SendNotFound(w, fmt.Sprintf("schema %s not found", schemaID), EmptyFields)

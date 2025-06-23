@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"fmt"
+
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 )
 
@@ -20,11 +21,11 @@ type (
 // newNode creates a new Graph Node
 func newNode(schema *NodeSchema) *Node {
 	return &Node{
-		schema:           schema,
-		thread:           0,
-		parentThreads:    []uint16{},
-		inputEdges:       make([]*Edge, 0),
-		outputEdges:      make([]*Edge, 0),
+		schema:        schema,
+		thread:        0,
+		parentThreads: []uint16{},
+		inputEdges:    make([]*Edge, 0),
+		outputEdges:   make([]*Edge, 0),
 	}
 }
 

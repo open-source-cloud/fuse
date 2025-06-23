@@ -42,7 +42,7 @@ func NewMongoGraphRepository(client *mongo.Client, config *config.Config) GraphR
 func (m *MongoGraphRepository) FindByID(id string) (*workflow.Graph, error) {
 	ctx := context.Background()
 
-	var schema workflow.GraphSchema
+	var schema *workflow.GraphSchema
 	err := m.collection.FindOne(ctx, bson.M{"id": id}).Decode(&schema)
 	if err != nil {
 		log.Error().Msgf("failed to find graph %s: %v", id, err)
@@ -52,7 +52,7 @@ func (m *MongoGraphRepository) FindByID(id string) (*workflow.Graph, error) {
 		return nil, err
 	}
 
-	graph, err := workflow.newGraphFromSchema(&schema)
+	graph, err := workflow.NewGraph(schema)
 	if err != nil {
 		log.Error().Msgf("failed to create graph from schema: %v", err)
 		return nil, err
@@ -67,6 +67,7 @@ func (m *MongoGraphRepository) Save(graph *workflow.Graph) error {
 
 	log.Info().Msgf("saving graph %s", graph.ID())
 
+	// get a deep copy of the schema of the graph
 	schema := graph.Schema()
 
 	result, err := m.collection.ReplaceOne(
@@ -90,23 +91,5 @@ func (m *MongoGraphRepository) Save(graph *workflow.Graph) error {
 		return nil
 	}
 
-	log.Info().Msgf("graph %s not found, creating new one", schema.ID)
-	return m.createGraph(schema)
-}
-
-// createGraph creates a new graph in graphs collection
-func (m *MongoGraphRepository) createGraph(graph *workflow.GraphSchema) error {
-	ctx := context.Background()
-
-	log.Info().Msgf("creating graph %s", graph.ID)
-
-	_, err := m.collection.InsertOne(ctx, graph)
-	if err != nil {
-		log.Error().Msgf("failed to create graph %s: %v", graph.ID, err)
-		return err
-	}
-
-	log.Info().Msgf("graph %s created", graph.ID)
-
-	return nil
+	return ErrGraphNotModified
 }

@@ -1,62 +1,120 @@
 package services
 
 import (
-	"errors"
+	"strings"
+
+	"github.com/open-source-cloud/fuse/internal/packages"
 	"github.com/open-source-cloud/fuse/internal/repositories"
 	"github.com/open-source-cloud/fuse/internal/workflow"
 )
 
-// GraphSchemaService represents the transactional and logical service to manage workflow.Graph
-type GraphSchemaService struct {
-	graphRepo    repositories.GraphRepository
-	graphFactory *workflow.GraphFactory
-}
+// GraphService represents the transactional and logical service to manage workflow.Graph
+type (
+	GraphService interface {
+		FindByID(schemaID string) (*workflow.Graph, error)
+		Upsert(schemaID string, schema *workflow.GraphSchema) (*workflow.Graph, error)
+	}
+	DefaultGraphService struct {
+		graphRepo       repositories.GraphRepository
+		packageRegistry packages.Registry
+	}
+)
 
-// NewGraphSchemaService returns a new GraphSchemaService
-func NewGraphSchemaService(graphRepo repositories.GraphRepository, graphFactory *workflow.GraphFactory) *GraphSchemaService {
-	return &GraphSchemaService{
-		graphRepo:    graphRepo,
-		graphFactory: graphFactory,
+// NewGraphService returns a new GraphService
+func NewGraphService(graphRepo repositories.GraphRepository, packageRegistry packages.Registry) GraphService {
+	return &DefaultGraphService{
+		graphRepo:       graphRepo,
+		packageRegistry: packageRegistry,
 	}
 }
 
-// Upsert upserts a workflow.GraphSchema
-func (gs *GraphSchemaService) Upsert(schemaID string, incomingSchema *workflow.GraphSchema) error {
-	graph, err := gs.graphRepo.FindByID(schemaID)
-
-	if err != nil {
-		if errors.As(err, &repositories.ErrGraphNotFound) {
-			return gs.Create(schemaID, incomingSchema)
-		}
-		return err
-	}
-
-	return gs.Update(graph.Schema())
+// FindByID finds a workflow.GraphSchema by ID
+func (gs *DefaultGraphService) FindByID(schemaID string) (*workflow.Graph, error) {
+	return gs.graphRepo.FindByID(schemaID)
 }
 
-// Create creates and save a new instance of workflow.GraphSchema at database
-func (gs *GraphSchemaService) Create(schemaID string, schema *workflow.GraphSchema) error {
+// Upsert upserts a workflow.GraphSchema at database
+func (gs *DefaultGraphService) Upsert(schemaID string, schema *workflow.GraphSchema) (*workflow.Graph, error) {
 	if schema.ID == "" {
 		schema.ID = schemaID
 	}
 
-	if err := schema.Validate(); err != nil {
-		return err
-	}
-
-	graph, err := gs.graphFactory.NewGraphFromSchema(schema)
+	// check if the graph already exists
+	graph, err := gs.graphRepo.FindByID(schema.ID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if err := gs.graphRepo.Save(graph); err != nil {
-		return err
+	// if the graph is not found, create a new one from the factory
+	if graph == nil {
+		return gs.create(schema)
 	}
 
-	return nil
+	return gs.update(graph, schema)
 }
 
 // Update updates a workflow.GraphSchema into database
-func (gs *GraphSchemaService) Update(schema *workflow.GraphSchema) error {
+func (gs *DefaultGraphService) update(graph *workflow.Graph, schema *workflow.GraphSchema) (*workflow.Graph, error) {
+	if err := schema.Validate(); err != nil {
+		return nil, err
+	}
+
+	if err := graph.UpdateSchema(schema); err != nil {
+		return nil, err
+	}
+
+	// populate the metadata of the nodes of the graph
+	if err := gs.populateNodeMetadata(graph, schema.Nodes); err != nil {
+		return nil, err
+	}
+
+	if err := gs.graphRepo.Save(graph); err != nil {
+		return nil, err
+	}
+
+	return graph, nil
+}
+
+// Update updates a workflow.GraphSchema into database
+func (gs *DefaultGraphService) create(schema *workflow.GraphSchema) (*workflow.Graph, error) {
+	graph, err := workflow.NewGraph(schema)
+	if err != nil {
+		return nil, err
+	}
+
+	// populate the metadata of the nodes of the graph
+	if err := gs.populateNodeMetadata(graph, schema.Nodes); err != nil {
+		return nil, err
+	}
+
+	if err := gs.graphRepo.Save(graph); err != nil {
+		return nil, err
+	}
+
+	return graph, nil
+}
+
+// populateNodeMetadata populates the metadata of the nodes of the graph
+func (gs *DefaultGraphService) populateNodeMetadata(graph *workflow.Graph, nodes []*workflow.NodeSchema) error {
+	// if the package registry is not set, return nil
+	// in the mermaid flowchart, the nodes are not populated with the metadata
+	if gs.packageRegistry == nil {
+		return nil
+	}
+
+	for _, node := range nodes {
+		lastIndexOfSlash := strings.LastIndex(node.Function, "/")
+		pkgID := node.Function[:lastIndexOfSlash]
+		pkg, err := gs.packageRegistry.Get(pkgID)
+		if err != nil {
+			return err
+		}
+		pkgFn, err := pkg.GetFunction(node.Function)
+		if err != nil {
+			return err
+		}
+		graph.UpdateNodeMetadata(node.ID, pkgFn.Metadata())
+	}
+
 	return nil
 }
