@@ -52,7 +52,7 @@ func (m *MongoGraphRepository) FindByID(id string) (*workflow.Graph, error) {
 		return nil, err
 	}
 
-	graph, err := workflow.NewGraphFromSchema(&schema)
+	graph, err := workflow.newGraphFromSchema(&schema)
 	if err != nil {
 		log.Error().Msgf("failed to create graph from schema: %v", err)
 		return nil, err

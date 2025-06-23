@@ -20,7 +20,7 @@ func NewGraphFactoryWithoutMetadata() *GraphFactory {
 }
 
 // GraphFactory graph factory
-type GraphFactory struct{
+type GraphFactory struct {
 	packageRegistry packages.Registry
 }
 
@@ -39,6 +39,18 @@ func (f *GraphFactory) NewGraphFromJSON(jsonSpec []byte) (*Graph, error) {
 // NewGraphFromYAML creates a new Graph from a YAML schema
 func (f *GraphFactory) NewGraphFromYAML(yamlSpec []byte) (*Graph, error) {
 	graph, err := newGraphFromYAML(yamlSpec)
+	if err != nil {
+		return nil, err
+	}
+	if err := f.populateMetadata(graph); err != nil {
+		return nil, err
+	}
+	return graph, nil
+}
+
+// NewGraphFromSchema returns a new Graph from GraphSchema
+func (f *GraphFactory) NewGraphFromSchema(schema *GraphSchema) (*Graph, error) {
+	graph, err := newGraphFromSchema(schema)
 	if err != nil {
 		return nil, err
 	}

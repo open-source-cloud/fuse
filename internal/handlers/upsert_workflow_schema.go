@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"fmt"
+	"github.com/open-source-cloud/fuse/internal/services"
 	"io"
 	"net/http"
 
@@ -15,8 +16,7 @@ type (
 	// UpsertWorkflowSchemaHandler is the handler for the UpsertWorkflowSchema endpoint
 	UpsertWorkflowSchemaHandler struct {
 		Handler
-		graphFactory    *workflow.GraphFactory
-		graphRepository repositories.GraphRepository
+		graphSchemaService *services.GraphSchemaService
 	}
 	// UpsertWorkflowSchemaHandlerFactory is a factory for creating UpsertWorkflowSchemaHandler actors
 	UpsertWorkflowSchemaHandlerFactory HandlerFactory[*UpsertWorkflowSchemaHandler]
@@ -30,12 +30,11 @@ const (
 )
 
 // NewUpsertWorkflowSchemaHandlerFactory creates a new NewUpsertWorkflowSchemaHandlerFactory
-func NewUpsertWorkflowSchemaHandlerFactory(graphFactory *workflow.GraphFactory, graphRepository repositories.GraphRepository) *UpsertWorkflowSchemaHandlerFactory {
+func NewUpsertWorkflowSchemaHandlerFactory(graphSchemaService *services.GraphSchemaService) *UpsertWorkflowSchemaHandlerFactory {
 	return &UpsertWorkflowSchemaHandlerFactory{
 		Factory: func() gen.ProcessBehavior {
 			return &UpsertWorkflowSchemaHandler{
-				graphFactory:    graphFactory,
-				graphRepository: graphRepository,
+				graphSchemaService: graphSchemaService,
 			}
 		},
 	}
@@ -52,22 +51,26 @@ func (h *UpsertWorkflowSchemaHandler) HandlePut(from gen.PID, w http.ResponseWri
 
 	h.Log().Info("upserting workflow schema", "from", from, "schemaID", schemaID)
 
-	rawJSON, err := io.ReadAll(r.Body)
-	if err != nil {
-		return h.SendBadRequest(w, err, EmptyFields)
-	}
+	//rawJSON, err := io.ReadAll(r.Body)
+	//if err != nil {
+	//	return h.SendBadRequest(w, err, EmptyFields)
+	//}
 
-	graph, err := h.graphFactory.NewGraphFromJSON(rawJSON)
-	if err != nil {
-		return h.SendBadRequest(w, err, EmptyFields)
-	}
+	//graph, err := h.graphFactory.NewGraphFromJSON(rawJSON)
+	//if err != nil {
+	//	return h.SendBadRequest(w, err, EmptyFields)
+	//}
+	//
+	//if err := graph.Schema().Validate(); err != nil {
+	//	return h.SendValidationErr(w, err)
+	//}
+	//
+	//if err = h.graphRepository.Save(graph); err != nil {
+	//	// TODO: Handle better the message & code when graphRepo.save returns err != nil
+	//	return h.SendInternalError(w, err)
+	//}
 
-	if err = h.graphRepository.Save(graph); err != nil {
-		// TODO: Handle better the message & code when graphRepo.save returns err != nil
-		return h.SendInternalError(w, err)
-	}
-
-	h.Log().Info("upserted workflow schema", "from", from, "schemaID", schemaID, "workflowID", graph.ID())
+	//h.Log().Info("upserted workflow schema", "from", from, "schemaID", schemaID, "workflowID", graph.ID())
 
 	return h.SendJSON(w, http.StatusOK, Response{
 		"schemaId": schemaID,

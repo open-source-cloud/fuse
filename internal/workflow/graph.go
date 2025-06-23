@@ -31,7 +31,7 @@ func newGraphFromJSON(jsonSpec []byte) (*Graph, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewGraphFromSchema(schema)
+	return newGraphFromSchema(schema)
 }
 
 func newGraphFromYAML(yamlSpec []byte) (*Graph, error) {
@@ -39,11 +39,11 @@ func newGraphFromYAML(yamlSpec []byte) (*Graph, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewGraphFromSchema(schema)
+	return newGraphFromSchema(schema)
 }
 
-// NewGraphFromSchema creates a new graph from a schema
-func NewGraphFromSchema(schema *GraphSchema) (*Graph, error) {
+// newGraphFromSchema creates a new graph from a schema
+func newGraphFromSchema(schema *GraphSchema) (*Graph, error) {
 	graph := &Graph{
 		schema: schema,
 		nodes:  make(map[string]*Node),

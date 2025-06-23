@@ -73,10 +73,11 @@ var AllModules = fx.Options(
 	CommonModule,
 	MongoModule,
 	RepoModule,
+	WorkflowModule,
+	ServicesModule,
 	WorkerModule,
 	ActorModule,
 	PackageModule,
-	WorkflowModule,
 	FuseAppModule,
 	fx.WithLogger(logging.NewFxLogger()),
 )
