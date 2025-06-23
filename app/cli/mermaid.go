@@ -2,11 +2,15 @@ package cli
 
 import (
 	"fmt"
+	"os"
+	"path"
+
+	"github.com/open-source-cloud/fuse/app/di"
+	"github.com/open-source-cloud/fuse/internal/services"
 	"github.com/open-source-cloud/fuse/internal/workflow"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
-	"os"
-	"path"
+	"go.uber.org/fx"
 )
 
 func newMermaidCommand() *cobra.Command {
@@ -15,7 +19,10 @@ func newMermaidCommand() *cobra.Command {
 		Short: "Mermaid flowchart generator",
 		Args:  cobra.NoArgs,
 		Run: func(_ *cobra.Command, _ []string) {
-			mermaidHandler()
+			di.Run(fx.Options(
+				di.AllModules,
+				fx.Invoke(mermaidHandler),
+			))
 		},
 	}
 	setupMermaidFlags(mermaidCmd)
@@ -30,7 +37,8 @@ func setupMermaidFlags(mermaidCmd *cobra.Command) {
 	mermaidCmd.Flags().StringVarP(&mermaidSpecFile, "config", "c", "", "Path to the workflow config file")
 }
 
-func mermaidHandler() {
+// mermaidHandler is the handler for the mermaid command that prints the mermaid flowchart to the console
+func mermaidHandler(graphService services.GraphService) {
 	// We are ok with reading the file here because we are in the CLI
 	spec, err := os.ReadFile(mermaidSpecFile) //nolint:gosec
 	if err != nil {
@@ -38,24 +46,20 @@ func mermaidHandler() {
 		return
 	}
 
-	graphFactory := workflow.NewGraphFactoryWithoutMetadata()
-
 	var graph *workflow.Graph
 	specFileExt := path.Ext(mermaidSpecFile)
 	switch specFileExt {
 	case ".json":
-		graph, err = graphFactory.NewGraphFromJSON(spec)
+		schema, err := workflow.NewGraphSchemaFromJSON(spec)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to parse workflow JSON spec file")
 			return
 		}
-	case ".yaml":
-		graph, err = graphFactory.NewGraphFromYAML(spec)
+		graph, err = graphService.Upsert(schema.ID, schema)
 		if err != nil {
-			log.Error().Err(err).Msg("Failed to parse a workflow YAML spec file")
+			log.Error().Err(err).Msg("Failed to upsert workflow graph")
 			return
 		}
-
 	default:
 		log.Error().Msg("Unsupported workflow spec file type")
 		return

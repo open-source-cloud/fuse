@@ -10,7 +10,6 @@ const (
 type (
 	// InputMappingSource defines an enum for supported input mapping sources
 	InputMappingSource string
-
 	// EdgeSchema represents the schema for an edge in a graph with an ID, source, destination, and optional metadata.
 	EdgeSchema struct {
 		ID          string         `json:"id" yaml:"id"`
@@ -32,3 +31,37 @@ type (
 		MapTo    string             `json:"mapTo" yaml:"mapTo"`
 	}
 )
+
+func (e EdgeSchema) Clone() *EdgeSchema {
+	inputs := make([]InputMapping, len(e.Input))
+	for i, input := range e.Input {
+		inputs[i] = input.Clone()
+	}
+	var conditional *EdgeCondition
+	if e.Conditional != nil {
+		conditional = e.Conditional.Clone()
+	}
+	return &EdgeSchema{
+		ID:          e.ID,
+		From:        e.From,
+		To:          e.To,
+		Conditional: conditional,
+		Input:       inputs,
+	}
+}
+
+func (e EdgeCondition) Clone() *EdgeCondition {
+	return &EdgeCondition{
+		Name:  e.Name,
+		Value: e.Value,
+	}
+}
+
+func (e InputMapping) Clone() InputMapping {
+	return InputMapping{
+		Source:   e.Source,
+		Variable: e.Variable,
+		Value:    e.Value,
+		MapTo:    e.MapTo,
+	}
+}
