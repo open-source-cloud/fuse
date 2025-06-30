@@ -31,7 +31,7 @@ func provideGraphRepository(cfg *config.Config, mongoClient *mongo.Client) repos
 }
 
 // provideWorkflowRepository provides the appropriate WorkflowRepository based on config
-func provideWorkflowRepository(cfg *config.Config, mongoClient *mongo.Client) repositories.WorkflowRepository {
+func provideWorkflowRepository(cfg *config.Config, _ *mongo.Client) repositories.WorkflowRepository {
 	log.Debug().Msgf("using workflow repository driver: %s", cfg.Database.Driver)
 
 	// TODO: Temp disabled for testing

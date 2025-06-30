@@ -11,6 +11,7 @@ type (
 	NodeConfig struct{}
 )
 
+// Clone creates a deep copy of the NodeSchema
 func (n *NodeSchema) Clone() *NodeSchema {
 	return &NodeSchema{
 		ID:       n.ID,

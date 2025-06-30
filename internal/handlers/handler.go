@@ -155,10 +155,10 @@ func (h *Handler) mapErrorToFields(err error) []string {
 		return []string{err.Error()}
 	}
 
-	var fields []string
+	fields := make([]string, len(validations))
 
-	for _, err := range validations {
-		fields = append(fields, err.Error())
+	for i, err := range validations {
+		fields[i] = err.Error()
 	}
 
 	return fields

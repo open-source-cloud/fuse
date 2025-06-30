@@ -32,6 +32,7 @@ type (
 	}
 )
 
+// Clone creates a deep copy of the EdgeSchema
 func (e EdgeSchema) Clone() *EdgeSchema {
 	inputs := make([]InputMapping, len(e.Input))
 	for i, input := range e.Input {
@@ -50,6 +51,7 @@ func (e EdgeSchema) Clone() *EdgeSchema {
 	}
 }
 
+// Clone creates a deep copy of the EdgeCondition
 func (e EdgeCondition) Clone() *EdgeCondition {
 	return &EdgeCondition{
 		Name:  e.Name,
@@ -57,6 +59,7 @@ func (e EdgeCondition) Clone() *EdgeCondition {
 	}
 }
 
+// Clone creates a deep copy of the InputMapping
 func (e InputMapping) Clone() InputMapping {
 	return InputMapping{
 		Source:   e.Source,

@@ -1,3 +1,4 @@
+// Package services provides the services for the application
 package services
 
 import (
@@ -8,12 +9,13 @@ import (
 	"github.com/open-source-cloud/fuse/internal/workflow"
 )
 
-// GraphService represents the transactional and logical service to manage workflow.Graph
 type (
+	// GraphService represents the transactional and logical service to manage workflow.Graph
 	GraphService interface {
 		FindByID(schemaID string) (*workflow.Graph, error)
 		Upsert(schemaID string, schema *workflow.GraphSchema) (*workflow.Graph, error)
 	}
+	// DefaultGraphService is the default implementation of the GraphService interface
 	DefaultGraphService struct {
 		graphRepo       repositories.GraphRepository
 		packageRegistry packages.Registry
@@ -116,7 +118,9 @@ func (gs *DefaultGraphService) populateNodeMetadata(graph *workflow.Graph, nodes
 		if err != nil {
 			return err
 		}
-		graph.UpdateNodeMetadata(node.ID, pkgFn.Metadata())
+		if err := graph.UpdateNodeMetadata(node.ID, pkgFn.Metadata()); err != nil {
+			return err
+		}
 	}
 
 	return nil

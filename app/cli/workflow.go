@@ -54,7 +54,7 @@ func workflowRunner(graphService services.GraphService) {
 	specFileExt := path.Ext(workflowSpecFile)
 	switch specFileExt {
 	case ".json":
-		schema, err := workflow.NewGraphSchemaFromJSON([]byte(spec))
+		schema, err := workflow.NewGraphSchemaFromJSON(spec)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to parse workflow JSON spec file")
 			return

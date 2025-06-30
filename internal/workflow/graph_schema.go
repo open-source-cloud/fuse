@@ -10,7 +10,7 @@ import (
 
 var (
 	// ErrGraphIDIsEmpty return when ID is empty
-	ErrGraphIDIsEmpty error = errors.New("ID is empty")
+	ErrGraphIDIsEmpty = errors.New("ID is empty")
 )
 
 // GraphSchema represents a data structure containing nodes and edges, identified by a unique ID and optionally named.

@@ -68,7 +68,7 @@ func (h *UpsertWorkflowSchemaHandler) HandlePut(from gen.PID, w http.ResponseWri
 		if errors.As(err, &validator.ValidationErrors{}) {
 			return h.SendValidationErr(w, err)
 		}
-		if errors.As(err, &repositories.ErrGraphNotFound) {
+		if errors.Is(err, repositories.ErrGraphNotFound) {
 			return h.SendNotFound(w, fmt.Sprintf("schema %s not found", schemaID), EmptyFields)
 		}
 		return h.SendInternalError(w, err)
