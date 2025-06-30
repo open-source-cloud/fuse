@@ -48,7 +48,6 @@ func (m *muxServer) Init(_ ...any) error {
 
 	// create and spawn a web server meta-process
 	// nolint:gosec // port is validated by the config
-
 	port, err := strconv.Atoi(m.config.Server.Port)
 	if err != nil {
 		m.Log().Error("unable to convert port to int: %s", err)
@@ -58,7 +57,7 @@ func (m *muxServer) Init(_ ...any) error {
 	// nolint:gosec // port is validated by the config
 	serverOptions := meta.WebServerOptions{
 		Port:    uint16(port),
-		Host:    m.config.Server.Host,
+		Host:    "localhost",
 		Handler: muxRouter,
 	}
 

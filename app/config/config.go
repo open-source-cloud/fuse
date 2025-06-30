@@ -37,8 +37,7 @@ type (
 
 	// ServerConfig http server config
 	ServerConfig struct {
-		Port string `env:"SERVER_PORT" envDefault:"9090"`
-		Host string `env:"SERVER_HOST" envDefault:"localhost"`
+		Port string `env:"PORT" envDefault:"9090"`
 	}
 )
 

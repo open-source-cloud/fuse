@@ -42,10 +42,13 @@ func (gs *DefaultGraphService) Upsert(schemaID string, schema *workflow.GraphSch
 	// check if the graph already exists
 	graph, err := gs.graphRepo.FindByID(schema.ID)
 	if err != nil {
+		if err == repositories.ErrGraphNotFound {
+			return gs.create(schema)
+		}
 		return nil, err
 	}
 
-	// if the graph is not found, create a new one from the factory
+	// redundant check, but just in case
 	if graph == nil {
 		return gs.create(schema)
 	}

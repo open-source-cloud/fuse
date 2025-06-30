@@ -65,10 +65,10 @@ func (h *UpsertWorkflowSchemaHandler) HandlePut(from gen.PID, w http.ResponseWri
 
 	_, err = h.graphService.Upsert(schemaID, schema)
 	if err != nil {
-		if errors.Is(err, validator.ValidationErrors{}) {
+		if errors.As(err, &validator.ValidationErrors{}) {
 			return h.SendValidationErr(w, err)
 		}
-		if errors.Is(err, repositories.ErrGraphNotFound) {
+		if errors.As(err, &repositories.ErrGraphNotFound) {
 			return h.SendNotFound(w, fmt.Sprintf("schema %s not found", schemaID), EmptyFields)
 		}
 		return h.SendInternalError(w, err)
@@ -94,8 +94,8 @@ func (h *UpsertWorkflowSchemaHandler) HandleGet(from gen.PID, w http.ResponseWri
 
 	graph, err := h.graphService.FindByID(schemaID)
 	if err != nil {
-		if errors.Is(err, repositories.ErrGraphNotFound) {
-			return h.SendNotFound(w, fmt.Sprintf("schema %s not found", schemaID), EmptyFields)
+		if errors.As(err, &validator.ValidationErrors{}) {
+			return h.SendValidationErr(w, err)
 		}
 		return h.SendInternalError(w, err)
 	}

@@ -15,7 +15,7 @@ var (
 
 // GraphSchema represents a data structure containing nodes and edges, identified by a unique ID and optionally named.
 type GraphSchema struct {
-	ID       string            `json:"id" validate:"required,uuid"`
+	ID       string            `json:"id" validate:"required"`
 	Name     string            `json:"name" validate:"required,lte=100"`
 	Nodes    []*NodeSchema     `json:"nodes" validate:"required,dive"`
 	Edges    []*EdgeSchema     `json:"edges" validate:"required,dive"`
