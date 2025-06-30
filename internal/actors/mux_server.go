@@ -65,13 +65,13 @@ func (m *muxServer) Init(_ ...any) error {
 	webserver, err := meta.CreateWebServer(serverOptions)
 	if err != nil {
 		m.Log().Error("unable to create Web server meta-process: %s", err)
-		return err
+		panic(err)
 	}
 
 	webServerID, err := m.SpawnMeta(webserver, gen.MetaOptions{})
 	if err != nil {
 		m.Log().Error("unable to spawn Web server meta-process: %s", err)
-		return err
+		panic(err)
 	}
 
 	httpProtocol := "http"
