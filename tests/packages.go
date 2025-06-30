@@ -6,6 +6,7 @@ import (
 	"github.com/open-source-cloud/fuse/internal/packages/logic"
 )
 
+// PackageRegistryWithInternalPackages returns a package registry with the internal packages
 func PackageRegistryWithInternalPackages() packages.Registry {
 	registry := packages.NewPackageRegistry()
 

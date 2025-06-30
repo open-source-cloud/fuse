@@ -1,10 +1,11 @@
+// Package tests contains test utilities for the fuse package.
 package tests
 
 import (
 	"github.com/open-source-cloud/fuse/internal/workflow"
 )
 
-// SmallTestGraph returns a small test graph
+// SmallTestGraphSchema returns a small test graph schema
 // The debug-nil node is used to debug the graph.
 // The logic-rand-1 node is used to generate a random number between 10 and 100.
 // The logic-rand-2 node is used to generate a random number between 10 and 100.
