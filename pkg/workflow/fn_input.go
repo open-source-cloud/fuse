@@ -24,6 +24,11 @@ func (i *FunctionInput) Get(key string) any {
 	return i.store.Get(key)
 }
 
+// GetStr returns the value for the given key as a string
+func (i *FunctionInput) GetStr(key string) string {
+	return i.store.GetStr(key)
+}
+
 // GetInt returnst he value for a given key as an int
 func (i *FunctionInput) GetInt(key string) int {
 	return i.store.GetInt(key)
