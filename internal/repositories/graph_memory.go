@@ -1,7 +1,6 @@
 package repositories
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/open-source-cloud/fuse/internal/workflow"
@@ -29,7 +28,7 @@ func (m *MemoryGraphRepository) FindByID(id string) (*workflow.Graph, error) {
 	defer m.mu.RUnlock()
 	graph, ok := m.graphs[id]
 	if !ok {
-		return nil, fmt.Errorf("graph %s not found", id)
+		return nil, ErrGraphNotFound
 	}
 	return graph, nil
 }
