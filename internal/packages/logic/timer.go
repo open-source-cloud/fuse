@@ -2,8 +2,9 @@ package logic
 
 import (
 	"context"
-	"github.com/open-source-cloud/fuse/pkg/workflow"
 	"time"
+
+	"github.com/open-source-cloud/fuse/pkg/workflow"
 )
 
 // TimerFunctionID is the id of the timer function
@@ -30,7 +31,9 @@ func TimerFunctionMetadata() workflow.FunctionMetadata {
 // TimerFunction executes timer function
 func TimerFunction(execInfo *workflow.ExecutionInfo, input *workflow.FunctionInput) (workflow.FunctionResult, error) {
 	ctx, cancel := context.WithCancel(context.Background())
-	duration := time.Duration(input.Get("timer").(int)) * time.Millisecond
+
+	timer := input.GetInt("timer")
+	duration := time.Duration(timer) * time.Millisecond
 
 	go func() {
 		ticker := time.NewTicker(duration)
