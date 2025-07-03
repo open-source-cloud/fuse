@@ -9,7 +9,7 @@ import (
 	"path"
 
 	"github.com/open-source-cloud/fuse/app/di"
-	"github.com/open-source-cloud/fuse/internal/repositories"
+	"github.com/open-source-cloud/fuse/internal/services"
 	"github.com/open-source-cloud/fuse/internal/workflow"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -41,7 +41,8 @@ func setupWorkflowFlags(workflowCmd *cobra.Command) {
 	workflowCmd.Flags().StringVarP(&workflowSpecFile, "config", "c", "", "Path to the workflow config file")
 }
 
-func workflowRunner(graphFactory *workflow.GraphFactory, graphRepository repositories.GraphRepository) {
+// workflowRunner is the handler for the workflow command that runs the workflow once
+func workflowRunner(graphService services.GraphService) {
 	// We are ok with reading the file here because we are in the CLI
 	spec, err := os.ReadFile(workflowSpecFile) //nolint:gosec
 	if err != nil {
@@ -53,29 +54,22 @@ func workflowRunner(graphFactory *workflow.GraphFactory, graphRepository reposit
 	specFileExt := path.Ext(workflowSpecFile)
 	switch specFileExt {
 	case ".json":
-		graph, err = graphFactory.NewGraphFromJSON(spec)
+		schema, err := workflow.NewGraphSchemaFromJSON(spec)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to parse workflow JSON spec file")
 			return
 		}
-	case ".yaml":
-		graph, err = graphFactory.NewGraphFromYAML(spec)
+		graph, err = graphService.Upsert(schema.ID, schema)
 		if err != nil {
-			log.Error().Err(err).Msg("Failed to parse a workflow YAML spec file")
+			log.Error().Err(err).Msg("Failed to upsert workflow graph")
 			return
 		}
-
 	default:
 		log.Error().Msg("Unsupported workflow spec file type")
 		return
 	}
 
-	err = graphRepository.Save(graph)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to save workflow graph")
-		return
-	}
-	log.Info().Str("schemaID", graph.ID()).Msg("Workflow graph created")
+	log.Info().Str("schemaID", graph.ID()).Msg("Workflow graph upserted")
 
 	// make http request to run the supplied workflow once
 	payload := map[string]string{"schemaId": graph.ID()}

@@ -31,13 +31,14 @@ func provideGraphRepository(cfg *config.Config, mongoClient *mongo.Client) repos
 }
 
 // provideWorkflowRepository provides the appropriate WorkflowRepository based on config
-func provideWorkflowRepository(cfg *config.Config, mongoClient *mongo.Client) repositories.WorkflowRepository {
+func provideWorkflowRepository(cfg *config.Config, _ *mongo.Client) repositories.WorkflowRepository {
 	log.Debug().Msgf("using workflow repository driver: %s", cfg.Database.Driver)
 
-	if IsDriverEnabled(cfg.Database.Driver, mongoDriver) && mongoClient != nil {
-		log.Debug().Msg("using mongodb workflow repository")
-		return repositories.NewMongoWorkflowRepository(mongoClient, cfg)
-	}
+	// TODO: Temp disabled for testing
+	// if IsDriverEnabled(cfg.Database.Driver, mongoDriver) && mongoClient != nil {
+	// 	log.Debug().Msg("using mongodb workflow repository")
+	// 	return repositories.NewMongoWorkflowRepository(mongoClient, cfg)
+	// }
 
 	log.Debug().Msg("using memory workflow repository")
 

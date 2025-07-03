@@ -7,6 +7,8 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/go-playground/validator/v10"
+
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
 	"github.com/gorilla/mux"
@@ -128,4 +130,36 @@ func (h *Handler) SendNotFound(w http.ResponseWriter, msg string, fields []strin
 		"code":    EntityNotFound,
 		"fields":  fields,
 	})
+}
+
+// SendValidationErr returns a 400 with a mapping from validator.Validation errors to a error response
+func (h *Handler) SendValidationErr(w http.ResponseWriter, err error) error {
+	h.Log().Error("sending validation to client", "error", err)
+	fields := h.mapErrorToFields(err)
+	return h.SendJSON(w, http.StatusBadRequest, Response{
+		"message": "validation failed, please check the sent request and the schema",
+		"code":    BadRequest,
+		"fields":  fields,
+	})
+}
+
+// mapErrorToFields map validator.ValidationErrors to array of strings
+func (h *Handler) mapErrorToFields(err error) []string {
+	if err == nil {
+		return EmptyFields
+	}
+
+	var validations validator.ValidationErrors
+	if !errors.As(err, &validations) {
+		h.Log().Warning("failed to unmarshal validation fields", "error", err)
+		return []string{err.Error()}
+	}
+
+	fields := make([]string, len(validations))
+
+	for i, err := range validations {
+		fields[i] = err.Error()
+	}
+
+	return fields
 }

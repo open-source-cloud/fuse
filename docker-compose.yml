@@ -1,13 +1,13 @@
 services:
-  # MongoDB Database
   mongodb:
-    image: ${MONGO_DOCKER_IMAGE}
+    image: bitnami/mongodb
     container_name: fuse-mongodb
     restart: unless-stopped
     environment:
-     - MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME:-root}
-     - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD:-toor}
-     - MONGO_INITDB_DATABASE=${MONGO_INITDB_DATABASE:-fuse}
+      - MONGODB_ROOT_USER=${DB_ROOT_USER:-admin}
+      - MONGODB_ROOT_PASSWORD=${DB_ROOT_PASS:-password}
+      - MONGODB_DATABASE=${DB_NAME:-fuse}
+      - ALLOW_EMPTY_PASSWORD=no
     ports:
       - "27017:27017"
     volumes:

@@ -10,6 +10,8 @@ import (
 var (
 	// ErrGraphNotFound is returned when a graph is not found
 	ErrGraphNotFound = errors.New("graph not found")
+	// ErrGraphNotModified is returned when a graph is not modified
+	ErrGraphNotModified = errors.New("graph not modified")
 )
 
 type (
