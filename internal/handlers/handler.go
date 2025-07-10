@@ -7,6 +7,8 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/go-playground/validator/v10"
+
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
 	"github.com/gorilla/mux"
@@ -23,10 +25,15 @@ var (
 
 const (
 	// BadRequest is the error code for bad requests
-	BadRequest = "BAD_REQUEST"
+	BadRequest string = "BAD_REQUEST"
 	// InternalServerError is the error code for internal server errors
-	InternalServerError = "INTERNAL_SERVER_ERROR"
+	InternalServerError string = "INTERNAL_SERVER_ERROR"
+	// EntityNotFound is the error code for a resource not found
+	EntityNotFound string = "ENTITY_NOT_FOUND"
 )
+
+// EmptyFields use it when you want to send empty fields to the client
+var EmptyFields = []string{}
 
 type (
 	// HandlerFactory defines the factory type that all Handler Factories must implement
@@ -48,7 +55,7 @@ func (h *Handler) BindJSON(_ http.ResponseWriter, r *http.Request, v any) error 
 }
 
 // SendJSON sends a JSON response to the client
-func (h *Handler) SendJSON(w http.ResponseWriter, status int, v Response) error {
+func (h *Handler) SendJSON(w http.ResponseWriter, status int, v interface{}) error {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
@@ -93,4 +100,66 @@ func (h *Handler) GetPathParam(r *http.Request, key string) (string, error) {
 		return "", ErrPathParamNotFound
 	}
 	return value, nil
+}
+
+// SendInternalError sends 500 status code to client
+func (h *Handler) SendInternalError(w http.ResponseWriter, err error) error {
+	h.Log().Error("sending internal error to client", "error", err)
+	return h.SendJSON(w, http.StatusInternalServerError, Response{
+		"message": "Internal server error",
+		"code":    InternalServerError,
+		"fields":  []string{},
+	})
+}
+
+// SendBadRequest sends 400 status code to client
+func (h *Handler) SendBadRequest(w http.ResponseWriter, err error, fields []string) error {
+	h.Log().Error("sending bad request to client", "error", err)
+	return h.SendJSON(w, http.StatusBadRequest, Response{
+		"message": fmt.Sprintf("failed to read request: %s", err),
+		"code":    BadRequest,
+		"fields":  fields,
+	})
+}
+
+// SendNotFound sends 404 status code to client
+func (h *Handler) SendNotFound(w http.ResponseWriter, msg string, fields []string) error {
+	h.Log().Error("sending not found to client", "message", msg)
+	return h.SendJSON(w, http.StatusNotFound, Response{
+		"message": msg,
+		"code":    EntityNotFound,
+		"fields":  fields,
+	})
+}
+
+// SendValidationErr returns a 400 with a mapping from validator.Validation errors to a error response
+func (h *Handler) SendValidationErr(w http.ResponseWriter, err error) error {
+	h.Log().Error("sending validation to client", "error", err)
+	fields := h.mapErrorToFields(err)
+	return h.SendJSON(w, http.StatusBadRequest, Response{
+		"message": "validation failed, please check the sent request and the schema",
+		"code":    BadRequest,
+		"fields":  fields,
+	})
+}
+
+// mapErrorToFields map validator.ValidationErrors to array of strings
+func (h *Handler) mapErrorToFields(err error) []string {
+	if err == nil {
+		return EmptyFields
+	}
+
+	var validations validator.ValidationErrors
+	if !errors.As(err, &validations) {
+		h.Log().Warning("failed to unmarshal validation fields", "error", err)
+		return []string{err.Error()}
+	}
+
+	fields := make([]string, len(validations))
+
+	for i, err := range validations {
+		fields[i] = err.Error()
+	}
+
+	return fields
 }

@@ -9,7 +9,8 @@ import (
 	"ergo.services/ergo/gen"
 	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/open-source-cloud/fuse/internal/messaging"
-	"github.com/open-source-cloud/fuse/internal/repos"
+	"github.com/open-source-cloud/fuse/internal/repositories"
+	"github.com/open-source-cloud/fuse/internal/workflow"
 )
 
 // WorkflowInstanceSupervisorFactory redefines a WorkflowInstanceSupervisor supervisor actor factory type for
@@ -22,15 +23,15 @@ func NewWorkflowInstanceSupervisorFactory(
 	cfg *config.Config,
 	workflowFuncPool *WorkflowFuncPoolFactory,
 	workflowHandler *WorkflowHandlerFactory,
-	workflowRepo repos.WorkflowRepo,
+	workflowRepository repositories.WorkflowRepository,
 ) *WorkflowInstanceSupervisorFactory {
 	return &WorkflowInstanceSupervisorFactory{
 		Factory: func() gen.ProcessBehavior {
 			return &WorkflowInstanceSupervisor{
-				config:           cfg,
-				workflowFuncPool: workflowFuncPool,
-				workflowHandler:  workflowHandler,
-				workflowRepo:     workflowRepo,
+				config:             cfg,
+				workflowFuncPool:   workflowFuncPool,
+				workflowHandler:    workflowHandler,
+				workflowRepository: workflowRepository,
 			}
 		},
 	}
@@ -41,10 +42,10 @@ type (
 	WorkflowInstanceSupervisor struct {
 		act.Supervisor
 
-		config           *config.Config
-		workflowFuncPool *WorkflowFuncPoolFactory
-		workflowHandler  *WorkflowHandlerFactory
-		workflowRepo     repos.WorkflowRepo
+		config             *config.Config
+		workflowFuncPool   *WorkflowFuncPoolFactory
+		workflowHandler    *WorkflowHandlerFactory
+		workflowRepository repositories.WorkflowRepository
 	}
 )
 

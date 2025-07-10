@@ -6,8 +6,8 @@ import (
 	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/open-source-cloud/fuse/internal/actors/actornames"
 	"github.com/open-source-cloud/fuse/internal/messaging"
-	"github.com/open-source-cloud/fuse/internal/repos"
-	"github.com/open-source-cloud/fuse/pkg/workflow"
+	"github.com/open-source-cloud/fuse/internal/repositories"
+	"github.com/open-source-cloud/fuse/internal/workflow"
 )
 
 // WorkflowSupervisorFactory redefines the WorkflowSupervisor supervisor actor factory type for better readability
@@ -16,14 +16,14 @@ type WorkflowSupervisorFactory ActorFactory[*WorkflowSupervisor]
 // NewWorkflowSupervisorFactory a dependency injection that creates a new WorkflowSupervisor actor factory
 func NewWorkflowSupervisorFactory(
 	cfg *config.Config,
-	workflowRepo repos.WorkflowRepo,
+	workflowRepository repositories.WorkflowRepository,
 	workflowInstanceSup *WorkflowInstanceSupervisorFactory,
 ) *WorkflowSupervisorFactory {
 	return &WorkflowSupervisorFactory{
 		Factory: func() gen.ProcessBehavior {
 			return &WorkflowSupervisor{
 				config:              cfg,
-				workflowRepo:        workflowRepo,
+				workflowRepository:  workflowRepository,
 				workflowInstanceSup: workflowInstanceSup,
 				workflowActors:      make(map[workflow.ID]gen.PID),
 			}
@@ -36,7 +36,7 @@ type WorkflowSupervisor struct {
 	act.Supervisor
 
 	config              *config.Config
-	workflowRepo        repos.WorkflowRepo
+	workflowRepository  repositories.WorkflowRepository
 	workflowInstanceSup *WorkflowInstanceSupervisorFactory
 
 	workflowActors map[workflow.ID]gen.PID

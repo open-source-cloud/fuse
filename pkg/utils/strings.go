@@ -10,3 +10,13 @@ func AfterFirstDot(s string) string {
 	}
 	return s
 }
+
+// SerializeString serializes a string by converting it to lowercase and trimming whitespace
+func SerializeString(str string) string {
+	if str == "" {
+		return ""
+	}
+	str = strings.ToLower(str)
+	str = strings.TrimSpace(str)
+	return str
+}

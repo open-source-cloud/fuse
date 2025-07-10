@@ -2,6 +2,7 @@ package logic
 
 import (
 	"fmt"
+
 	"github.com/expr-lang/expr"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 )
@@ -26,19 +27,19 @@ func IfFunctionMetadata() workflow.FunctionMetadata {
 			},
 		},
 		Output: workflow.OutputMetadata{
-			ConditionalOutput: true,
+			ConditionalOutput:      true,
 			ConditionalOutputField: "result",
 			Edges: []workflow.OutputEdgeMetadata{
 				{
 					Name: "if-true",
 					ConditionalEdge: workflow.ConditionalEdgeMetadata{
-						Value:     true,
+						Value: true,
 					},
 				},
 				{
 					Name: "if-false",
 					ConditionalEdge: workflow.ConditionalEdgeMetadata{
-						Value:     false,
+						Value: false,
 					},
 				},
 			},
@@ -50,7 +51,7 @@ func IfFunctionMetadata() workflow.FunctionMetadata {
 func IfFunction(execInfo *workflow.ExecutionInfo) (workflow.FunctionResult, error) {
 	input := execInfo.Input
 
-	exprStr, ok := input.Get("expression").(string)
+	exprStr, ok := input.GetStr("expression")
 	if !ok || exprStr == "" {
 		return workflow.NewFunctionResultError(fmt.Errorf("expression is empty"))
 	}

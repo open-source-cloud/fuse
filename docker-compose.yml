@@ -1,15 +1,12 @@
 services:
-  # MongoDB Database
   mongodb:
-    image: bitnami/mongodb:latest
+    image: bitnami/mongodb
     container_name: fuse-mongodb
     restart: unless-stopped
     environment:
       - MONGODB_ROOT_USER=${DB_ROOT_USER:-admin}
       - MONGODB_ROOT_PASSWORD=${DB_ROOT_PASS:-password}
       - MONGODB_DATABASE=${DB_NAME:-fuse}
-      - MONGODB_USERNAME=${DB_USER:-app}
-      - MONGODB_PASSWORD=${DB_PASS:-apppassword}
       - ALLOW_EMPTY_PASSWORD=no
     ports:
       - "27017:27017"
@@ -17,12 +14,6 @@ services:
       - mongodb_data:/bitnami/mongodb
     networks:
       - fuse-network
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 10s
-      retries: 5
-      start_period: 40s
 
   localstack:
     image: localstack/localstack:latest

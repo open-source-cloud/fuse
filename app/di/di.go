@@ -5,12 +5,13 @@ import (
 	"ergo.services/ergo/gen"
 	"github.com/open-source-cloud/fuse/app"
 	"github.com/open-source-cloud/fuse/app/config"
-	"github.com/open-source-cloud/fuse/internal/actors"
-	"github.com/open-source-cloud/fuse/internal/handlers"
 	"github.com/open-source-cloud/fuse/internal/packages"
 	"github.com/open-source-cloud/fuse/internal/packages/internalpackages"
 	"github.com/open-source-cloud/fuse/internal/repos"
 	"github.com/open-source-cloud/fuse/internal/workflow"
+	"github.com/open-source-cloud/fuse/internal/packages/debug"
+	"github.com/open-source-cloud/fuse/internal/packages/logic"
+	"github.com/open-source-cloud/fuse/internal/repositories"
 	"github.com/open-source-cloud/fuse/logging"
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
@@ -90,14 +91,6 @@ var PackageModule = fx.Module(
 	),
 )
 
-// WorkflowModule FX module with the workflow providers
-var WorkflowModule = fx.Module(
-	"workflow",
-	fx.Provide(
-		workflow.NewGraphFactory,
-	),
-)
-
 // FuseAppModule FX module with the FUSE application providers
 var FuseAppModule = fx.Module(
 	"fuse_app",
@@ -107,8 +100,9 @@ var FuseAppModule = fx.Module(
 	),
 	// eager loading
 	fx.Invoke(func(
-		_ repos.GraphRepo,
-		_ repos.WorkflowRepo,
+		_ repositories.GraphRepository,
+		_ repositories.WorkflowRepository,
+		registry packages.Registry,
 		_ gen.Node,
 		internalPackages *internalpackages.InternalPackages,
 	) {
@@ -120,11 +114,12 @@ var FuseAppModule = fx.Module(
 // AllModules FX module with the complete application + base providers
 var AllModules = fx.Options(
 	CommonModule,
+	MongoModule,
+	RepoModule,
+	ServicesModule,
 	WorkerModule,
 	ActorModule,
-	RepoModule,
 	PackageModule,
-	WorkflowModule,
 	FuseAppModule,
 	fx.WithLogger(logging.NewFxLogger()),
 )

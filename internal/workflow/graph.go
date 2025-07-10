@@ -3,88 +3,49 @@ package workflow
 
 import (
 	"fmt"
-	"github.com/TyphonHill/go-mermaid/diagrams/flowchart"
-	"gopkg.in/yaml.v3"
 	"sort"
+	"sync"
+
+	"github.com/TyphonHill/go-mermaid/diagrams/flowchart"
+	"github.com/open-source-cloud/fuse/pkg/workflow"
 )
-
-func newGraphSchemaFromJSON(jsonSpec []byte) (*GraphSchema, error) {
-	var schema GraphSchema
-	err := yaml.Unmarshal(jsonSpec, &schema)
-	if err != nil {
-		return nil, err
-	}
-	return &schema, nil
-}
-
-func newGraphSchemaFromYAML(yamlSpec []byte) (*GraphSchema, error) {
-	var schema GraphSchema
-	err := yaml.Unmarshal(yamlSpec, &schema)
-	if err != nil {
-		return nil, err
-	}
-	return &schema, nil
-}
-
-func newGraphFromJSON(jsonSpec []byte) (*Graph, error) {
-	schema, err := newGraphSchemaFromJSON(jsonSpec)
-	if err != nil {
-		return nil, err
-	}
-	return newGraphFromSchema(schema)
-}
-
-func newGraphFromYAML(yamlSpec []byte) (*Graph, error) {
-	schema, err := newGraphSchemaFromYAML(yamlSpec)
-	if err != nil {
-		return nil, err
-	}
-	return newGraphFromSchema(schema)
-}
-
-func newGraphFromSchema(schema *GraphSchema) (*Graph, error) {
-	graph := &Graph{
-		schema: schema,
-		nodes:  make(map[string]*Node),
-		edges:  make(map[string]*Edge),
-	}
-
-	for i, nodeDef := range schema.Nodes {
-		node := newNode(nodeDef)
-		graph.nodes[node.ID()] = node
-		if i == 0 {
-			graph.trigger = node
-		}
-	}
-	for _, edgeDef := range schema.Edges {
-		fromNode, err := graph.FindNode(edgeDef.From)
-		if err != nil {
-			return nil, err
-		}
-		toNode, err := graph.FindNode(edgeDef.To)
-		if err != nil {
-			return nil, err
-		}
-		edge := newEdge(edgeDef.ID, fromNode, toNode, edgeDef)
-		graph.edges[edge.ID()] = edge
-		fromNode.AddOutputEdge(edge)
-		toNode.AddInputEdge(edge)
-	}
-
-	graph.calculateThreads()
-
-	return graph, nil
-}
 
 type (
 	// Graph defines a Workflow Graph
 	Graph struct {
+		// schema is the schema of the graph, it's used to generate the graph
+		schema *GraphSchema
+		// trigger is the root Node of the Graph, it's the starting point of the workflow
 		trigger *Node
-		schema  *GraphSchema
-		nodes   map[string]*Node
-		edges   map[string]*Edge
+		// nodes are the nodes from schema, but in a map for faster lookup, it's used to find a node by ID
+		nodes map[string]*Node
+		// edges are the edges from schema, but in a map for faster lookup
+		edges map[string]*Edge
 	}
 )
+
+// NewGraph creates a new graph from a schema
+func NewGraph(schema *GraphSchema) (*Graph, error) {
+	// validate the schema of the graph before creating the graph
+	if err := schema.Validate(); err != nil {
+		return nil, err
+	}
+
+	// create the graph with the schema
+	graph := &Graph{
+		schema:  schema,
+		trigger: nil,
+		nodes:   make(map[string]*Node),
+		edges:   make(map[string]*Edge),
+	}
+
+	// compute the nodes, edges, metadata and threads of the graph
+	if err := graph.compute(); err != nil {
+		return nil, err
+	}
+
+	return graph, nil
+}
 
 // ID the schema ID for the graph
 func (g *Graph) ID() string {
@@ -156,10 +117,43 @@ func (g *Graph) MermaidFlowchart() string {
 
 }
 
+// UpdateSchema updates the schema of the graph
+func (g *Graph) UpdateSchema(schema *GraphSchema) error {
+	if err := schema.Validate(); err != nil {
+		return err
+	}
+
+	g.schema = schema
+	if err := g.compute(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// UpdateNodeMetadata updates the metadata of a node
+func (g *Graph) UpdateNodeMetadata(nodeID string, metadata workflow.FunctionMetadata) error {
+	node, err := g.FindNode(nodeID)
+	if err != nil {
+		return err
+	}
+
+	node.functionMetadata = metadata
+
+	return nil
+}
+
+// Schema returns a deep copy of the schema of the graph
+func (g *Graph) Schema() GraphSchema {
+	return g.schema.Clone()
+}
+
 // calculateThreads assigns thread IDs and parentThreads for nodes in the workflow graph.
 //
 // It handles forks (where a node has multiple outgoing edges) by assigning new threads to each branch. It
-//  handles joins (where a node has multiple incoming edges) by collecting unique parent thread IDs and
+//
+//	handles joins (where a node has multiple incoming edges) by collecting unique parent thread IDs and
+//
 // issuing a new thread for the merged path. Cycles/loops are supported, and parentThreads are stabilized
 // in a second pass to avoid capturing "ghost" threads that never actually contribute a live path.
 //
@@ -334,4 +328,73 @@ func (g *Graph) calculateThreads() {
 			node.parentThreads = nil
 		}
 	}
+}
+
+// computeNodesAndEdges computes the nodes and edges of the graph
+func (g *Graph) computeNodesAndEdges() error {
+	// compute the nodes of the graph from the schema
+	var trigger *Node
+	var nodesLookup = make(map[string]*Node, len(g.schema.Nodes))
+	for i, nodeDef := range g.schema.Nodes {
+		node := newNode(nodeDef)
+		nodesLookup[node.ID()] = node
+		if i == 0 {
+			trigger = node
+		}
+	}
+
+	if trigger == nil {
+		return fmt.Errorf("no trigger node found in the graph")
+	}
+
+	if len(nodesLookup) == 0 {
+		return fmt.Errorf("no nodes found in the graph")
+	}
+
+	g.trigger = trigger
+	g.nodes = nodesLookup
+
+	// compute the edges of the graph from the schema
+	var edgesLookup = make(map[string]*Edge, len(g.schema.Edges))
+	for _, edgeDef := range g.schema.Edges {
+		fromNode, err := g.FindNode(edgeDef.From)
+		if err != nil {
+			return err
+		}
+		toNode, err := g.FindNode(edgeDef.To)
+		if err != nil {
+			return err
+		}
+		edge := newEdge(edgeDef.ID, fromNode, toNode, edgeDef)
+		edgesLookup[edge.ID()] = edge
+		fromNode.AddOutputEdge(edge)
+		toNode.AddInputEdge(edge)
+	}
+
+	if len(edgesLookup) == 0 {
+		return fmt.Errorf("no edges found in the graph")
+	}
+
+	g.edges = edgesLookup
+
+	return nil
+}
+
+// compute computes the nodes, edges, metadata and threads of the graph
+func (g *Graph) compute() error {
+	if err := g.computeNodesAndEdges(); err != nil {
+		return err
+	}
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+		g.calculateThreads()
+	}()
+
+	wg.Wait()
+
+	return nil
 }
