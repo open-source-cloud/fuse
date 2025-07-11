@@ -3,7 +3,7 @@ package workflow
 
 import (
 	"fmt"
-	"github.com/open-source-cloud/fuse/pkg/uuid"
+	"github.com/open-source-cloud/fuse/internal/workflow/workflowactions"
 	"reflect"
 	"strings"
 
@@ -18,22 +18,10 @@ import (
 type (
 	// State defines the State type
 	State string
-	// ID defines a Workflow ID type
-	ID string
-	// ActionType defines an ActionType type
-	ActionType string
 )
 
 func (s State) String() string {
 	return string(s)
-}
-func (id ID) String() string {
-	return string(id)
-}
-
-// NewID generates a new Workflow ID
-func NewID() ID {
-	return ID(uuid.V7())
 }
 
 //goland:noinspection GoUnusedConst
@@ -51,7 +39,7 @@ const (
 )
 
 // New creates a new Workflow from an already generated ID and a provided WorkflowGraph
-func New(id ID, graph *Graph) *Workflow {
+func New(id workflow.ID, graph *Graph) *Workflow {
 	return &Workflow{
 		id:               id,
 		graph:            graph,
@@ -67,7 +55,7 @@ func New(id ID, graph *Graph) *Workflow {
 type (
 	// Workflow defines a Workflow
 	Workflow struct {
-		id               ID
+		id               workflow.ID
 		graph            *Graph
 		auditLog         *AuditLog
 		threads          *threads
@@ -82,14 +70,14 @@ type (
 )
 
 // Trigger triggers a new workflow, results in an Action to be acted upon by the responsible actor
-func (w *Workflow) Trigger() Action {
-	execID := NewExecID(0)
+func (w *Workflow) Trigger() workflowactions.Action {
+	execID := workflow.NewExecID(0)
 	triggerNode := w.graph.Trigger()
 
 	triggerThread := w.threads.New(triggerNode.thread, execID)
 	w.auditLog.NewEntry(triggerThread.ID(), triggerNode.ID(), execID.String(), nil)
 
-	return &RunFunctionAction{
+	return &workflowactions.RunFunctionAction{
 		ThreadID:       triggerThread.ID(),
 		FunctionID:     triggerNode.FunctionID(),
 		FunctionExecID: execID,
@@ -98,13 +86,13 @@ func (w *Workflow) Trigger() Action {
 }
 
 // Resume resumes a previously started Workflow that needed to be re-created from data
-func (w *Workflow) Resume() Action {
+func (w *Workflow) Resume() workflowactions.Action {
 	// TODO add logic to re-start an already started Workflow that got reloaded from storage
 	return nil
 }
 
 // Next requests the next Action to be enacted by the responsible actor on this workflow
-func (w *Workflow) Next(threadID uint16) Action {
+func (w *Workflow) Next(threadID uint16) workflowactions.Action {
 	currentThread := w.threads.Get(threadID)
 	currentAuditEntry, _ := w.auditLog.Get(currentThread.CurrentExecID().String())
 	currentNode, _ := w.graph.FindNode(currentAuditEntry.FunctionNodeID)
@@ -113,14 +101,14 @@ func (w *Workflow) Next(threadID uint16) Action {
 	case 0:
 		currentThread.SetState(StateFinished)
 		// TODO: if ALL threads are finished, finish actor-tree for this workflow
-		return &NoopAction{}
+		return &workflowactions.NoopAction{}
 	case 1:
 		edge := currentNode.OutputEdges()[0]
 		if currentNode.thread != edge.To().thread {
 			currentThread.SetState(StateFinished)
 		}
 		if !w.threads.AreAllParentsFinishedFor(edge.To().parentThreads) {
-			return &NoopAction{}
+			return &workflowactions.NoopAction{}
 		}
 		return w.newRunFunctionAction(currentThread, edge)
 	default: // >1
@@ -128,13 +116,13 @@ func (w *Workflow) Next(threadID uint16) Action {
 	}
 }
 
-func (w *Workflow) nextWithMultipleOutputEdges(currentThread *thread, currentNode *Node) Action {
+func (w *Workflow) nextWithMultipleOutputEdges(currentThread *thread, currentNode *Node) workflowactions.Action {
 	edges := w.filterOutputEdgesByConditionals(currentNode)
 
 	edgeCount := len(edges)
 	// if no edges after conditional filtering, just stop
 	if edgeCount == 0 {
-		return &NoopAction{}
+		return &workflowactions.NoopAction{}
 	}
 	// if we only have 1 output after filtering conditional edges, let's just run that one
 	if edgeCount == 1 {
@@ -145,13 +133,13 @@ func (w *Workflow) nextWithMultipleOutputEdges(currentThread *thread, currentNod
 	}
 
 	// more than 1 edge after filtering, let's run them in parallel
-	parallelAction := &RunParallelFunctionsAction{
-		Actions: make([]*RunFunctionAction, 0, len(currentNode.OutputEdges())),
+	parallelAction := &workflowactions.RunParallelFunctionsAction{
+		Actions: make([]*workflowactions.RunFunctionAction, 0, len(currentNode.OutputEdges())),
 	}
 	currentThread.SetState(StateFinished)
 	for _, edge := range edges {
 		if !w.threads.AreAllParentsFinishedFor(edge.To().parentThreads) {
-			return &NoopAction{}
+			return &workflowactions.NoopAction{}
 		}
 		parallelAction.Actions = append(parallelAction.Actions, w.newRunFunctionAction(currentThread, edge))
 	}
@@ -183,7 +171,7 @@ func (w *Workflow) filterOutputEdgesByConditionals(currentNode *Node) []*Edge {
 }
 
 // SetResultFor sets the result of a function execution in the workflow's AuditLog
-func (w *Workflow) SetResultFor(functionExecID ExecID, result *workflow.FunctionResult) {
+func (w *Workflow) SetResultFor(functionExecID workflow.ExecID, result *workflow.FunctionResult) {
 	entry, exists := w.auditLog.Get(functionExecID.String())
 	if !exists {
 		return
@@ -193,7 +181,7 @@ func (w *Workflow) SetResultFor(functionExecID ExecID, result *workflow.Function
 }
 
 // ID Workflow ID
-func (w *Workflow) ID() ID {
+func (w *Workflow) ID() workflow.ID {
 	return w.id
 }
 
@@ -231,9 +219,9 @@ func (w *Workflow) AuditLogTrace() string {
 	return ""
 }
 
-func (w *Workflow) newRunFunctionAction(currentThread *thread, edge *Edge) *RunFunctionAction {
+func (w *Workflow) newRunFunctionAction(currentThread *thread, edge *Edge) *workflowactions.RunFunctionAction {
 	node := edge.To()
-	execID := NewExecID(node.thread)
+	execID := workflow.NewExecID(node.thread)
 
 	newOrCurrentThread := currentThread
 	var mappings []InputMapping
@@ -251,7 +239,7 @@ func (w *Workflow) newRunFunctionAction(currentThread *thread, edge *Edge) *RunF
 	args := w.inputMapping(edge, mappings)
 
 	w.auditLog.NewEntry(newOrCurrentThread.ID(), edge.To().ID(), execID.String(), args)
-	return &RunFunctionAction{
+	return &workflowactions.RunFunctionAction{
 		ThreadID:       newOrCurrentThread.ID(),
 		FunctionID:     edge.To().FunctionID(),
 		FunctionExecID: execID,

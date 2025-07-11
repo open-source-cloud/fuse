@@ -2,20 +2,19 @@ package messaging
 
 import (
 	"fmt"
-	"github.com/open-source-cloud/fuse/internal/workflow"
-	pubworkflow "github.com/open-source-cloud/fuse/pkg/workflow"
+	"github.com/open-source-cloud/fuse/pkg/workflow"
 )
 
 // FunctionResultMessage defines a FunctionResult message
 type FunctionResultMessage struct {
-	WorkflowID workflow.ID                `json:"workflow_id"`
-	ThreadID   uint16                     `json:"thread_id"`
-	ExecID     workflow.ExecID            `json:"exec_id"`
-	Result     pubworkflow.FunctionResult `json:"result"`
+	WorkflowID workflow.ID             `json:"workflow_id"`
+	ThreadID   uint16                  `json:"thread_id"`
+	ExecID     workflow.ExecID         `json:"exec_id"`
+	Result     workflow.FunctionResult `json:"result"`
 }
 
 // NewFunctionResultMessage creates a new FunctionResult message
-func NewFunctionResultMessage(workflowID workflow.ID, thread uint16, execID workflow.ExecID, result pubworkflow.FunctionResult) Message {
+func NewFunctionResultMessage(workflowID workflow.ID, thread uint16, execID workflow.ExecID, result workflow.FunctionResult) Message {
 	return Message{
 		Type: FunctionResult,
 		Args: FunctionResultMessage{

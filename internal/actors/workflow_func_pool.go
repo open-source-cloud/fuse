@@ -2,10 +2,10 @@ package actors
 
 import (
 	"fmt"
+	"github.com/open-source-cloud/fuse/pkg/workflow"
 
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
-	"github.com/open-source-cloud/fuse/internal/workflow"
 )
 
 // WorkflowFuncPoolFactory redefines a WorkflowFuncPool actor factory type for better readability

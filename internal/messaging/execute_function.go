@@ -2,7 +2,8 @@ package messaging
 
 import (
 	"fmt"
-	"github.com/open-source-cloud/fuse/internal/workflow"
+	"github.com/open-source-cloud/fuse/internal/workflow/workflowactions"
+	"github.com/open-source-cloud/fuse/pkg/workflow"
 	"strings"
 )
 
@@ -17,7 +18,7 @@ type ExecuteFunctionMessage struct {
 }
 
 // NewExecuteFunctionMessage creates a new ExecuteFunction message
-func NewExecuteFunctionMessage(workflowID workflow.ID, execAction *workflow.RunFunctionAction) Message {
+func NewExecuteFunctionMessage(workflowID workflow.ID, execAction *workflowactions.RunFunctionAction) Message {
 	lastSlashIndex := strings.LastIndex(execAction.FunctionID, "/")
 
 	return Message{

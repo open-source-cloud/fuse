@@ -63,27 +63,26 @@ func (a *WorkflowFunc) HandleMessage(from gen.PID, message any) error {
 	}
 	pkg, err := a.packageRegistry.Get(msgPayload.PackageID)
 	if err != nil {
-		a.Log().Error("Package %s is not registered", msgPayload.PackageID)
+		a.Log().Error("LoadedPackage %s is not registered", msgPayload.PackageID)
 		return nil
 	}
-	fn, err := pkg.GetFunction(msgPayload.FunctionID)
-	if err != nil {
-		a.Log().Error("FunctionID %s is not registered in package %s", msgPayload.FunctionID, msgPayload.PackageID)
-		return nil
-	}
-
 	input, err := workflow.NewFunctionInputWith(msgPayload.Input)
 	if err != nil {
 		a.Log().Error("failed to create function input: %s", err)
 		return nil
 	}
-	result, err := fn.Execute(msgPayload.WorkflowID.String(), msgPayload.ExecID.String(), input)
+
+	result, err := pkg.ExecuteFunction(
+		a,
+		msgPayload.FunctionID,
+		workflow.NewExecutionInfo(msgPayload.WorkflowID, msgPayload.ExecID, input),
+	)
 	if err != nil {
-		a.Log().Error("failed to execute function %s: %s", fn.ID(), err)
+		a.Log().Error("failed to execute function %s: %s", msgPayload.FunctionID, err)
 		return nil
 	}
 	jsonResult, _ := json.Marshal(result)
-	a.Log().Debug("execute function %s result: %s", fn.ID(), string(jsonResult))
+	a.Log().Debug("execute function %s result: %s", msgPayload.FunctionID, string(jsonResult))
 
 	resultMsg := messaging.NewFunctionResultMessage(msgPayload.WorkflowID, msgPayload.ThreadID, msgPayload.ExecID, result)
 	err = a.Send(actornames.WorkflowHandlerName(msgPayload.WorkflowID), resultMsg)

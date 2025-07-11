@@ -29,7 +29,7 @@ func (i *FunctionInput) GetStr(key string) string {
 	return i.store.GetStr(key)
 }
 
-// GetInt returnst he value for a given key as an int
+// GetInt returns the value for a given key as an int
 func (i *FunctionInput) GetInt(key string) int {
 	return i.store.GetInt(key)
 }

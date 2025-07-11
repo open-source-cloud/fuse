@@ -1,4 +1,7 @@
-package workflow
+// Package workflowactions has all the potential actions workflows can take. This instructs the caller to know what to do
+package workflowactions
+
+import "github.com/open-source-cloud/fuse/pkg/workflow"
 
 const (
 	// ActionNoop no operation action type
@@ -22,7 +25,7 @@ type (
 	RunFunctionAction struct {
 		ThreadID       uint16
 		FunctionID     string
-		FunctionExecID ExecID
+		FunctionExecID workflow.ExecID
 		Args           map[string]any
 	}
 

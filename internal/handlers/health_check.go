@@ -32,7 +32,7 @@ func NewHealthCheckHandler() *HealthCheckHandlerFactory {
 
 // HandleGet handles the GET request for the health check endpoint (GET /health)
 func (h *HealthCheckHandler) HandleGet(from gen.PID, w http.ResponseWriter, r *http.Request) error {
-	h.Log().Info("received health check request", "from", from, "remoteAddr", r.RemoteAddr)
+	h.Log().Info("received health check request from: %v remoteAddr: %s", from, r.RemoteAddr)
 
 	return h.SendJSON(w, http.StatusOK, Response{
 		"message": "OK",

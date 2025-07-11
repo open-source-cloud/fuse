@@ -1,47 +1,47 @@
 package workflow
 
+import "github.com/open-source-cloud/fuse/pkg/transport"
+
 // FunctionMetadata defines the metadata structure for a Function
 type FunctionMetadata struct {
-	Input  InputMetadata
-	Output OutputMetadata
+	Transport transport.Type `json:"transport"`
+	Input     InputMetadata  `json:"input"`
+	Output    OutputMetadata `json:"output"`
 }
 
 // InputMetadata represents one Input or Result Metadata descriptor
 type InputMetadata struct {
-	CustomParameters bool
-	Parameters       Parameters
-	Edges            InputEdgeMetadata
+	CustomParameters bool              `json:"customParameters"`
+	Parameters       []ParameterSchema `json:"parameters"`
+	Edges            InputEdgeMetadata `json:"edges"`
 }
 
 // OutputMetadata represents the output metadata for a node
 type OutputMetadata struct {
-	Parameters             Parameters
-	ConditionalOutput      bool
-	ConditionalOutputField string
-	Edges                  map[string]OutputEdgeMetadata
+	Parameters             []ParameterSchema    `json:"parameters"`
+	ConditionalOutput      bool                 `json:"conditionalOutput"`
+	ConditionalOutputField string               `json:"conditionalOutputField"`
+	Edges                  []OutputEdgeMetadata `json:"edges"`
 }
 
 // InputEdgeMetadata represents edge configuration for a node
 type InputEdgeMetadata struct {
-	Count      int
-	Parameters Parameters
+	Count      int               `json:"count"`
+	Parameters []ParameterSchema `json:"parameters"`
 }
 
 // ConditionalEdgeMetadata represents additional metadata for a conditional edge
 type ConditionalEdgeMetadata struct {
-	Value     any
+	Value any `json:"value"`
 }
 
 // OutputEdgeMetadata represents an output edge metadata configuration
 type OutputEdgeMetadata struct {
-	Name            string
-	ConditionalEdge ConditionalEdgeMetadata
-	Count           int
-	Parameters      Parameters
+	Name            string                  `json:"name"`
+	ConditionalEdge ConditionalEdgeMetadata `json:"conditionalEdge"`
+	Count           int                     `json:"count"`
+	Parameters      []ParameterSchema       `json:"parameters"`
 }
-
-// Parameters type for a collection of Parameter schemas
-type Parameters map[string]ParameterSchema
 
 // ParameterSchema represents a schema definition for a single Data field.
 // Each field in the schema can have specific properties like type, validation rules, and metadata.
@@ -63,10 +63,10 @@ type Parameters map[string]ParameterSchema
 // FieldName: "Username", Type: "string", Required: true, Validations: []string{"len=8", "regex=^[a-zA-Z]+$"}
 // FieldName: "Age", Type: "int", Required: true, Validations: []string{"min=18", "max=65"}
 type ParameterSchema struct {
-	Name        string   // The variable name
-	Type        string   // The variable type (e.g., string, int, bool, etc.)
-	Required    bool     // Whether the field is mandatory
-	Validations []string // A list of validations to apply (e.g., min, max, regex, etc.)
-	Description string   // Optional description of the field
-	Default     any      // Default value if any
+	Name        string   `json:"name"`        // The variable name
+	Type        string   `json:"type"`        // The variable type (e.g., string, int, bool, etc.)
+	Required    bool     `json:"required"`    // Whether the field is mandatory
+	Validations []string `json:"validations"` // A list of validations to apply (e.g., min, max, regex, etc.)
+	Description string   `json:"description"` // Optional description of the field
+	Default     any      `json:"default"`     // Default value if any
 }

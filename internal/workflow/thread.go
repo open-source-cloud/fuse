@@ -1,6 +1,7 @@
 package workflow
 
 import (
+	"github.com/open-source-cloud/fuse/pkg/workflow"
 	"sync"
 )
 
@@ -18,7 +19,7 @@ func newThreads() *threads {
 	}
 }
 
-func newThread(id uint16, execID ExecID) *thread {
+func newThread(id uint16, execID workflow.ExecID) *thread {
 	return &thread{
 		id:            id,
 		currentExecID: execID,
@@ -34,12 +35,12 @@ type (
 
 	thread struct {
 		id            uint16
-		currentExecID ExecID
+		currentExecID workflow.ExecID
 		state         State
 	}
 )
 
-func (t *threads) New(threadID uint16, execID ExecID) *thread {
+func (t *threads) New(threadID uint16, execID workflow.ExecID) *thread {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	createdThread := newThread(threadID, execID)
@@ -67,11 +68,11 @@ func (t *thread) ID() uint16 {
 	return t.id
 }
 
-func (t *thread) CurrentExecID() ExecID {
+func (t *thread) CurrentExecID() workflow.ExecID {
 	return t.currentExecID
 }
 
-func (t *thread) SetCurrentExecID(execID ExecID) {
+func (t *thread) SetCurrentExecID(execID workflow.ExecID) {
 	t.currentExecID = execID
 }
 

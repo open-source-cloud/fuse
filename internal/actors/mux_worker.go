@@ -74,6 +74,16 @@ func NewWorkers() *Workers {
 					PoolSize: 3,
 				},
 			},
+			{
+				Name:    handlers.PackagesHandlerName,
+				Pattern: "/v1/packages",
+				Methods: []string{"GET", "PUT"},
+				Timeout: 10 * time.Second,
+				PoolConfig: WorkerPoolConfig{
+					Name:     handlers.PackagesHandlerPoolName,
+					PoolSize: 3,
+				},
+			},
 		},
 		factories: make(map[string]gen.ProcessFactory),
 	}
