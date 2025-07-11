@@ -51,17 +51,14 @@ func IfFunctionMetadata() workflow.FunctionMetadata {
 func IfFunction(execInfo *workflow.ExecutionInfo) (workflow.FunctionResult, error) {
 	input := execInfo.Input
 
-	exprStr, ok := input.GetStr("expression")
-	if !ok || exprStr == "" {
-		return workflow.NewFunctionResultError(fmt.Errorf("expression is empty"))
-	}
-
-	compiledExpr, err := expr.Compile(exprStr, expr.Env(input.Raw()))
+	exprStr := input.GetStr("expression")
+	rawInput := input.Raw()
+	compiledExpr, err := expr.Compile(exprStr, expr.Env(rawInput))
 	if err != nil {
 		return workflow.NewFunctionResultError(fmt.Errorf("failed to compile expression: %w", err))
 	}
 
-	result, err := expr.Run(compiledExpr, input.Raw())
+	result, err := expr.Run(compiledExpr, rawInput)
 	if err != nil {
 		return workflow.NewFunctionResultError(fmt.Errorf("failed to evaluate expression: %w", err))
 	}

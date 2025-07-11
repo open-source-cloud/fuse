@@ -5,15 +5,13 @@ import (
 	"fmt"
 	internalworkflow "github.com/open-source-cloud/fuse/internal/workflow"
 	"github.com/open-source-cloud/fuse/internal/workflow/workflowactions"
-	"github.com/open-source-cloud/fuse/pkg/workflow"
 
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
 	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/open-source-cloud/fuse/internal/messaging"
 	"github.com/open-source-cloud/fuse/internal/repositories"
-	"github.com/open-source-cloud/fuse/internal/workflow"
-	pkgworkflow "github.com/open-source-cloud/fuse/pkg/workflow"
+	"github.com/open-source-cloud/fuse/pkg/workflow"
 )
 
 // WorkflowHandlerFactory redefines the WorkflowHandler factory generic type for better readability
@@ -112,8 +110,8 @@ func (a *WorkflowHandler) handleMsgActorInit(msg messaging.Message) error {
 
 	if a.workflowRepository.Exists(initArgs.workflowID.String()) {
 		a.workflow, _ = a.workflowRepository.Get(initArgs.workflowID.String())
-		var action workflow.Action
-		if a.workflow.State() == workflow.StateUntriggered {
+		var action workflowactions.Action
+		if a.workflow.State() == internalworkflow.StateUntriggered {
 			action = a.workflow.Trigger()
 		} else {
 			// TODO : add Resume
