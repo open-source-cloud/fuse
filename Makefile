@@ -31,10 +31,10 @@ lint: install-lint
 lint-fix: install-lint
 	$(GOLANGCI_LINT) run ./... --fix --timeout=5m
 
-dcpb:
+dkb:
 	docker build -t fuse-app:dev .
 
-dcpx:
+dkx:
 	docker stop fuse-local
 	docker rm fuse-local
 	docker run --name fuse-local --env-file .env -p 9090:9090 fuse-app:dev
