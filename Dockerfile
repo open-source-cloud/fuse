@@ -20,6 +20,8 @@ FROM gcr.io/distroless/base-debian11 as runnable
 
 COPY --from=build /app/bin/fuse /
 
+USER nonroot:nonroot
+
 EXPOSE 9090
 
 CMD ["/fuse", "server", "-l", "debug", "-p", "9090"]
