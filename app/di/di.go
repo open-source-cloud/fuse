@@ -6,7 +6,6 @@ import (
 	"github.com/open-source-cloud/fuse/app"
 	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/open-source-cloud/fuse/internal/packages"
-	"github.com/open-source-cloud/fuse/internal/packages/internalpackages"
 	"github.com/open-source-cloud/fuse/internal/repositories"
 	"github.com/open-source-cloud/fuse/logging"
 	"github.com/rs/zerolog"
@@ -39,15 +38,15 @@ var FuseAppModule = fx.Module(
 	"fuse_app",
 	fx.Provide(
 		app.NewApp,
-		internalpackages.New,
+		packages.NewInternal,
 	),
 	// eager loading
 	fx.Invoke(func(
 		_ repositories.GraphRepository,
 		_ repositories.WorkflowRepository,
-		registry packages.Registry,
+		_ packages.Registry,
 		_ gen.Node,
-		internalPackages *internalpackages.InternalPackages,
+		internalPackages *packages.InternalPackages,
 	) {
 		// register internal packages
 		internalPackages.Register()

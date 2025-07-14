@@ -3,6 +3,7 @@ package services_test
 import (
 	"testing"
 
+	"github.com/open-source-cloud/fuse/internal/packages"
 	"github.com/open-source-cloud/fuse/internal/repositories"
 	"github.com/open-source-cloud/fuse/internal/services"
 	"github.com/open-source-cloud/fuse/tests"
@@ -11,8 +12,12 @@ import (
 // TestGraphService tests the GraphService
 func TestGraphService(t *testing.T) {
 	memGraphRepo := repositories.NewMemoryGraphRepository()
-	memPackageRegistry := tests.PackageRegistryWithInternalPackages()
-	graphService := services.NewGraphService(memGraphRepo, memPackageRegistry)
+
+	pkgRegistry := packages.NewPackageRegistry()
+	internalPackages := packages.NewInternal(pkgRegistry)
+	internalPackages.Register()
+
+	graphService := services.NewGraphService(memGraphRepo, pkgRegistry)
 
 	schema := tests.SmallTestGraphSchema()
 

@@ -3,13 +3,12 @@ package logic_test
 import (
 	"testing"
 
-	"github.com/open-source-cloud/fuse/internal/packages/logic"
+	"github.com/open-source-cloud/fuse/internal/packages/functions/logic"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 )
 
 // TestIfFunction tests the IfFunction function with a valid expression
 func TestIfFunction(t *testing.T) {
-	execInfo := &workflow.ExecutionInfo{}
 
 	input, err := workflow.NewFunctionInputWith(map[string]any{
 		"expression": "a > b",
@@ -20,7 +19,14 @@ func TestIfFunction(t *testing.T) {
 		t.Fatalf("failed to create function input: %s", err)
 	}
 
-	result, err := logic.IfFunction(execInfo, input)
+	execInfo := &workflow.ExecutionInfo{
+		WorkflowID: "test-workflow",
+		Input:      input,
+		ExecID:     "test-exec",
+		Finish:     nil,
+	}
+
+	result, err := logic.IfFunction(execInfo)
 	if err != nil {
 		t.Fatalf("failed to execute if function: %v", err)
 	}

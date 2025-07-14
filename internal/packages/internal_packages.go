@@ -1,16 +1,14 @@
-// Package internalpackages hardcoded internal packages
-package internalpackages
+package packages
 
 import (
-	"github.com/open-source-cloud/fuse/internal/packages"
-	"github.com/open-source-cloud/fuse/internal/packages/internalpackages/debug"
-	"github.com/open-source-cloud/fuse/internal/packages/internalpackages/logic"
+	"github.com/open-source-cloud/fuse/internal/packages/functions/debug"
+	"github.com/open-source-cloud/fuse/internal/packages/functions/logic"
 	"github.com/open-source-cloud/fuse/internal/packages/transport"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 )
 
-// New creates new InternalPackages service
-func New(registry packages.Registry) *InternalPackages {
+// NewInternal creates new InternalPackages service
+func NewInternal(registry Registry) *InternalPackages {
 	return &InternalPackages{
 		registry: registry,
 	}
@@ -18,7 +16,7 @@ func New(registry packages.Registry) *InternalPackages {
 
 // InternalPackages service for registering internal packages
 type InternalPackages struct {
-	registry packages.Registry
+	registry Registry
 }
 
 // Register registers internal packages

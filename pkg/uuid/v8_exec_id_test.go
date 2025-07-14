@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/open-source-cloud/fuse/internal/uuid"
+	"github.com/open-source-cloud/fuse/pkg/uuid"
 )
 
 func TestV8ExecID(t *testing.T) {

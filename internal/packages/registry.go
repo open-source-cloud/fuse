@@ -3,6 +3,7 @@ package packages
 
 import (
 	"fmt"
+
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 	"github.com/rs/zerolog/log"
 )

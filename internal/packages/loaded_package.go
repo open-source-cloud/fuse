@@ -2,6 +2,7 @@ package packages
 
 import (
 	"fmt"
+
 	"github.com/open-source-cloud/fuse/internal/actors/actor"
 	"github.com/open-source-cloud/fuse/internal/packages/transport"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
