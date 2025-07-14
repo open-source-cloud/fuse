@@ -3,14 +3,12 @@ package logic_test
 import (
 	"testing"
 
-	"github.com/open-source-cloud/fuse/internal/packages/logic"
+	"github.com/open-source-cloud/fuse/internal/packages/functions/logic"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 )
 
 // TestRandFunction tests the RandFunction function with min and max parameters
 func TestRandFunction(t *testing.T) {
-	execInfo := &workflow.ExecutionInfo{}
-
 	input, err := workflow.NewFunctionInputWith(map[string]any{
 		"min": 1,
 		"max": 100,
@@ -19,7 +17,14 @@ func TestRandFunction(t *testing.T) {
 		t.Fatalf("failed to create function input: %s", err)
 	}
 
-	result, err := logic.RandFunction(execInfo, input)
+	execInfo := &workflow.ExecutionInfo{
+		WorkflowID: "test-workflow",
+		Input:      input,
+		ExecID:     "test-exec",
+		Finish:     nil,
+	}
+
+	result, err := logic.RandFunction(execInfo)
 	if err != nil {
 		t.Fatalf("failed to execute rand function: %v", err)
 	}

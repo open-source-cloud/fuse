@@ -14,6 +14,8 @@ var WorkerModule = fx.Module(
 		handlers.NewUpsertWorkflowSchemaHandlerFactory,
 		handlers.NewTriggerWorkflowHandlerFactory,
 		handlers.NewHealthCheckHandler,
+		handlers.NewPackagesHandler,
+		handlers.NewRegisterPackagesHandler,
 		actors.NewWorkers,
 	),
 	fx.Invoke(func(
@@ -22,11 +24,15 @@ var WorkerModule = fx.Module(
 		asyncFunctionResultHandlerFactory *handlers.AsyncFunctionResultHandlerFactory,
 		upsertWorkflowSchemaHandlerFactory *handlers.UpsertWorkflowSchemaHandlerFactory,
 		triggerWorkflowHandlerFactory *handlers.TriggerWorkflowHandlerFactory,
+		packagesHandlerFactory *handlers.PackagesHandlerFactory,
+		registerPackagesHandlerFactory *handlers.RegisterPackagesHandlerFactory,
 	) {
 		workers.AddFactory(handlers.HealthCheckHandlerName, healthCheckHandlerFactory.Factory)
 		workers.AddFactory(handlers.AsyncFunctionResultHandlerName, asyncFunctionResultHandlerFactory.Factory)
 		workers.AddFactory(handlers.UpsertWorkflowSchemaHandlerName, upsertWorkflowSchemaHandlerFactory.Factory)
 		workers.AddFactory(handlers.TriggerWorkflowHandlerName, triggerWorkflowHandlerFactory.Factory)
+		workers.AddFactory(handlers.PackagesHandlerName, packagesHandlerFactory.Factory)
+		workers.AddFactory(handlers.RegisterPackagesHandlerName, registerPackagesHandlerFactory.Factory)
 	}),
 )
 

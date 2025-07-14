@@ -15,8 +15,8 @@ func IfFunctionMetadata() workflow.FunctionMetadata {
 	return workflow.FunctionMetadata{
 		Input: workflow.InputMetadata{
 			CustomParameters: true,
-			Parameters: workflow.Parameters{
-				"expression": workflow.ParameterSchema{
+			Parameters: []workflow.ParameterSchema{
+				{
 					Name:        "expression",
 					Type:        "string",
 					Required:    true,
@@ -29,14 +29,14 @@ func IfFunctionMetadata() workflow.FunctionMetadata {
 		Output: workflow.OutputMetadata{
 			ConditionalOutput:      true,
 			ConditionalOutputField: "result",
-			Edges: map[string]workflow.OutputEdgeMetadata{
-				"if-true": {
+			Edges: []workflow.OutputEdgeMetadata{
+				{
 					Name: "if-true",
 					ConditionalEdge: workflow.ConditionalEdgeMetadata{
 						Value: true,
 					},
 				},
-				"if-false": {
+				{
 					Name: "if-false",
 					ConditionalEdge: workflow.ConditionalEdgeMetadata{
 						Value: false,
@@ -48,18 +48,17 @@ func IfFunctionMetadata() workflow.FunctionMetadata {
 }
 
 // IfFunction executes the if function and returns the result
-func IfFunction(_ *workflow.ExecutionInfo, input *workflow.FunctionInput) (workflow.FunctionResult, error) {
-	exprStr := input.GetStr("expression")
-	if exprStr == "" {
-		return workflow.NewFunctionResultError(fmt.Errorf("expression is empty"))
-	}
+func IfFunction(execInfo *workflow.ExecutionInfo) (workflow.FunctionResult, error) {
+	input := execInfo.Input
 
-	compiledExpr, err := expr.Compile(exprStr, expr.Env(input.Raw()))
+	exprStr := input.GetStr("expression")
+	rawInput := input.Raw()
+	compiledExpr, err := expr.Compile(exprStr, expr.Env(rawInput))
 	if err != nil {
 		return workflow.NewFunctionResultError(fmt.Errorf("failed to compile expression: %w", err))
 	}
 
-	result, err := expr.Run(compiledExpr, input.Raw())
+	result, err := expr.Run(compiledExpr, rawInput)
 	if err != nil {
 		return workflow.NewFunctionResultError(fmt.Errorf("failed to evaluate expression: %w", err))
 	}

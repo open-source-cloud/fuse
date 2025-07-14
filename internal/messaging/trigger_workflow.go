@@ -2,7 +2,7 @@ package messaging
 
 import (
 	"fmt"
-	"github.com/open-source-cloud/fuse/internal/workflow"
+	"github.com/open-source-cloud/fuse/pkg/workflow"
 )
 
 // TriggerWorkflowMessage defines a TriggerWorkflow message

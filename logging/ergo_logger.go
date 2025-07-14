@@ -4,7 +4,7 @@ import (
 	"ergo.services/ergo/gen"
 	"fmt"
 	"github.com/fatih/color"
-	"github.com/open-source-cloud/fuse/internal/workflow"
+	"github.com/open-source-cloud/fuse/pkg/workflow"
 	"github.com/rs/zerolog"
 	"strings"
 )

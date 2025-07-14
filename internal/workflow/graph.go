@@ -1,12 +1,14 @@
 package workflow
 
+// Package packages workflow function packages
+
 import (
 	"fmt"
+	"github.com/open-source-cloud/fuse/internal/packages"
 	"sort"
 	"sync"
 
 	"github.com/TyphonHill/go-mermaid/diagrams/flowchart"
-	"github.com/open-source-cloud/fuse/pkg/workflow"
 )
 
 type (
@@ -131,7 +133,7 @@ func (g *Graph) UpdateSchema(schema *GraphSchema) error {
 }
 
 // UpdateNodeMetadata updates the metadata of a node
-func (g *Graph) UpdateNodeMetadata(nodeID string, metadata workflow.FunctionMetadata) error {
+func (g *Graph) UpdateNodeMetadata(nodeID string, metadata *packages.FunctionMetadata) error {
 	node, err := g.FindNode(nodeID)
 	if err != nil {
 		return err
@@ -142,7 +144,7 @@ func (g *Graph) UpdateNodeMetadata(nodeID string, metadata workflow.FunctionMeta
 	return nil
 }
 
-// Schema returns a deep copy of the schema of the graph
+// Schema returns a deep copy of the graph's schema
 func (g *Graph) Schema() GraphSchema {
 	return g.schema.Clone()
 }

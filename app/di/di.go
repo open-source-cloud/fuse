@@ -6,8 +6,6 @@ import (
 	"github.com/open-source-cloud/fuse/app"
 	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/open-source-cloud/fuse/internal/packages"
-	"github.com/open-source-cloud/fuse/internal/packages/debug"
-	"github.com/open-source-cloud/fuse/internal/packages/logic"
 	"github.com/open-source-cloud/fuse/internal/repositories"
 	"github.com/open-source-cloud/fuse/logging"
 	"github.com/rs/zerolog"
@@ -40,22 +38,18 @@ var FuseAppModule = fx.Module(
 	"fuse_app",
 	fx.Provide(
 		app.NewApp,
+		packages.NewInternal,
 	),
 	// eager loading
 	fx.Invoke(func(
 		_ repositories.GraphRepository,
 		_ repositories.WorkflowRepository,
-		registry packages.Registry,
+		_ packages.Registry,
 		_ gen.Node,
+		internalPackages *packages.InternalPackages,
 	) {
-		listOfInternalPackages := []packages.Package{
-			debug.New(),
-			logic.New(),
-		}
-
-		for _, pkg := range listOfInternalPackages {
-			registry.Register(pkg.ID(), pkg)
-		}
+		// register internal packages
+		internalPackages.Register()
 	}),
 )
 

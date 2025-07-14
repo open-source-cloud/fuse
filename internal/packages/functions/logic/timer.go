@@ -14,8 +14,8 @@ const TimerFunctionID = "timer"
 func TimerFunctionMetadata() workflow.FunctionMetadata {
 	return workflow.FunctionMetadata{
 		Input: workflow.InputMetadata{
-			Parameters: workflow.Parameters{
-				"timer": workflow.ParameterSchema{
+			Parameters: []workflow.ParameterSchema{
+				{
 					Name:        "timer",
 					Type:        "int",
 					Required:    true,
@@ -29,10 +29,9 @@ func TimerFunctionMetadata() workflow.FunctionMetadata {
 }
 
 // TimerFunction executes timer function
-func TimerFunction(execInfo *workflow.ExecutionInfo, input *workflow.FunctionInput) (workflow.FunctionResult, error) {
+func TimerFunction(execInfo *workflow.ExecutionInfo) (workflow.FunctionResult, error) {
 	ctx, cancel := context.WithCancel(context.Background())
-
-	timer := input.GetInt("timer")
+	timer := execInfo.Input.GetInt("timer")
 	duration := time.Duration(timer) * time.Millisecond
 
 	go func() {

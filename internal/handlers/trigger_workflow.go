@@ -3,7 +3,7 @@ package handlers
 
 import (
 	"fmt"
-	"github.com/open-source-cloud/fuse/internal/workflow"
+	"github.com/open-source-cloud/fuse/pkg/workflow"
 	"net/http"
 
 	"ergo.services/ergo/gen"
@@ -44,7 +44,7 @@ func NewTriggerWorkflowHandlerFactory() *TriggerWorkflowHandlerFactory {
 
 // HandlePost handles the http TriggerWorkflow endpoint (POST /v1/workflows/{schemaID}/trigger)
 func (h *TriggerWorkflowHandler) HandlePost(from gen.PID, w http.ResponseWriter, r *http.Request) error {
-	h.Log().Info("received trigger workflow request", "from", from, "remoteAddr", r.RemoteAddr)
+	h.Log().Info("received trigger workflow request from: %v remoteAddr: %s", from, r.RemoteAddr)
 
 	var req TriggerWorkflowRequest
 	if err := h.BindJSON(w, r, &req); err != nil {

@@ -44,7 +44,7 @@ func NewUpsertWorkflowSchemaHandlerFactory(graphService services.GraphService) *
 
 // HandlePut handles the UpsertWorkflowSchema http endpoint -- PUT /v1/schemas/{schemaID}
 func (h *UpsertWorkflowSchemaHandler) HandlePut(from gen.PID, w http.ResponseWriter, r *http.Request) error {
-	h.Log().Info("received upsert workflow schema request", "from", from, "remoteAddr", r.RemoteAddr)
+	h.Log().Info("received upsert workflow schema request from: %v remoteAddr: %s", from, r.RemoteAddr)
 
 	schemaID, err := h.GetPathParam(r, "schemaID")
 	if err != nil {

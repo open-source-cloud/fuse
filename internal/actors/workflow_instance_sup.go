@@ -3,13 +3,13 @@ package actors
 import (
 	"fmt"
 	"github.com/open-source-cloud/fuse/internal/actors/actornames"
+	"github.com/open-source-cloud/fuse/pkg/workflow"
 
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
 	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/open-source-cloud/fuse/internal/messaging"
 	"github.com/open-source-cloud/fuse/internal/repositories"
-	"github.com/open-source-cloud/fuse/internal/workflow"
 )
 
 // WorkflowInstanceSupervisorFactory redefines a WorkflowInstanceSupervisor supervisor actor factory type for
