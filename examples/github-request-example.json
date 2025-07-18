@@ -1,0 +1,38 @@
+{
+  "id": "github-request-example",
+  "name": "GitHub Request Example",
+  "nodes": [
+    {
+      "id": "debug-nil",
+      "function": "fuse/pkg/debug/nil"
+    },
+    {
+      "id": "http-request",
+      "function": "fuse/pkg/http/request"
+    }
+  ],
+  "edges": [
+    {
+      "id": "0196cf0f-8a70-7463-a594-3e2a734be14c",
+      "from": "debug-nil",
+      "to": "http-request",
+      "input": [
+        {
+          "source": "schema",
+          "value": "https://api.github.com",
+          "mapTo": "host"
+        },
+        {
+          "source": "schema",
+          "value": "/users/octocat",
+          "mapTo": "path"
+        },
+        {
+          "source": "schema",
+          "value": "GET",
+          "mapTo": "method"
+        }
+      ]
+    }
+  ]
+}
