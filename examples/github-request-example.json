@@ -49,7 +49,7 @@
       "input": [
         {
           "source": "flow",
-          "variable": "http-request.status",
+          "variable": "github-http-request.status",
           "mapTo": "statusCode"
         },
         {

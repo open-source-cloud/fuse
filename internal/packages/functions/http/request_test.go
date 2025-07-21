@@ -19,6 +19,8 @@ type RequestFunctionTestSuite struct {
 	server *httptest.Server
 }
 
+const headMethod = "HEAD"
+
 func TestRequestFunctionSuite(t *testing.T) {
 	suite.Run(t, new(RequestFunctionTestSuite))
 }
@@ -42,7 +44,7 @@ func (s *RequestFunctionTestSuite) testHandler(w http.ResponseWriter, r *http.Re
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("X-Custom-Header", "test-value")
 		// HEAD requests should not return a body
-		if r.Method != "HEAD" {
+		if r.Method != headMethod {
 			_, _ = fmt.Fprintf(w, `{"message": "success", "method": "%s"}`, r.Method)
 		}
 
@@ -61,14 +63,14 @@ func (s *RequestFunctionTestSuite) testHandler(w http.ResponseWriter, r *http.Re
 		}
 		w.Header().Set("Content-Type", "application/json")
 		// HEAD requests should not return a body
-		if r.Method != "HEAD" {
+		if r.Method != headMethod {
 			_ = json.NewEncoder(w).Encode(response)
 		}
 
 	case "/error":
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Header().Set("Content-Type", "application/json")
-		if r.Method != "HEAD" {
+		if r.Method != headMethod {
 			_, _ = fmt.Fprint(w, `{"error": "Internal Server Error"}`)
 		}
 
@@ -76,21 +78,21 @@ func (s *RequestFunctionTestSuite) testHandler(w http.ResponseWriter, r *http.Re
 		time.Sleep(2 * time.Second)
 		w.WriteHeader(http.StatusOK)
 		w.Header().Set("Content-Type", "application/json")
-		if r.Method != "HEAD" {
+		if r.Method != headMethod {
 			_, _ = fmt.Fprint(w, `{"message": "timeout response"}`)
 		}
 
 	case "/empty":
 		w.WriteHeader(http.StatusOK)
 		w.Header().Set("Content-Type", "application/json")
-		if r.Method != "HEAD" {
+		if r.Method != headMethod {
 			_, _ = fmt.Fprint(w, `{}`)
 		}
 
 	default:
 		w.WriteHeader(http.StatusNotFound)
 		w.Header().Set("Content-Type", "application/json")
-		if r.Method != "HEAD" {
+		if r.Method != headMethod {
 			_, _ = fmt.Fprint(w, `{"error": "Not Found"}`)
 		}
 	}
@@ -262,7 +264,7 @@ func (s *RequestFunctionTestSuite) TestRequestFunctionWithTimeout() {
 
 // Test RequestFunction - Different HTTP Methods
 func (s *RequestFunctionTestSuite) TestRequestFunctionHTTPMethods() {
-	methods := []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"}
+	methods := []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", headMethod}
 
 	for _, method := range methods {
 		s.Run(method, func() {
@@ -279,7 +281,7 @@ func (s *RequestFunctionTestSuite) TestRequestFunctionHTTPMethods() {
 
 			// HEAD requests return empty body, which causes JSON unmarshalling to fail
 			// This is expected behavior, so we handle it as a special case
-			if method == "HEAD" {
+			if method == headMethod {
 				s.Error(err)
 				s.Equal(workflow.FunctionError, result.Output.Status)
 				s.Contains(result.Output.Data["error"].(string), "unexpected end of JSON input")
@@ -296,7 +298,7 @@ func (s *RequestFunctionTestSuite) TestRequestFunctionHEADMethod() {
 	input, err := workflow.NewFunctionInputWith(map[string]any{
 		"host":   s.server.URL,
 		"path":   "/success",
-		"method": "HEAD",
+		"method": headMethod,
 	})
 	s.NoError(err)
 
@@ -485,7 +487,7 @@ func TestMakeRequestSchema(t *testing.T) {
 func TestMakeResponseSchema(t *testing.T) {
 	// Test successful response parsing
 	t.Run("SuccessfulResponse", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			w.Header().Set("X-Custom-Header", "custom-value")
 			w.WriteHeader(http.StatusOK)
@@ -524,7 +526,7 @@ func TestMakeResponseSchema(t *testing.T) {
 
 	// Test invalid JSON response
 	t.Run("InvalidJSONResponse", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
 			_, _ = fmt.Fprint(w, `invalid json`)
@@ -548,7 +550,7 @@ func TestMakeResponseSchema(t *testing.T) {
 
 	// Test empty response
 	t.Run("EmptyResponse", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
 			_, _ = fmt.Fprint(w, `{}`)
@@ -585,64 +587,6 @@ func TestErrorConstants(t *testing.T) {
 // Test HTTPFunctionID constant
 func TestHTTPFunctionID(t *testing.T) {
 	assert.Equal(t, "request", httpFunc.HTTPFunctionID)
-}
-
-// Benchmark tests
-func BenchmarkRequestFunction(b *testing.B) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, _ = fmt.Fprint(w, `{"status": "ok"}`)
-	}))
-	defer server.Close()
-
-	input, err := workflow.NewFunctionInputWith(map[string]any{
-		"host":   server.URL,
-		"path":   "/test",
-		"method": "GET",
-	})
-	if err != nil {
-		b.Fatal(err)
-	}
-
-	execInfo := workflow.NewExecutionInfo(workflow.NewID(), workflow.NewExecID(1), input)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_, err := httpFunc.RequestFunction(execInfo)
-		if err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkRequestFunctionWithBody(b *testing.B) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, _ = fmt.Fprint(w, `{"status": "ok"}`)
-	}))
-	defer server.Close()
-
-	input, err := workflow.NewFunctionInputWith(map[string]any{
-		"host":   server.URL,
-		"path":   "/test",
-		"method": "POST",
-		"body":   `{"key": "value"}`,
-	})
-	if err != nil {
-		b.Fatal(err)
-	}
-
-	execInfo := workflow.NewExecutionInfo(workflow.NewID(), workflow.NewExecID(1), input)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_, err := httpFunc.RequestFunction(execInfo)
-		if err != nil {
-			b.Fatal(err)
-		}
-	}
 }
 
 // Integration tests with different scenarios
