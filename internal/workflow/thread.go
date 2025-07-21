@@ -61,7 +61,7 @@ func (t *threads) Get(threadID uint16) *thread {
 func (t *threads) AreAllParentsFinishedFor(parentThreadIDs []uint16) bool {
 	for _, parentThreadID := range parentThreadIDs {
 		parentThread := t.Get(parentThreadID)
-		if parentThread.State() != ThreadFinished {
+		if parentThread == nil || parentThread.State() != ThreadFinished {
 			return false
 		}
 	}
