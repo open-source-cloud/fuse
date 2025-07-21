@@ -15,7 +15,7 @@ const (
 func newThreads() *threads {
 	return &threads{
 		threads: make(map[uint16]*thread),
-		mu:      &sync.Mutex{},
+		mu:      &sync.RWMutex{},
 	}
 }
 
@@ -30,7 +30,7 @@ func newThread(id uint16, execID workflow.ExecID) *thread {
 type (
 	threads struct {
 		threads map[uint16]*thread
-		mu      *sync.Mutex
+		mu      *sync.RWMutex
 	}
 
 	thread struct {
@@ -49,15 +49,19 @@ func (t *threads) New(threadID uint16, execID workflow.ExecID) *thread {
 }
 
 func (t *threads) Get(threadID uint16) *thread {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	return t.threads[threadID]
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	thread, exists := t.threads[threadID]
+	if !exists {
+		return nil
+	}
+	return thread
 }
 
 func (t *threads) AreAllParentsFinishedFor(parentThreadIDs []uint16) bool {
 	for _, parentThreadID := range parentThreadIDs {
 		parentThread := t.Get(parentThreadID)
-		if parentThread.State() != ThreadFinished {
+		if parentThread == nil || parentThread.State() != ThreadFinished {
 			return false
 		}
 	}
