@@ -46,6 +46,19 @@ func NewTriggerWorkflowHandlerFactory() *TriggerWorkflowHandlerFactory {
 func (h *TriggerWorkflowHandler) HandlePost(from gen.PID, w http.ResponseWriter, r *http.Request) error {
 	h.Log().Info("received trigger workflow request from: %v remoteAddr: %s", from, r.RemoteAddr)
 
+	// Get and validate the schema ID from the path parameter
+	pathSchemaID, err := h.GetPathParam(r, "schemaID")
+	if err != nil {
+		return h.SendBadRequest(w, err, []string{"schemaID path parameter is required"})
+	}
+
+	if pathSchemaID == "" {
+		return h.SendJSON(w, http.StatusBadRequest, Response{
+			"message": "schemaID path parameter cannot be empty",
+			"code":    BadRequest,
+		})
+	}
+
 	var req TriggerWorkflowRequest
 	if err := h.BindJSON(w, r, &req); err != nil {
 		return h.SendJSON(w, http.StatusBadRequest, Response{
@@ -54,15 +67,19 @@ func (h *TriggerWorkflowHandler) HandlePost(from gen.PID, w http.ResponseWriter,
 		})
 	}
 
-	if req.SchemaID == "" {
+	// If schemaID is provided in the request body, it must match the path parameter
+	if req.SchemaID != "" && req.SchemaID != pathSchemaID {
 		return h.SendJSON(w, http.StatusBadRequest, Response{
-			"message": "schemaId is required",
+			"message": "schemaID in request body must match the path parameter",
 			"code":    BadRequest,
 		})
 	}
 
+	// Use the path parameter as the authoritative schema ID
+	schemaID := pathSchemaID
+
 	workflowID := workflow.NewID()
-	if err := h.Send(WorkflowSupervisorName, messaging.NewTriggerWorkflowMessage(req.SchemaID, workflowID)); err != nil {
+	if err := h.Send(WorkflowSupervisorName, messaging.NewTriggerWorkflowMessage(schemaID, workflowID)); err != nil {
 		return h.SendJSON(w, http.StatusInternalServerError, Response{
 			"message": fmt.Sprintf("failed to send message: %s", err),
 			"code":    InternalServerError,
@@ -70,7 +87,7 @@ func (h *TriggerWorkflowHandler) HandlePost(from gen.PID, w http.ResponseWriter,
 	}
 
 	return h.SendJSON(w, http.StatusOK, Response{
-		"schemaId":   req.SchemaID,
+		"schemaId":   schemaID,
 		"workflowId": workflowID,
 		"code":        "OK",
 	})

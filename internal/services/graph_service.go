@@ -3,6 +3,7 @@ package services
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/open-source-cloud/fuse/internal/packages"
@@ -110,6 +111,9 @@ func (gs *DefaultGraphService) populateNodeMetadata(graph *workflow.Graph, nodes
 
 	for _, node := range nodes {
 		lastIndexOfSlash := strings.LastIndex(node.Function, "/")
+		if lastIndexOfSlash == -1 {
+			return fmt.Errorf("invalid function format '%s': must contain '/' to separate package and function", node.Function)
+		}
 		pkgID := node.Function[:lastIndexOfSlash]
 		pkg, err := gs.packageRegistry.Get(pkgID)
 		if err != nil {
