@@ -11,6 +11,7 @@ import (
 
 // ParseValue converts val (interface{}) to the Go type described by typeStr (e.g., "int", "[]string")
 // For array types, it returns a slice of the actual element type, not []any.
+//
 //nolint:gocyclo
 func ParseValue(typeStr string, val any) (any, error) {
 	typeStr = strings.TrimSpace(typeStr)
@@ -65,6 +66,7 @@ func ParseValue(typeStr string, val any) (any, error) {
 		}
 		return resultSlice.Interface(), nil
 	}
+
 	// Handle scalar types
 	switch typeStr {
 	case "string":
@@ -129,6 +131,11 @@ func ParseValue(typeStr string, val any) (any, error) {
 		default:
 			return nil, errors.New("cannot convert to bool")
 		}
+	case "map[string]any":
+		if mapVal, ok := val.(map[string]any); ok {
+			return mapVal, nil
+		}
+		return nil, errors.New("cannot convert to map[string]any")
 	default:
 		return nil, fmt.Errorf("unsupported type: %s", typeStr)
 	}
