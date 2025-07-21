@@ -30,6 +30,7 @@ func (p *InternalPackages) Register() {
 	}
 }
 
+// List returns the list of internal packages
 func (p *InternalPackages) List() []*workflow.Package {
 	return []*workflow.Package{
 		debug.New(),

@@ -42,7 +42,7 @@ func (s *HTTPClientTestSuite) testHandler(w http.ResponseWriter, r *http.Request
 	case "/success":
 		w.WriteHeader(http.StatusOK)
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, `{"message": "success", "method": "%s"}`, r.Method)
+		_, _ = fmt.Fprintf(w, `{"message": "success", "method": "%s"}`, r.Method)
 
 	case "/echo":
 		// Echo back request details
@@ -54,11 +54,11 @@ func (s *HTTPClientTestSuite) testHandler(w http.ResponseWriter, r *http.Request
 			"body":    string(body),
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 
 	case "/error":
 		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprint(w, "Internal Server Error")
+		_, _ = fmt.Fprint(w, "Internal Server Error")
 
 	case "/timeout":
 		time.Sleep(2 * time.Second)
@@ -72,11 +72,11 @@ func (s *HTTPClientTestSuite) testHandler(w http.ResponseWriter, r *http.Request
 
 	case "/json":
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"response": "json"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"response": "json"})
 
 	default:
 		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprint(w, "Not Found")
+		_, _ = fmt.Fprint(w, "Not Found")
 	}
 }
 
@@ -126,7 +126,7 @@ func (s *HTTPClientTestSuite) TestRequestSuccess() {
 	s.NoError(err)
 	s.NotNil(resp)
 	s.Equal(http.StatusOK, resp.StatusCode)
-	s.False(resp.IsHttpError)
+	s.False(resp.IsError)
 	s.False(resp.Empty)
 	s.Contains(string(resp.Body), "success")
 }
@@ -389,7 +389,7 @@ func (s *HTTPClientTestSuite) TestHTTPError() {
 	resp, err := s.client.Get("/error")
 	s.NoError(err)
 	s.Equal(http.StatusInternalServerError, resp.StatusCode)
-	s.True(resp.IsHttpError)
+	s.True(resp.IsError)
 	s.Contains(string(resp.Body), "Internal Server Error")
 }
 
@@ -427,37 +427,6 @@ func (s *HTTPClientTestSuite) TestEmptyResponse() {
 	s.Equal(http.StatusOK, resp.StatusCode)
 	s.True(resp.Empty)
 	s.Empty(resp.Body)
-}
-
-func (s *HTTPClientTestSuite) TestResponseUnmarshalJSON() {
-	resp, err := s.client.Get("/json")
-	s.NoError(err)
-
-	var data map[string]string
-	err = resp.UnmarshalJSON(&data)
-	s.NoError(err)
-	s.Equal("json", data["response"])
-}
-
-func (s *HTTPClientTestSuite) TestResponseUnmarshalJSONEmpty() {
-	resp, err := s.client.Get("/empty")
-	s.NoError(err)
-
-	var data map[string]string
-	err = resp.UnmarshalJSON(&data)
-	s.Error(err)
-	s.Contains(err.Error(), "response body is empty")
-}
-
-func (s *HTTPClientTestSuite) TestResponseUnmarshalJSONInvalid() {
-	resp := &httpClient.Response{
-		Body:  []byte("invalid json"),
-		Empty: false,
-	}
-
-	var data map[string]string
-	err := resp.UnmarshalJSON(&data)
-	s.Error(err)
 }
 
 // Test redirect handling
@@ -581,9 +550,9 @@ func (s *HTTPClientTestSuite) TestContentTypeOverride() {
 
 // Benchmark tests
 func BenchmarkHTTPClientGet(b *testing.B) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, `{"status": "ok"}`)
+		_, _ = fmt.Fprint(w, `{"status": "ok"}`)
 	}))
 	defer server.Close()
 
@@ -599,9 +568,9 @@ func BenchmarkHTTPClientGet(b *testing.B) {
 }
 
 func BenchmarkHTTPClientPost(b *testing.B) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, `{"status": "ok"}`)
+		_, _ = fmt.Fprint(w, `{"status": "ok"}`)
 	}))
 	defer server.Close()
 

@@ -1,3 +1,4 @@
+// Package http provides a client for making HTTP requests
 package http
 
 import (
@@ -28,12 +29,12 @@ type (
 
 	// Response is a struct that contains the data returned from an HTTP request.
 	Response struct {
-		Body        []byte
-		Headers     map[string]string
-		StatusCode  int
-		IsHttpError bool
-		Empty       bool
-		URL         string
+		Body       []byte
+		Headers    map[string]string
+		StatusCode int
+		IsError    bool
+		Empty      bool
+		URL        string
 	}
 
 	// Client is a struct that contains the data needed to make an HTTP request.
@@ -78,7 +79,7 @@ func NewClientWithOptions(host string, options ClientOptions) *Client {
 
 	var checkRedirect func(req *http.Request, via []*http.Request) error
 	if !options.FollowRedirects {
-		checkRedirect = func(req *http.Request, via []*http.Request) error {
+		checkRedirect = func(_ *http.Request, _ []*http.Request) error {
 			return http.ErrUseLastResponse
 		}
 	}
@@ -96,6 +97,9 @@ func NewClientWithOptions(host string, options ClientOptions) *Client {
 }
 
 // Request makes an HTTP request.
+// This function is complex and has a lot of code, so we're ignoring the cyclomatic complexity check
+// nolint:gocyclo
+// nolint:cyclop
 func (c *Client) Request(data *Request) (*Response, error) {
 	if data == nil {
 		return nil, fmt.Errorf("request data cannot be nil")
@@ -183,11 +187,10 @@ func (c *Client) Request(data *Request) (*Response, error) {
 	if data.Timeout != 0 && data.Timeout != c.DefaultTimeout {
 		var checkRedirect func(req *http.Request, via []*http.Request) error
 		if !data.FollowRedirects {
-			checkRedirect = func(req *http.Request, via []*http.Request) error {
+			checkRedirect = func(_ *http.Request, _ []*http.Request) error {
 				return http.ErrUseLastResponse
 			}
 		}
-
 		client = &http.Client{
 			Timeout:       data.Timeout,
 			CheckRedirect: checkRedirect,
@@ -221,16 +224,16 @@ func (c *Client) Request(data *Request) (*Response, error) {
 		}
 	}
 
-	httpError := resp.StatusCode >= 400
+	isError := resp.StatusCode >= 400
 	empty := len(respBody) == 0
 
 	return &Response{
-		Body:        respBody,
-		Headers:     respHeaders,
-		StatusCode:  resp.StatusCode,
-		IsHttpError: httpError,
-		Empty:       empty,
-		URL:         resp.Request.URL.String(),
+		Body:       respBody,
+		Headers:    respHeaders,
+		StatusCode: resp.StatusCode,
+		IsError:    isError,
+		Empty:      empty,
+		URL:        resp.Request.URL.String(),
 	}, nil
 }
 
@@ -274,12 +277,4 @@ func (c *Client) SetDefaultHeader(key, value string) {
 		c.DefaultHeaders = make(map[string]string)
 	}
 	c.DefaultHeaders[key] = value
-}
-
-// UnmarshalJSON unmarshals the response body into the provided interface.
-func (r *Response) UnmarshalJSON(v interface{}) error {
-	if r.Empty {
-		return fmt.Errorf("response body is empty")
-	}
-	return json.Unmarshal(r.Body, v)
 }

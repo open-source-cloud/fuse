@@ -20,7 +20,7 @@ func NewFunction(id string, metadata FunctionMetadata, fn Function) *PackagedFun
 type (
 	// Package workflow function Package
 	Package struct {
-		ID        string      `json:"id"`
+		ID        string              `json:"id"`
 		Functions []*PackagedFunction `json:"functions"`
 	}
 

@@ -53,6 +53,7 @@ func (i *FunctionInput) GetIntSliceOrDefault(key string, defaultValue []int) []i
 	return value
 }
 
+// GetMap returns the value for the given key as a map[string]string
 func (i *FunctionInput) GetMap(key string) map[string]string {
 	emptyMap := make(map[string]string)
 

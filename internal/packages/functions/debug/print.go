@@ -8,8 +8,10 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// PrintFunctionID is the id of the print function
 const PrintFunctionID = "print"
 
+// PrintFunctionMetadata returns the metadata for the print function
 func PrintFunctionMetadata() workflow.FunctionMetadata {
 	return workflow.FunctionMetadata{
 		Input: workflow.InputMetadata{
@@ -27,6 +29,7 @@ func PrintFunctionMetadata() workflow.FunctionMetadata {
 	}
 }
 
+// PrintFunction prints a message to the console
 func PrintFunction(execInfo *workflow.ExecutionInfo) (workflow.FunctionResult, error) {
 	message := execInfo.Input.GetStr("message")
 

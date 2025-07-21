@@ -12,20 +12,26 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// HTTPFunctionID is the id of the request function
 const HTTPFunctionID = "request"
 
 var (
-	ErrURLRequired      = errors.New("url is required")
-	ErrMethodRequired   = errors.New("method is required")
+	// ErrURLRequired is the error returned when the url is required
+	ErrURLRequired = errors.New("url is required")
+	// ErrMethodRequired is the error returned when the method is required
+	ErrMethodRequired = errors.New("method is required")
+	// ErrMethodNotAllowed is the error returned when the method is not allowed
 	ErrMethodNotAllowed = errors.New("method not allowed")
 )
 
+// responseSchema is the schema for the response
 type responseSchema struct {
 	Body    map[string]any
 	Status  int
 	Headers map[string]any
 }
 
+// RequestFunctionMetadata returns the metadata for the request function
 func RequestFunctionMetadata() workflow.FunctionMetadata {
 	return workflow.FunctionMetadata{
 		Input: workflow.InputMetadata{
