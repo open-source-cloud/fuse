@@ -7,15 +7,23 @@
       "function": "fuse/pkg/debug/nil"
     },
     {
-      "id": "http-request",
+      "id": "github-http-request",
       "function": "fuse/pkg/http/request"
+    },
+    {
+      "id": "if-request-failed",
+      "function": "fuse/pkg/logic/if"
+    },
+    {
+      "id": "debug-print",
+      "function": "fuse/pkg/debug/print"
     }
   ],
   "edges": [
     {
       "id": "0196cf0f-8a70-7463-a594-3e2a734be14c",
       "from": "debug-nil",
-      "to": "http-request",
+      "to": "github-http-request",
       "input": [
         {
           "source": "schema",
@@ -31,6 +39,70 @@
           "source": "schema",
           "value": "GET",
           "mapTo": "method"
+        }
+      ]
+    },
+    {
+      "id": "01982dc2-1e89-7f09-be6e-26d6ed1eac4f",
+      "from": "github-http-request",
+      "to": "if-request-failed",
+      "input": [
+        {
+          "source": "flow",
+          "variable": "http-request.status",
+          "mapTo": "statusCode"
+        },
+        {
+          "source": "schema",
+          "value": "statusCode <= 299",
+          "mapTo": "expression"
+        }
+      ]
+    },
+    {
+      "id": "01982dc1-f1f4-7371-a2b2-0a6e5a5b3a1a",
+      "from": "if-request-failed",
+      "to": "debug-print",
+      "conditional": {
+        "name": "if-true",
+        "value": true
+      },
+      "input": [
+        {
+          "source": "flow",
+          "variable": "github-http-request.body.login",
+          "mapTo": "loginName"
+        },
+        {
+          "source": "flow",
+          "variable": "github-http-request.status",
+          "mapTo": "statusCode"
+        },
+        {
+          "source": "schema",
+          "value": "Request for {{loginName}} succeeded with status code: {{statusCode}}",
+          "mapTo": "message"
+        }
+      ]
+    },
+    {
+      "id": "01982dc1-c106-767a-a1bc-e36611ac4488",
+      "from": "if-request-failed",
+      "to": "debug-print",
+      "conditional": {
+        "name": "if-false",
+        "value": false
+      },
+      "input": [
+        {
+          "source": "flow",
+          "variable": "github-http-request.status",
+          "mapTo": "statusCode"
+        },
+        {
+          "source": "schema",
+          "value": "Request failed with status code: {{statusCode}}",
+          "mapTo": "message"
         }
       ]
     }
