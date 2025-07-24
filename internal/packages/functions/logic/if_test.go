@@ -5,18 +5,26 @@ import (
 
 	"github.com/open-source-cloud/fuse/internal/packages/functions/logic"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
+	"github.com/stretchr/testify/suite"
 )
 
-// TestIfFunction tests the IfFunction function with a valid expression
-func TestIfFunction(t *testing.T) {
+type IfFunctionTestSuite struct {
+	suite.Suite
+}
 
+func TestIfFunctionTestSuite(t *testing.T) {
+	suite.Run(t, new(IfFunctionTestSuite))
+}
+
+// TestIfFunction tests the IfFunction function with a valid expression
+func (s *IfFunctionTestSuite) TestIfFunction() {
 	input, err := workflow.NewFunctionInputWith(map[string]any{
 		"expression": "a > b",
 		"a":          2,
 		"b":          1,
 	})
 	if err != nil {
-		t.Fatalf("failed to create function input: %s", err)
+		s.Fail("failed to create function input: %s", err)
 	}
 
 	execInfo := &workflow.ExecutionInfo{
@@ -28,14 +36,14 @@ func TestIfFunction(t *testing.T) {
 
 	result, err := logic.IfFunction(execInfo)
 	if err != nil {
-		t.Fatalf("failed to execute if function: %v", err)
+		s.Fail("failed to execute if function: %v", err)
 	}
 
 	if result.Async {
-		t.Fatalf("if function should not be async")
+		s.Fail("if function should not be async")
 	}
 
 	if result.Output.Status != workflow.FunctionSuccess {
-		t.Fatalf("if function should return success, got %s", result.Output.Status)
+		s.Fail("if function should return success, got %s", result.Output.Status)
 	}
 }

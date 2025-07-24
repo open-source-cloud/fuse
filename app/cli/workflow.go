@@ -72,7 +72,7 @@ func workflowRunner(graphService services.GraphService) {
 	log.Info().Str("schemaID", graph.ID()).Msg("Workflow graph upserted")
 
 	// make http request to run the supplied workflow once
-	payload := map[string]string{"schemaId": graph.ID()}
+	payload := map[string]string{"schemaID": graph.ID()}
 	jsonPayload, err := json.Marshal(payload)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to trigger workflow: failed marshaling payload")

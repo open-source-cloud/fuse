@@ -5,6 +5,7 @@ import (
 
 	"github.com/expr-lang/expr"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
+	"github.com/rs/zerolog/log"
 )
 
 // IfFunctionID if function ID
@@ -53,6 +54,10 @@ func IfFunction(execInfo *workflow.ExecutionInfo) (workflow.FunctionResult, erro
 
 	exprStr := input.GetStr("expression")
 	rawInput := input.Raw()
+
+	log.Debug().Msgf("expression: %s", exprStr)
+	log.Debug().Msgf("rawInput: %+v", rawInput)
+
 	compiledExpr, err := expr.Compile(exprStr, expr.Env(rawInput))
 	if err != nil {
 		return workflow.NewFunctionResultError(fmt.Errorf("failed to compile expression: %w", err))

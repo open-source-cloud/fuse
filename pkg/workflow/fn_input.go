@@ -1,7 +1,9 @@
 // Package workflow public interfaces, structs and functions for Workflow
 package workflow
 
-import "github.com/open-source-cloud/fuse/pkg/store"
+import (
+	"github.com/open-source-cloud/fuse/pkg/store"
+)
 
 // FunctionInput node input type
 type FunctionInput struct {
@@ -47,6 +49,11 @@ func (i *FunctionInput) GetIntSliceOrDefault(key string, defaultValue []int) []i
 		return defaultValue
 	}
 	return value
+}
+
+// GetMapStr returns the value for the given key as a map[string]string
+func (i *FunctionInput) GetMapStr(key string) map[string]string {
+	return i.store.GetMapStr(key)
 }
 
 // GetFloat64SliceOrDefault returns the value of a given key as a float64 slice or the default value if nil
