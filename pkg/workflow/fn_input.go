@@ -2,8 +2,6 @@
 package workflow
 
 import (
-	"encoding/json"
-
 	"github.com/open-source-cloud/fuse/pkg/store"
 )
 
@@ -53,29 +51,9 @@ func (i *FunctionInput) GetIntSliceOrDefault(key string, defaultValue []int) []i
 	return value
 }
 
-// GetMap returns the value for the given key as a map[string]string
-func (i *FunctionInput) GetMap(key string) map[string]string {
-	emptyMap := make(map[string]string)
-
-	value := i.store.Get(key)
-	if value == nil {
-		return emptyMap
-	}
-
-	if isString, ok := value.(string); ok {
-		var result map[string]string
-		err := json.Unmarshal([]byte(isString), &result)
-		if err != nil {
-			return emptyMap
-		}
-		return result
-	}
-
-	if tryValue, ok := value.(map[string]string); ok {
-		return tryValue
-	}
-
-	return emptyMap
+// GetMapStr returns the value for the given key as a map[string]string
+func (i *FunctionInput) GetMapStr(key string) map[string]string {
+	return i.store.GetMapStr(key)
 }
 
 // GetFloat64SliceOrDefault returns the value of a given key as a float64 slice or the default value if nil

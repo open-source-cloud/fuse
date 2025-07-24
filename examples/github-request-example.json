@@ -39,6 +39,15 @@
           "source": "schema",
           "value": "GET",
           "mapTo": "method"
+        },
+        {
+          "source": "schema",
+          "value": {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "User-Agent": "Fuse App"
+          },
+          "mapTo": "headers"
         }
       ]
     },
@@ -70,7 +79,7 @@
       "input": [
         {
           "source": "flow",
-          "variable": "github-http-request.body.login",
+          "variable": "github-http-request.json.login",
           "mapTo": "loginName"
         },
         {

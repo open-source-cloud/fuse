@@ -3,8 +3,6 @@ package http
 import (
 	"encoding/json"
 	"errors"
-	"maps"
-	"slices"
 	"time"
 
 	"github.com/open-source-cloud/fuse/pkg/http"
@@ -23,13 +21,6 @@ var (
 	// ErrMethodNotAllowed is the error returned when the method is not allowed
 	ErrMethodNotAllowed = errors.New("method not allowed")
 )
-
-// responseSchema is the schema for the response
-type responseSchema struct {
-	Body    map[string]any
-	Status  int
-	Headers map[string]any
-}
 
 // RequestFunctionMetadata returns the metadata for the request function
 func RequestFunctionMetadata() workflow.FunctionMetadata {
@@ -91,11 +82,11 @@ func RequestFunctionMetadata() workflow.FunctionMetadata {
 			Parameters: []workflow.ParameterSchema{
 				{
 					Name:        "body",
-					Type:        "map[string]any",
+					Type:        "[]byte",
 					Required:    true,
 					Validations: nil,
-					Description: "The body of the response",
-					Default:     map[string]any{},
+					Description: "The raw body of the response",
+					Default:     []byte{},
 				},
 				{
 					Name:        "status",
@@ -107,11 +98,19 @@ func RequestFunctionMetadata() workflow.FunctionMetadata {
 				},
 				{
 					Name:        "headers",
-					Type:        "map[string]any",
+					Type:        "map[string]string",
 					Required:    true,
 					Validations: nil,
 					Description: "The headers of the response",
-					Default:     map[string]any{},
+					Default:     map[string]string{},
+				},
+				{
+					Name:        "json",
+					Type:        "map[string]any",
+					Required:    false,
+					Validations: nil,
+					Description: "The JSON body of the response parsed as map[string]any, if the body is not valid JSON, the value will be nil",
+					Default:     nil,
 				},
 			},
 		},
@@ -131,32 +130,31 @@ func RequestFunction(execInfo *workflow.ExecutionInfo) (workflow.FunctionResult,
 	host := input.GetStr("host")
 	client := http.NewClient(host)
 
-	response, err := client.Request(request)
+	response, err := client.SendRequest(request)
 	if err != nil {
 		log.Err(err).Msgf("Error making request: %+v", request)
 		return workflow.NewFunctionResult(workflow.FunctionError, map[string]any{"error": err.Error()}), err
 	}
 
-	log.Info().Msgf("Request made successfully: %d %s", response.StatusCode, response.URL)
-
-	responseSchema, err := makeResponseSchema(response)
-	if err != nil {
-		log.Err(err).Msgf("Error making response schema: %+v", response)
-		return workflow.NewFunctionResult(workflow.FunctionError, map[string]any{"error": err.Error()}), err
+	// if the response is a JSON response and the body is not empty, we need to unmarshal the body
+	jsonBody := map[string]any{}
+	if response.IsJSON() && len(response.Body) > 0 {
+		err := json.Unmarshal(response.Body, &jsonBody)
+		if err != nil {
+			log.Err(err).Msgf("Error unmarshalling JSON body: %+v", response.Body)
+		}
 	}
 
 	return workflow.NewFunctionResult(workflow.FunctionSuccess, map[string]any{
-		"body":    responseSchema.Body,
-		"status":  responseSchema.Status,
-		"headers": responseSchema.Headers,
+		"body":    response.Body,
+		"status":  response.StatusCode,
+		"headers": response.Headers,
+		"json":    jsonBody,
 	}), nil
 }
 
 // makeRequestSchema makes a request schema from the input
 func makeRequestSchema(input *workflow.FunctionInput) (*http.Request, error) {
-	// TODO: Think about binding validations like schema or use a library like go-jsonschema
-	// TODO: Add support for query params
-
 	request := &http.Request{}
 
 	path := input.GetStr("path")
@@ -169,10 +167,6 @@ func makeRequestSchema(input *workflow.FunctionInput) (*http.Request, error) {
 	if method == "" {
 		return nil, ErrMethodRequired
 	}
-	allowedMethods := []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"}
-	if !slices.Contains(allowedMethods, method) {
-		return nil, ErrMethodNotAllowed
-	}
 	request.Method = method
 
 	body := input.GetStr("body")
@@ -180,13 +174,12 @@ func makeRequestSchema(input *workflow.FunctionInput) (*http.Request, error) {
 		request.Body = body
 	}
 
-	headers := input.GetMap("headers")
+	headers := input.GetMapStr("headers")
+	log.Debug().Msgf("Headers: %+v", headers)
+
 	// if headers is not empty, we need to add it to the request
 	if len(headers) > 0 {
-		if request.Headers == nil {
-			request.Headers = make(map[string]string)
-		}
-		maps.Copy(request.Headers, headers)
+		request.Headers = headers
 	}
 
 	timeout := input.GetInt("timeout")
@@ -196,25 +189,4 @@ func makeRequestSchema(input *workflow.FunctionInput) (*http.Request, error) {
 	request.Timeout = time.Duration(timeout) * time.Second
 
 	return request, nil
-}
-
-// makeResponseSchema makes a response schema from the input
-func makeResponseSchema(response *http.Response) (*responseSchema, error) {
-	body := make(map[string]any)
-	err := json.Unmarshal(response.Body, &body)
-	if err != nil {
-		log.Err(err).Msgf("Error unmarshalling response body: %+v", response.Body)
-		return nil, err
-	}
-
-	headers := make(map[string]any)
-	for key, value := range response.Headers {
-		headers[key] = value
-	}
-
-	return &responseSchema{
-		Body:    body,
-		Status:  response.StatusCode,
-		Headers: headers,
-	}, nil
 }

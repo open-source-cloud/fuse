@@ -122,7 +122,7 @@ func (s *HTTPClientTestSuite) TestRequestSuccess() {
 		Method: "GET",
 	}
 
-	resp, err := s.client.Request(req)
+	resp, err := s.client.SendRequest(req)
 	s.NoError(err)
 	s.NotNil(resp)
 	s.Equal(http.StatusOK, resp.StatusCode)
@@ -132,7 +132,7 @@ func (s *HTTPClientTestSuite) TestRequestSuccess() {
 }
 
 func (s *HTTPClientTestSuite) TestRequestNilData() {
-	resp, err := s.client.Request(nil)
+	resp, err := s.client.SendRequest(nil)
 	s.Error(err)
 	s.Nil(resp)
 	s.Contains(err.Error(), "request data cannot be nil")
@@ -144,7 +144,7 @@ func (s *HTTPClientTestSuite) TestRequestDefaultMethod() {
 		// Method is empty, should default to GET
 	}
 
-	resp, err := s.client.Request(req)
+	resp, err := s.client.SendRequest(req)
 	s.NoError(err)
 	s.Equal(http.StatusOK, resp.StatusCode)
 
@@ -165,7 +165,7 @@ func (s *HTTPClientTestSuite) TestRequestMethods() {
 				Method: method,
 			}
 
-			resp, err := s.client.Request(req)
+			resp, err := s.client.SendRequest(req)
 			s.NoError(err)
 			s.Equal(http.StatusOK, resp.StatusCode)
 
@@ -185,7 +185,7 @@ func (s *HTTPClientTestSuite) TestRequestBodyString() {
 		Body:   "test string body",
 	}
 
-	resp, err := s.client.Request(req)
+	resp, err := s.client.SendRequest(req)
 	s.NoError(err)
 
 	var responseData map[string]interface{}
@@ -202,7 +202,7 @@ func (s *HTTPClientTestSuite) TestRequestBodyBytes() {
 		Body:   bodyBytes,
 	}
 
-	resp, err := s.client.Request(req)
+	resp, err := s.client.SendRequest(req)
 	s.NoError(err)
 
 	var responseData map[string]interface{}
@@ -219,7 +219,7 @@ func (s *HTTPClientTestSuite) TestRequestBodyReader() {
 		Body:   bodyReader,
 	}
 
-	resp, err := s.client.Request(req)
+	resp, err := s.client.SendRequest(req)
 	s.NoError(err)
 
 	var responseData map[string]interface{}
@@ -240,7 +240,7 @@ func (s *HTTPClientTestSuite) TestRequestBodyJSON() {
 		Body:   bodyData,
 	}
 
-	resp, err := s.client.Request(req)
+	resp, err := s.client.SendRequest(req)
 	s.NoError(err)
 
 	var responseData map[string]interface{}
@@ -265,7 +265,7 @@ func (s *HTTPClientTestSuite) TestRequestHeaders() {
 		},
 	}
 
-	resp, err := s.client.Request(req)
+	resp, err := s.client.SendRequest(req)
 	s.NoError(err)
 
 	var responseData map[string]interface{}
@@ -285,7 +285,7 @@ func (s *HTTPClientTestSuite) TestDefaultHeaders() {
 		Method: "GET",
 	}
 
-	resp, err := s.client.Request(req)
+	resp, err := s.client.SendRequest(req)
 	s.NoError(err)
 
 	var responseData map[string]interface{}
@@ -307,7 +307,7 @@ func (s *HTTPClientTestSuite) TestHeaderOverride() {
 		},
 	}
 
-	resp, err := s.client.Request(req)
+	resp, err := s.client.SendRequest(req)
 	s.NoError(err)
 
 	var responseData map[string]interface{}
@@ -330,7 +330,7 @@ func (s *HTTPClientTestSuite) TestQueryParameters() {
 		},
 	}
 
-	resp, err := s.client.Request(req)
+	resp, err := s.client.SendRequest(req)
 	s.NoError(err)
 
 	var responseData map[string]interface{}
@@ -400,7 +400,7 @@ func (s *HTTPClientTestSuite) TestTimeout() {
 		Timeout: 500 * time.Millisecond,
 	}
 
-	resp, err := s.client.Request(req)
+	resp, err := s.client.SendRequest(req)
 	s.Error(err)
 	s.Nil(resp)
 	s.Contains(err.Error(), "request failed")
@@ -415,7 +415,7 @@ func (s *HTTPClientTestSuite) TestInvalidURL() {
 		Method: "GET",
 	}
 
-	resp, err := invalidClient.Request(req)
+	resp, err := invalidClient.SendRequest(req)
 	s.Error(err)
 	s.Nil(resp)
 }
@@ -455,24 +455,23 @@ func (s *HTTPClientTestSuite) TestDebugMode() {
 	req := &httpClient.Request{
 		Path:   "/success",
 		Method: "GET",
-		Debug:  true,
 	}
 
 	// This mainly tests that debug logging doesn't cause errors
-	resp, err := s.client.Request(req)
+	resp, err := s.client.SendRequest(req)
 	s.NoError(err)
 	s.Equal(http.StatusOK, resp.StatusCode)
 }
 
 // Test custom timeout per request
-func (s *HTTPClientTestSuite) TestCustomTimeoutPerRequest() {
+func (s *HTTPClientTestSuite) TestCustomTimeoutPerSendRequest() {
 	req := &httpClient.Request{
 		Path:    "/success",
 		Method:  "GET",
 		Timeout: 5 * time.Second,
 	}
 
-	resp, err := s.client.Request(req)
+	resp, err := s.client.SendRequest(req)
 	s.NoError(err)
 	s.Equal(http.StatusOK, resp.StatusCode)
 }
@@ -481,48 +480,6 @@ func (s *HTTPClientTestSuite) TestCustomTimeoutPerRequest() {
 func (s *HTTPClientTestSuite) TestHostTrimming() {
 	client := httpClient.NewClient(s.server.URL + "/")
 	s.Equal(s.server.URL, client.Host)
-}
-
-// Test automatic Content-Type setting for JSON
-func (s *HTTPClientTestSuite) TestAutoContentTypeJSON() {
-	req := &httpClient.Request{
-		Path:   "/echo",
-		Method: "POST",
-		Body:   map[string]string{"key": "value"},
-	}
-
-	resp, err := s.client.Request(req)
-	s.NoError(err)
-
-	var responseData map[string]interface{}
-	err = json.Unmarshal(resp.Body, &responseData)
-	s.NoError(err)
-
-	headers := responseData["headers"].(map[string]interface{})
-	contentType := headers["Content-Type"].([]interface{})
-	s.Equal("application/json", contentType[0])
-}
-
-// Test that string/bytes bodies don't get automatic Content-Type
-func (s *HTTPClientTestSuite) TestNoAutoContentTypeForStringBytes() {
-	req := &httpClient.Request{
-		Path:   "/echo",
-		Method: "POST",
-		Body:   "string body",
-	}
-
-	resp, err := s.client.Request(req)
-	s.NoError(err)
-
-	var responseData map[string]interface{}
-	err = json.Unmarshal(resp.Body, &responseData)
-	s.NoError(err)
-
-	headers := responseData["headers"].(map[string]interface{})
-	// Should not have automatic Content-Type for string bodies
-	if contentType, exists := headers["Content-Type"]; exists {
-		s.NotEqual("application/json", contentType.([]interface{})[0])
-	}
 }
 
 // Test Content-Type override
@@ -536,7 +493,7 @@ func (s *HTTPClientTestSuite) TestContentTypeOverride() {
 		},
 	}
 
-	resp, err := s.client.Request(req)
+	resp, err := s.client.SendRequest(req)
 	s.NoError(err)
 
 	var responseData map[string]interface{}

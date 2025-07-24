@@ -8,10 +8,16 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"maps"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+)
+
+const (
+	// DefaultTimeout is the default timeout for HTTP requests.
+	DefaultTimeout = 30 * time.Second
 )
 
 type (
@@ -23,7 +29,6 @@ type (
 		Headers         map[string]string
 		QueryParams     map[string]string
 		Timeout         time.Duration
-		Debug           bool
 		FollowRedirects bool
 	}
 
@@ -58,8 +63,8 @@ type (
 // NewClient creates a new Client with default settings.
 func NewClient(host string) *Client {
 	return NewClientWithOptions(host, ClientOptions{
-		Timeout:         30 * time.Second,
-		DefaultHeaders:  make(map[string]string),
+		Timeout:         DefaultTimeout,
+		DefaultHeaders:  make(map[string]string, 0),
 		Debug:           false,
 		FollowRedirects: true,
 	})
@@ -69,19 +74,12 @@ func NewClient(host string) *Client {
 func NewClientWithOptions(host string, options ClientOptions) *Client {
 	timeout := options.Timeout
 	if timeout == 0 {
-		timeout = 30 * time.Second
+		timeout = DefaultTimeout
 	}
 
 	defaultHeaders := options.DefaultHeaders
 	if defaultHeaders == nil {
 		defaultHeaders = make(map[string]string)
-	}
-
-	var checkRedirect func(req *http.Request, via []*http.Request) error
-	if !options.FollowRedirects {
-		checkRedirect = func(_ *http.Request, _ []*http.Request) error {
-			return http.ErrUseLastResponse
-		}
 	}
 
 	return &Client{
@@ -91,16 +89,15 @@ func NewClientWithOptions(host string, options ClientOptions) *Client {
 		Debug:          options.Debug,
 		httpClient: &http.Client{
 			Timeout:       timeout,
-			CheckRedirect: checkRedirect,
+			CheckRedirect: defaultCheckRedirect(options.FollowRedirects),
 		},
 	}
 }
 
-// Request makes an HTTP request.
-// This function is complex and has a lot of code, so we're ignoring the cyclomatic complexity check
+// SendRequest makes an HTTP request.
 // nolint:gocyclo
 // nolint:cyclop
-func (c *Client) Request(data *Request) (*Response, error) {
+func (c *Client) SendRequest(data *Request) (*Response, error) {
 	if data == nil {
 		return nil, fmt.Errorf("request data cannot be nil")
 	}
@@ -113,9 +110,6 @@ func (c *Client) Request(data *Request) (*Response, error) {
 	if timeout == 0 {
 		timeout = c.DefaultTimeout
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
 
 	// Build URL with query parameters
 	baseURL := fmt.Sprintf("%s%s", c.Host, data.Path)
@@ -135,65 +129,38 @@ func (c *Client) Request(data *Request) (*Response, error) {
 
 	var body io.Reader
 	if data.Body != nil {
-		switch v := data.Body.(type) {
-		case string:
-			body = strings.NewReader(v)
-		case []byte:
-			body = bytes.NewReader(v)
-		case io.Reader:
-			body = v
-		default:
-			b, err := json.Marshal(data.Body)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal request body: %w", err)
-			}
-			body = bytes.NewReader(b)
+		b, err := createBody(data.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create request body: %w", err)
 		}
+		body = b
 	}
 
-	debug := data.Debug || c.Debug
-	if debug {
+	if c.Debug {
 		log.Printf("Making request: %s %s", data.Method, baseURL)
 	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, data.Method, baseURL, body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	// Set default headers
-	for k, v := range c.DefaultHeaders {
+	headers := make(map[string]string)
+	maps.Copy(headers, c.DefaultHeaders)
+	maps.Copy(headers, data.Headers)
+
+	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
 
-	// Set request-specific headers (these override defaults)
-	for k, v := range data.Headers {
-		req.Header.Set(k, v)
-	}
-
-	// Set Content-Type for JSON if not already set
-	if data.Body != nil && req.Header.Get("Content-Type") == "" {
-		if _, isString := data.Body.(string); !isString {
-			if _, isBytes := data.Body.([]byte); !isBytes {
-				if _, isReader := data.Body.(io.Reader); !isReader {
-					req.Header.Set("Content-Type", "application/json")
-				}
-			}
-		}
-	}
-
-	// Use a separate client with custom timeout if specified
 	client := c.httpClient
 	if data.Timeout != 0 && data.Timeout != c.DefaultTimeout {
-		var checkRedirect func(req *http.Request, via []*http.Request) error
-		if !data.FollowRedirects {
-			checkRedirect = func(_ *http.Request, _ []*http.Request) error {
-				return http.ErrUseLastResponse
-			}
-		}
 		client = &http.Client{
 			Timeout:       data.Timeout,
-			CheckRedirect: checkRedirect,
+			CheckRedirect: defaultCheckRedirect(data.FollowRedirects),
 		}
 	}
 
@@ -202,7 +169,7 @@ func (c *Client) Request(data *Request) (*Response, error) {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
 	defer func() {
-		if closeErr := resp.Body.Close(); closeErr != nil && debug {
+		if closeErr := resp.Body.Close(); closeErr != nil && c.Debug {
 			log.Printf("Warning: failed to close response body: %v", closeErr)
 		}
 	}()
@@ -212,7 +179,7 @@ func (c *Client) Request(data *Request) (*Response, error) {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	if debug {
+	if c.Debug {
 		log.Printf("Response: %s %s - Status: %d, Body length: %d",
 			data.Method, baseURL, resp.StatusCode, len(respBody))
 	}
@@ -239,7 +206,7 @@ func (c *Client) Request(data *Request) (*Response, error) {
 
 // Get makes a GET request.
 func (c *Client) Get(path string) (*Response, error) {
-	return c.Request(&Request{
+	return c.SendRequest(&Request{
 		Path:   path,
 		Method: http.MethodGet,
 	})
@@ -247,7 +214,7 @@ func (c *Client) Get(path string) (*Response, error) {
 
 // Post makes a POST request with a JSON body.
 func (c *Client) Post(path string, body interface{}) (*Response, error) {
-	return c.Request(&Request{
+	return c.SendRequest(&Request{
 		Path:   path,
 		Method: http.MethodPost,
 		Body:   body,
@@ -256,7 +223,7 @@ func (c *Client) Post(path string, body interface{}) (*Response, error) {
 
 // Put makes a PUT request with a JSON body.
 func (c *Client) Put(path string, body interface{}) (*Response, error) {
-	return c.Request(&Request{
+	return c.SendRequest(&Request{
 		Path:   path,
 		Method: http.MethodPut,
 		Body:   body,
@@ -265,7 +232,7 @@ func (c *Client) Put(path string, body interface{}) (*Response, error) {
 
 // Delete makes a DELETE request.
 func (c *Client) Delete(path string) (*Response, error) {
-	return c.Request(&Request{
+	return c.SendRequest(&Request{
 		Path:   path,
 		Method: http.MethodDelete,
 	})
@@ -277,4 +244,41 @@ func (c *Client) SetDefaultHeader(key, value string) {
 		c.DefaultHeaders = make(map[string]string)
 	}
 	c.DefaultHeaders[key] = value
+}
+
+// IsJSON checks if the response is a JSON response.
+func (rs *Response) IsJSON() bool {
+	val, ok := rs.Headers["Content-Type"]
+	if !ok {
+		return false
+	}
+	return strings.Contains(val, "application/json")
+}
+
+func defaultCheckRedirect(followRedirects bool) func(req *http.Request, via []*http.Request) error {
+	if !followRedirects {
+		return func(_ *http.Request, _ []*http.Request) error {
+			return http.ErrUseLastResponse
+		}
+	}
+	return nil
+}
+
+func createBody(body interface{}) (io.Reader, error) {
+	var reader io.Reader
+	switch v := body.(type) {
+	case string:
+		reader = strings.NewReader(v)
+	case []byte:
+		reader = bytes.NewReader(v)
+	case io.Reader:
+		reader = v
+	default:
+		b, err := json.Marshal(v)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal request body: %w", err)
+		}
+		reader = bytes.NewReader(b)
+	}
+	return reader, nil
 }

@@ -3,9 +3,10 @@ package workflow
 
 import (
 	"fmt"
-	"github.com/open-source-cloud/fuse/internal/workflow/workflowactions"
 	"reflect"
 	"strings"
+
+	"github.com/open-source-cloud/fuse/internal/workflow/workflowactions"
 
 	"github.com/open-source-cloud/fuse/internal/typeschema"
 	"github.com/open-source-cloud/fuse/pkg/store"
@@ -257,6 +258,8 @@ func (w *Workflow) inputMapping(edge *Edge, mappings []InputMapping) map[string]
 		}
 		allowCustomInputParameters := edge.To().FunctionMetadata().Input.CustomParameters
 
+		log.Debug().Msgf("Mapping: %+v", mapping)
+
 		switch mapping.Source {
 		case SourceSchema:
 			if !w.validateInputMapping(&inputParamSchema, mapping.Value) {
@@ -316,9 +319,13 @@ func (w *Workflow) inputMapping(edge *Edge, mappings []InputMapping) map[string]
 				}
 				continue
 			}
+
 			args.Set(mapping.MapTo, value)
 		}
 	}
+
+	log.Debug().Msgf("Args: %+v", args.Raw())
+
 	return args.Raw()
 }
 

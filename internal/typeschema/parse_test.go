@@ -307,3 +307,33 @@ func (s *ParseValueTestSuite) TestUnsupportedTypes() {
 		})
 	}
 }
+
+func (s *ParseValueTestSuite) TestMapByteToMapStringAny() {
+	tests := []struct {
+		name     string
+		typeStr  string
+		val      any
+		expected any
+		wantErr  bool
+	}{
+		{
+			name:     "map[string]any from []byte",
+			typeStr:  "map[string]any",
+			val:      []byte(`{"a": 1, "b": 2}`),
+			expected: map[string]any{"a": float64(1), "b": float64(2)},
+			wantErr:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		s.Run(tt.name, func() {
+			got, err := typeschema.ParseValue(tt.typeStr, tt.val)
+			if tt.wantErr {
+				s.Error(err)
+				return
+			}
+			s.NoError(err)
+			s.Equal(tt.expected, got)
+		})
+	}
+}
