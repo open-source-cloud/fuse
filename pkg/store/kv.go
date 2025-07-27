@@ -2,6 +2,7 @@
 package store
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/stretchr/objx"
@@ -122,4 +123,26 @@ func (k *KV) GetFloat64Slice(key string) []float64 {
 	defer k.mu.RUnlock()
 	val := k.data.Get(key)
 	return val.Float64Slice()
+}
+
+// GetMapStr returns the value of a key as a map[string]any
+func (k *KV) GetMapStr(key string) map[string]string {
+	k.mu.RLock()
+	defer k.mu.RUnlock()
+	rawVal := k.data.Get(key)
+	val := rawVal.Data()
+	if val == nil {
+		return nil
+	}
+	if mapVal, ok := val.(map[string]any); ok {
+		mapStr := make(map[string]string)
+		for k, v := range mapVal {
+			mapStr[k] = fmt.Sprintf("%v", v)
+		}
+		return mapStr
+	}
+	if mapVal, ok := val.(map[string]string); ok {
+		return mapVal
+	}
+	return nil
 }
