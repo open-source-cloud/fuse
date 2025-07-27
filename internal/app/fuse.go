@@ -2,15 +2,16 @@
 package app
 
 import (
-	"github.com/open-source-cloud/fuse/internal/actors/actornames"
 	"strings"
+
+	"github.com/open-source-cloud/fuse/internal/actors/actornames"
 
 	"ergo.services/application/observer"
 	"ergo.services/ergo"
 	"ergo.services/ergo/gen"
-	"github.com/open-source-cloud/fuse/app/config"
 	"github.com/open-source-cloud/fuse/internal/actors"
-	"github.com/open-source-cloud/fuse/logging"
+	"github.com/open-source-cloud/fuse/internal/app/config"
+	"github.com/open-source-cloud/fuse/internal/logging"
 	"github.com/rs/zerolog/log"
 )
 

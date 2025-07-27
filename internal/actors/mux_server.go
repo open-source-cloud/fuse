@@ -7,7 +7,7 @@ import (
 	"ergo.services/ergo/gen"
 	"ergo.services/ergo/meta"
 	"github.com/gorilla/mux"
-	"github.com/open-source-cloud/fuse/app/config"
+	"github.com/open-source-cloud/fuse/internal/app/config"
 )
 
 // MuxServerFactory is a factory for creating MuxServer actors

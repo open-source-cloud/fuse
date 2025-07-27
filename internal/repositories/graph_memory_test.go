@@ -3,16 +3,16 @@ package repositories_test
 import (
 	"testing"
 
+	"github.com/open-source-cloud/fuse/internal/mocks"
 	"github.com/open-source-cloud/fuse/internal/repositories"
 	"github.com/open-source-cloud/fuse/internal/workflow"
-	"github.com/open-source-cloud/fuse/tests"
 )
 
 // TestMemoryGraphRepository tests the MemoryGraphRepository
 func TestMemoryGraphRepository(t *testing.T) {
 	repo := repositories.NewMemoryGraphRepository()
 
-	schema := tests.SmallTestGraphSchema()
+	schema := mocks.SmallTestGraphSchema()
 	graph, err := workflow.NewGraph(schema)
 	if err != nil {
 		t.Fatalf("failed to create graph: %v", err)

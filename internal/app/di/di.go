@@ -3,11 +3,11 @@ package di
 
 import (
 	"ergo.services/ergo/gen"
-	"github.com/open-source-cloud/fuse/app"
-	"github.com/open-source-cloud/fuse/app/config"
+	"github.com/open-source-cloud/fuse/internal/app"
+	"github.com/open-source-cloud/fuse/internal/app/config"
+	"github.com/open-source-cloud/fuse/internal/logging"
 	"github.com/open-source-cloud/fuse/internal/packages"
 	"github.com/open-source-cloud/fuse/internal/repositories"
-	"github.com/open-source-cloud/fuse/logging"
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
 )
