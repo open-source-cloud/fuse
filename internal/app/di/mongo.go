@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/open-source-cloud/fuse/app/config"
+	"github.com/open-source-cloud/fuse/internal/app/config"
 	"github.com/open-source-cloud/fuse/internal/repositories"
 	"github.com/open-source-cloud/fuse/pkg/utils"
 	"github.com/rs/zerolog/log"

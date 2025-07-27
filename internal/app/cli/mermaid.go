@@ -5,7 +5,7 @@ import (
 	"os"
 	"path"
 
-	"github.com/open-source-cloud/fuse/app/di"
+	"github.com/open-source-cloud/fuse/internal/app/di"
 	"github.com/open-source-cloud/fuse/internal/services"
 	"github.com/open-source-cloud/fuse/internal/workflow"
 	"github.com/rs/zerolog/log"

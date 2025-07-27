@@ -3,7 +3,7 @@ package repositories
 import (
 	"errors"
 
-	"github.com/open-source-cloud/fuse/app/config"
+	"github.com/open-source-cloud/fuse/internal/app/config"
 	"github.com/open-source-cloud/fuse/internal/workflow"
 	"github.com/open-source-cloud/fuse/pkg/utils"
 	"go.mongodb.org/mongo-driver/v2/mongo"

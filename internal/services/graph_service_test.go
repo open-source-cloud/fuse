@@ -3,10 +3,10 @@ package services_test
 import (
 	"testing"
 
+	"github.com/open-source-cloud/fuse/internal/mocks"
 	"github.com/open-source-cloud/fuse/internal/packages"
 	"github.com/open-source-cloud/fuse/internal/repositories"
 	"github.com/open-source-cloud/fuse/internal/services"
-	"github.com/open-source-cloud/fuse/tests"
 )
 
 // TestGraphService tests the GraphService
@@ -19,7 +19,7 @@ func TestGraphService(t *testing.T) {
 
 	graphService := services.NewGraphService(memGraphRepo, pkgRegistry)
 
-	schema := tests.SmallTestGraphSchema()
+	schema := mocks.SmallTestGraphSchema()
 
 	graph, err := graphService.Upsert(schema.ID, schema)
 	if err != nil {

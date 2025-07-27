@@ -3,12 +3,13 @@ package actors
 import (
 	"encoding/json"
 	"fmt"
+
 	internalworkflow "github.com/open-source-cloud/fuse/internal/workflow"
 	"github.com/open-source-cloud/fuse/internal/workflow/workflowactions"
 
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
-	"github.com/open-source-cloud/fuse/app/config"
+	"github.com/open-source-cloud/fuse/internal/app/config"
 	"github.com/open-source-cloud/fuse/internal/messaging"
 	"github.com/open-source-cloud/fuse/internal/repositories"
 	"github.com/open-source-cloud/fuse/pkg/workflow"

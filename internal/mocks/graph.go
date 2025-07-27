@@ -1,5 +1,5 @@
-// Package tests contains test utilities for the fuse package.
-package tests
+// Package mocks contains mock utilities for the fuse package.
+package mocks
 
 import (
 	"github.com/open-source-cloud/fuse/internal/workflow"
