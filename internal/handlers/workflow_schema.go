@@ -15,7 +15,7 @@ import (
 )
 
 type (
-	// UpsertWorkflowSchemaHandler is the handler for the UpsertWorkflowSchema endpoint
+	// WorkflowSchemaHandler is the handler for the WorkflowSchemaHandler endpoint
 	WorkflowSchemaHandler struct {
 		Handler
 		graphService services.GraphService
@@ -31,7 +31,7 @@ const (
 	WorkflowSchemaHandlerPoolName = "workflow_schema_handler_pool"
 )
 
-// NewUpsertWorkflowSchemaHandlerFactory creates a new NewUpsertWorkflowSchemaHandlerFactory
+// NewWorkflowSchemaHandlerFactory creates a new WorkflowSchemaHandlerFactory
 func NewWorkflowSchemaHandlerFactory(graphService services.GraphService) *WorkflowSchemaHandlerFactory {
 	return &WorkflowSchemaHandlerFactory{
 		Factory: func() gen.ProcessBehavior {
