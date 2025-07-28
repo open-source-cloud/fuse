@@ -16,26 +16,26 @@ import (
 
 type (
 	// UpsertWorkflowSchemaHandler is the handler for the UpsertWorkflowSchema endpoint
-	UpsertWorkflowSchemaHandler struct {
+	WorkflowSchemaHandler struct {
 		Handler
 		graphService services.GraphService
 	}
-	// UpsertWorkflowSchemaHandlerFactory is a factory for creating UpsertWorkflowSchemaHandler actors
-	UpsertWorkflowSchemaHandlerFactory HandlerFactory[*UpsertWorkflowSchemaHandler]
+	// WorkflowSchemaHandlerFactory is a factory for creating WorkflowSchemaHandler actors
+	WorkflowSchemaHandlerFactory HandlerFactory[*WorkflowSchemaHandler]
 )
 
 const (
-	// UpsertWorkflowSchemaHandlerName is the name of the UpsertWorkflowSchemaHandler actor
-	UpsertWorkflowSchemaHandlerName = "upsert_workflow_schema_handler"
-	// UpsertWorkflowSchemaHandlerPoolName is the name of the UpsertWorkflowSchemaHandler pool
-	UpsertWorkflowSchemaHandlerPoolName = "upsert_workflow_schema_handler_pool"
+	// WorkflowSchemaHandlerName is the name of the WorkflowSchemaHandler actor
+	WorkflowSchemaHandlerName = "workflow_schema_handler"
+	// WorkflowSchemaHandlerPoolName is the name of the WorkflowSchemaHandler pool
+	WorkflowSchemaHandlerPoolName = "workflow_schema_handler_pool"
 )
 
 // NewUpsertWorkflowSchemaHandlerFactory creates a new NewUpsertWorkflowSchemaHandlerFactory
-func NewUpsertWorkflowSchemaHandlerFactory(graphService services.GraphService) *UpsertWorkflowSchemaHandlerFactory {
-	return &UpsertWorkflowSchemaHandlerFactory{
+func NewWorkflowSchemaHandlerFactory(graphService services.GraphService) *WorkflowSchemaHandlerFactory {
+	return &WorkflowSchemaHandlerFactory{
 		Factory: func() gen.ProcessBehavior {
-			return &UpsertWorkflowSchemaHandler{
+			return &WorkflowSchemaHandler{
 				graphService: graphService,
 			}
 		},
@@ -43,7 +43,7 @@ func NewUpsertWorkflowSchemaHandlerFactory(graphService services.GraphService) *
 }
 
 // HandlePut handles the UpsertWorkflowSchema http endpoint -- PUT /v1/schemas/{schemaID}
-func (h *UpsertWorkflowSchemaHandler) HandlePut(from gen.PID, w http.ResponseWriter, r *http.Request) error {
+func (h *WorkflowSchemaHandler) HandlePut(from gen.PID, w http.ResponseWriter, r *http.Request) error {
 	h.Log().Info("received upsert workflow schema request from: %v remoteAddr: %s", from, r.RemoteAddr)
 
 	schemaID, err := h.GetPathParam(r, "schemaID")
@@ -82,7 +82,7 @@ func (h *UpsertWorkflowSchemaHandler) HandlePut(from gen.PID, w http.ResponseWri
 }
 
 // HandleGet returns the graph schema to the client -- GET /schemas/:schemaId
-func (h *UpsertWorkflowSchemaHandler) HandleGet(from gen.PID, w http.ResponseWriter, r *http.Request) error {
+func (h *WorkflowSchemaHandler) HandleGet(from gen.PID, w http.ResponseWriter, r *http.Request) error {
 	h.Log().Info("received get workflow schema request", "from", from, "remoteAddr", r.RemoteAddr)
 
 	schemaID, err := h.GetPathParam(r, "schemaID")

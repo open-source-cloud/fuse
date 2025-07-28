@@ -65,12 +65,12 @@ func NewWorkers() *Workers {
 				},
 			},
 			{
-				Name:    handlers.UpsertWorkflowSchemaHandlerName,
+				Name:    handlers.WorkflowSchemaHandlerName,
 				Pattern: "/v1/schemas/{schemaID}",
 				Methods: []string{"PUT", "GET"},
 				Timeout: 10 * time.Second,
 				PoolConfig: WorkerPoolConfig{
-					Name:     handlers.UpsertWorkflowSchemaHandlerPoolName,
+					Name:     handlers.WorkflowSchemaHandlerPoolName,
 					PoolSize: 3,
 				},
 			},
