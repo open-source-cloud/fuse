@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"ergo.services/ergo/gen"
+	"github.com/open-source-cloud/fuse/internal/repositories"
 )
 
 const (
@@ -20,14 +21,17 @@ type (
 	// PackagesHandler is the handler for the packages' endpoint
 	PackagesHandler struct {
 		Handler
+		packageRepository repositories.PackageRepository
 	}
 )
 
 // NewPackagesHandler creates a new packages' handler factory
-func NewPackagesHandler() *PackagesHandlerFactory {
+func NewPackagesHandler(packageRepository repositories.PackageRepository) *PackagesHandlerFactory {
 	return &PackagesHandlerFactory{
 		Factory: func() gen.ProcessBehavior {
-			return &PackagesHandler{}
+			return &PackagesHandler{
+				packageRepository: packageRepository,
+			}
 		},
 	}
 }
@@ -36,7 +40,20 @@ func NewPackagesHandler() *PackagesHandlerFactory {
 func (h *PackagesHandler) HandleGet(from gen.PID, w http.ResponseWriter, r *http.Request) error {
 	h.Log().Info("received list packages request from: %v remoteAddr: %s", from, r.RemoteAddr)
 
+	packages, err := h.packageRepository.FindAll()
+	if err != nil {
+		return h.SendJSON(w, http.StatusInternalServerError, Response{
+			"message": "Failed to list packages",
+			"code":    InternalServerError,
+		})
+	}
+
 	return h.SendJSON(w, http.StatusOK, Response{
-		"message": "OK",
+		"metadata": PaginationMetadata{
+			Total: len(packages),
+			Page:  0,
+			Size:  0,
+		},
+		"items": packages,
 	})
 }

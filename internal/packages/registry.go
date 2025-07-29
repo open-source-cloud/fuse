@@ -13,6 +13,7 @@ type (
 	Registry interface {
 		Register(pkg *workflow.Package)
 		Get(pkgID string) (*LoadedPackage, error)
+		List() ([]*LoadedPackage, error)
 	}
 
 	// MemoryRegistry is a MemoryRegistry for the packages
@@ -41,4 +42,13 @@ func (r *MemoryRegistry) Get(pkgID string) (*LoadedPackage, error) {
 		return nil, fmt.Errorf("package %s not found", pkgID)
 	}
 	return pkg, nil
+}
+
+// List returns all the packages
+func (r *MemoryRegistry) List() ([]*LoadedPackage, error) {
+	packages := make([]*LoadedPackage, 0, len(r.packages))
+	for _, pkg := range r.packages {
+		packages = append(packages, pkg)
+	}
+	return packages, nil
 }

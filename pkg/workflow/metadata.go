@@ -6,14 +6,14 @@ import "github.com/open-source-cloud/fuse/pkg/transport"
 type FunctionMetadata struct {
 	Transport transport.Type `json:"transport"`
 	Input     InputMetadata  `json:"input"`
-	Output    OutputMetadata `json:"output"`
+	Output    OutputMetadata `json:"output,omitempty"`
 }
 
 // InputMetadata represents one Input or Result Metadata descriptor
 type InputMetadata struct {
 	CustomParameters bool              `json:"customParameters"`
 	Parameters       []ParameterSchema `json:"parameters"`
-	Edges            InputEdgeMetadata `json:"edges"`
+	Edges            InputEdgeMetadata `json:"edges,omitempty"`
 }
 
 // OutputMetadata represents the output metadata for a node
@@ -21,7 +21,7 @@ type OutputMetadata struct {
 	Parameters             []ParameterSchema    `json:"parameters"`
 	ConditionalOutput      bool                 `json:"conditionalOutput"`
 	ConditionalOutputField string               `json:"conditionalOutputField"`
-	Edges                  []OutputEdgeMetadata `json:"edges"`
+	Edges                  []OutputEdgeMetadata `json:"edges,omitempty"`
 }
 
 // InputEdgeMetadata represents edge configuration for a node
