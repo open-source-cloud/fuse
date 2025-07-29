@@ -42,7 +42,19 @@
           "customParameters": false,
           "parameters": []
         }
+      },
+      "tags": {
+        "owner": "open-source-cloud",
+        "type": "webhook",
+        "team": "fuse",
+        "version": "1.0.0"
       }
     }
-  ]
+  ],
+  "tags": {
+    "owner": "open-source-cloud",
+    "type": "webhook",
+    "team": "fuse",
+    "version": "1.0.0"
+  }
 }
