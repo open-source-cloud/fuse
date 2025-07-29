@@ -103,7 +103,7 @@ func (m *MongoPackageRepository) Save(pkg *workflow.Package) error {
 		return nil
 	}
 
-	return ErrGraphNotModified
+	return ErrPackageNotModified
 }
 
 // Delete deletes a package from MongoDB
