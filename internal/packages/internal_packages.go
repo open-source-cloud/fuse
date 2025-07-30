@@ -8,7 +8,7 @@ import (
 )
 
 type (
-	// InternalPackage defines the interface for an internal package
+	// InternalPackages defines the interface for an internal package
 	InternalPackages interface {
 		List() []*workflow.Package
 	}
@@ -19,7 +19,7 @@ func NewInternal() InternalPackages {
 	return &DefaultInternalPackages{}
 }
 
-// InternalPackages service for registering internal packages
+// DefaultInternalPackages service for registering internal packages
 type DefaultInternalPackages struct{}
 
 // List returns the list of internal packages
