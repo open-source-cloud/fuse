@@ -8,7 +8,9 @@ import (
 	"github.com/open-source-cloud/fuse/internal/logging"
 	"github.com/open-source-cloud/fuse/internal/packages"
 	"github.com/open-source-cloud/fuse/internal/repositories"
+	"github.com/open-source-cloud/fuse/internal/services"
 	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"go.uber.org/fx"
 )
 
@@ -30,6 +32,7 @@ var PackageModule = fx.Module(
 	"package",
 	fx.Provide(
 		packages.NewPackageRegistry,
+		packages.NewInternal,
 	),
 )
 
@@ -38,7 +41,6 @@ var FuseAppModule = fx.Module(
 	"fuse_app",
 	fx.Provide(
 		app.NewApp,
-		packages.NewInternal,
 	),
 	// eager loading
 	fx.Invoke(func(
@@ -46,22 +48,25 @@ var FuseAppModule = fx.Module(
 		_ repositories.WorkflowRepository,
 		_ packages.Registry,
 		_ gen.Node,
-		internalPackages *packages.InternalPackages,
+		pkgSvc services.PackageService,
 	) {
 		// register internal packages
-		internalPackages.Register()
+		if err := pkgSvc.RegisterInternalPackages(); err != nil {
+			log.Error().Err(err).Msg("failed to register internal packages")
+			panic(err)
+		}
 	}),
 )
 
 // AllModules FX module with the complete application + base providers
 var AllModules = fx.Options(
 	CommonModule,
+	PackageModule,
 	MongoModule,
 	RepoModule,
 	ServicesModule,
 	WorkerModule,
 	ActorModule,
-	PackageModule,
 	FuseAppModule,
 	fx.WithLogger(logging.NewFxLogger()),
 )

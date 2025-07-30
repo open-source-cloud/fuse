@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/expr-lang/expr"
+	"github.com/open-source-cloud/fuse/internal/packages/transport"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 	"github.com/rs/zerolog/log"
 )
@@ -14,6 +15,7 @@ const IfFunctionID = "if"
 // IfFunctionMetadata returns the metadata of the if function
 func IfFunctionMetadata() workflow.FunctionMetadata {
 	return workflow.FunctionMetadata{
+		Transport: transport.Internal,
 		Input: workflow.InputMetadata{
 			CustomParameters: true,
 			Parameters: []workflow.ParameterSchema{

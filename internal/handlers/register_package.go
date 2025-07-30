@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/open-source-cloud/fuse/internal/packages"
+	"github.com/go-playground/validator/v10"
 	"github.com/open-source-cloud/fuse/internal/repositories"
+	"github.com/open-source-cloud/fuse/internal/services"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 
 	"ergo.services/ergo/gen"
@@ -26,18 +27,16 @@ type (
 	// RegisterPackageHandler is the handler for the register package endpoint
 	RegisterPackageHandler struct {
 		Handler
-		packageRegistry   packages.Registry
-		packageRepository repositories.PackageRepository
+		packageService services.PackageService
 	}
 )
 
 // NewRegisterPackageHandler creates a new register package handler factory
-func NewRegisterPackageHandler(packageRegistry packages.Registry, packageRepository repositories.PackageRepository) *RegisterPackageHandlerFactory {
+func NewRegisterPackageHandler(packageService services.PackageService) *RegisterPackageHandlerFactory {
 	return &RegisterPackageHandlerFactory{
 		Factory: func() gen.ProcessBehavior {
 			return &RegisterPackageHandler{
-				packageRegistry:   packageRegistry,
-				packageRepository: packageRepository,
+				packageService: packageService,
 			}
 		},
 	}
@@ -55,19 +54,23 @@ func (h *RegisterPackageHandler) HandlePut(from gen.PID, w http.ResponseWriter, 
 		})
 	}
 
-	if err := pkg.Validate(); err != nil {
-		return h.SendJSON(w, http.StatusBadRequest, Response{
-			"message": fmt.Sprintf("invalid package: %s", err),
-			"code":    BadRequest,
-		})
-	}
-	if err := h.packageRepository.Save(pkg); err != nil {
+	pkg, err := h.packageService.Save(pkg)
+	if err != nil {
+		h.Log().Error("failed to save package", "error", err, "packageID", pkg.ID)
+		if errors.As(err, &validator.ValidationErrors{}) {
+			return h.SendValidationErr(w, err)
+		}
+		if errors.Is(err, repositories.ErrPackageNotFound) {
+			return h.SendJSON(w, http.StatusNotFound, Response{
+				"message": fmt.Sprintf("package %s not found", pkg.ID),
+				"code":    "NOT_FOUND",
+			})
+		}
 		return h.SendJSON(w, http.StatusInternalServerError, Response{
 			"message": fmt.Sprintf("failed to save package: %s", err),
 			"code":    InternalServerError,
 		})
 	}
-	h.packageRegistry.Register(pkg)
 
 	return h.SendJSON(w, http.StatusOK, Response{
 		"message":   "Package registered successfully",
@@ -83,8 +86,14 @@ func (h *RegisterPackageHandler) HandleGet(from gen.PID, w http.ResponseWriter, 
 	if err != nil {
 		return h.SendBadRequest(w, err, []string{"packageID is required"})
 	}
-	pkg, err := h.packageRepository.FindByID(packageID)
+
+	h.Log().Info("fetching package", "packageID", packageID)
+
+	pkg, err := h.packageService.FindByID(packageID, services.PackageOptions{
+		Load: true,
+	})
 	if err != nil {
+		h.Log().Error("failed to get package", "error", err, "packageID", packageID)
 		if errors.Is(err, repositories.ErrPackageNotFound) {
 			return h.SendJSON(w, http.StatusNotFound, Response{
 				"message": fmt.Sprintf("package %s not found", packageID),
@@ -96,6 +105,8 @@ func (h *RegisterPackageHandler) HandleGet(from gen.PID, w http.ResponseWriter, 
 			"code":    InternalServerError,
 		})
 	}
+
+	h.Log().Info("package fetched", "packageID", packageID)
 
 	return h.SendJSON(w, http.StatusOK, pkg)
 }

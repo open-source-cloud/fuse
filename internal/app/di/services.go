@@ -6,4 +6,4 @@ import (
 )
 
 // ServicesModule provides the services for the application
-var ServicesModule = fx.Module("services", fx.Provide(services.NewGraphService))
+var ServicesModule = fx.Module("services", fx.Provide(services.NewGraphService, services.NewPackageService))

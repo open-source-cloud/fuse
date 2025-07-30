@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"ergo.services/ergo/gen"
-	"github.com/open-source-cloud/fuse/internal/repositories"
+	"github.com/open-source-cloud/fuse/internal/services"
 )
 
 const (
@@ -21,16 +21,16 @@ type (
 	// PackagesHandler is the handler for the packages' endpoint
 	PackagesHandler struct {
 		Handler
-		packageRepository repositories.PackageRepository
+		packageService services.PackageService
 	}
 )
 
 // NewPackagesHandler creates a new packages' handler factory
-func NewPackagesHandler(packageRepository repositories.PackageRepository) *PackagesHandlerFactory {
+func NewPackagesHandler(packageService services.PackageService) *PackagesHandlerFactory {
 	return &PackagesHandlerFactory{
 		Factory: func() gen.ProcessBehavior {
 			return &PackagesHandler{
-				packageRepository: packageRepository,
+				packageService: packageService,
 			}
 		},
 	}
@@ -40,13 +40,18 @@ func NewPackagesHandler(packageRepository repositories.PackageRepository) *Packa
 func (h *PackagesHandler) HandleGet(from gen.PID, w http.ResponseWriter, r *http.Request) error {
 	h.Log().Info("received list packages request from: %v remoteAddr: %s", from, r.RemoteAddr)
 
-	packages, err := h.packageRepository.FindAll()
+	packages, err := h.packageService.FindAll(services.PackageOptions{
+		Load: true,
+	})
 	if err != nil {
+		h.Log().Error("failed to list packages", "error", err, "from", from, "remoteAddr", r.RemoteAddr)
 		return h.SendJSON(w, http.StatusInternalServerError, Response{
 			"message": "Failed to list packages",
 			"code":    InternalServerError,
 		})
 	}
+
+	h.Log().Info("packages listed", "from", from, "remoteAddr", r.RemoteAddr, "packages", len(packages))
 
 	return h.SendJSON(w, http.StatusOK, Response{
 		"metadata": PaginationMetadata{

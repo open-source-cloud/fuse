@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/open-source-cloud/fuse/internal/packages/transport"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 )
 
@@ -13,7 +14,9 @@ const TimerFunctionID = "timer"
 // TimerFunctionMetadata returns the metadata of the timer function
 func TimerFunctionMetadata() workflow.FunctionMetadata {
 	return workflow.FunctionMetadata{
+		Transport: transport.Internal,
 		Input: workflow.InputMetadata{
+			CustomParameters: true,
 			Parameters: []workflow.ParameterSchema{
 				{
 					Name:        "timer",
@@ -24,6 +27,14 @@ func TimerFunctionMetadata() workflow.FunctionMetadata {
 					Default:     0,
 				},
 			},
+			Edges: workflow.InputEdgeMetadata{
+				Count:      0,
+				Parameters: make([]workflow.ParameterSchema, 0),
+			},
+		},
+		Output: workflow.OutputMetadata{
+			Parameters: make([]workflow.ParameterSchema, 0),
+			Edges:      make([]workflow.OutputEdgeMetadata, 0),
 		},
 	}
 }

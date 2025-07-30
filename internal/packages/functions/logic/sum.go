@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"github.com/open-source-cloud/fuse/internal/packages/transport"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 )
 
@@ -10,7 +11,9 @@ const SumFunctionID = "sum"
 // SumFunctionMetadata returns the metadata of the sum function
 func SumFunctionMetadata() workflow.FunctionMetadata {
 	return workflow.FunctionMetadata{
+		Transport: transport.Internal,
 		Input: workflow.InputMetadata{
+			CustomParameters: true,
 			Parameters: []workflow.ParameterSchema{
 				{
 					Name:        "values",
@@ -20,6 +23,10 @@ func SumFunctionMetadata() workflow.FunctionMetadata {
 					Description: "Values to sum",
 					Default:     []int{},
 				},
+			},
+			Edges: workflow.InputEdgeMetadata{
+				Count:      0,
+				Parameters: make([]workflow.ParameterSchema, 0),
 			},
 		},
 		Output: workflow.OutputMetadata{
@@ -32,6 +39,7 @@ func SumFunctionMetadata() workflow.FunctionMetadata {
 					Default:     0,
 				},
 			},
+			Edges: make([]workflow.OutputEdgeMetadata, 0),
 		},
 	}
 }

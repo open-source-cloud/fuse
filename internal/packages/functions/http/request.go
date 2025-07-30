@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/open-source-cloud/fuse/internal/packages/transport"
 	"github.com/open-source-cloud/fuse/pkg/http"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 	"github.com/rs/zerolog/log"
@@ -25,6 +26,7 @@ var (
 // RequestFunctionMetadata returns the metadata for the request function
 func RequestFunctionMetadata() workflow.FunctionMetadata {
 	return workflow.FunctionMetadata{
+		Transport: transport.Internal,
 		Input: workflow.InputMetadata{
 			CustomParameters: true,
 			Parameters: []workflow.ParameterSchema{
@@ -77,6 +79,10 @@ func RequestFunctionMetadata() workflow.FunctionMetadata {
 					Default:     10,
 				},
 			},
+			Edges: workflow.InputEdgeMetadata{
+				Count:      0,
+				Parameters: make([]workflow.ParameterSchema, 0),
+			},
 		},
 		Output: workflow.OutputMetadata{
 			Parameters: []workflow.ParameterSchema{
@@ -113,6 +119,7 @@ func RequestFunctionMetadata() workflow.FunctionMetadata {
 					Default:     nil,
 				},
 			},
+			Edges: make([]workflow.OutputEdgeMetadata, 0),
 		},
 	}
 }
