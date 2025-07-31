@@ -13,9 +13,14 @@ import (
 func TestGraphService(t *testing.T) {
 	memGraphRepo := repositories.NewMemoryGraphRepository()
 
+	pkgRepo := repositories.NewMemoryPackageRepository()
 	pkgRegistry := packages.NewPackageRegistry()
-	internalPackages := packages.NewInternal(pkgRegistry)
-	internalPackages.Register()
+	internalPackages := packages.NewInternal()
+
+	pkgSvc := services.NewPackageService(pkgRepo, pkgRegistry, internalPackages)
+	if err := pkgSvc.RegisterInternalPackages(); err != nil {
+		t.Fatalf("failed to register internal packages: %v", err)
+	}
 
 	graphService := services.NewGraphService(memGraphRepo, pkgRegistry)
 

@@ -14,6 +14,7 @@ var RepoModule = fx.Module(
 	fx.Provide(
 		provideGraphRepository,
 		provideWorkflowRepository,
+		providePackageRepository,
 	),
 )
 
@@ -43,4 +44,17 @@ func provideWorkflowRepository(cfg *config.Config, _ *mongo.Client) repositories
 	log.Debug().Msg("using memory workflow repository")
 
 	return repositories.NewMemoryWorkflowRepository()
+}
+
+// providePackageRepository provides the appropriate PackageRepository based on config
+func providePackageRepository(cfg *config.Config, mongoClient *mongo.Client) repositories.PackageRepository {
+	log.Debug().Msgf("using package repository driver: %s", cfg.Database.Driver)
+
+	if IsDriverEnabled(cfg.Database.Driver, mongoDriver) && mongoClient != nil {
+		log.Debug().Msg("using mongodb package repository")
+		return repositories.NewMongoPackageRepository(mongoClient, cfg)
+	}
+
+	log.Debug().Msg("using memory package repository")
+	return repositories.NewMemoryPackageRepository()
 }

@@ -47,6 +47,13 @@ type (
 	}
 	// Response is the type for all responses
 	Response = map[string]any
+
+	// PaginationMetadata is the type for pagination metadata
+	PaginationMetadata struct {
+		Total int `json:"total"`
+		Page  int `json:"page"`
+		Size  int `json:"size"`
+	}
 )
 
 // BindJSON binds a JSON request to the given struct

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/open-source-cloud/fuse/internal/packages/transport"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 )
 
@@ -14,7 +15,9 @@ const RandFunctionID = "rand"
 // RandFunctionMetadata returns the metadata of the rand function
 func RandFunctionMetadata() workflow.FunctionMetadata {
 	return workflow.FunctionMetadata{
+		Transport: transport.Internal,
 		Input: workflow.InputMetadata{
+			CustomParameters: true,
 			Parameters: []workflow.ParameterSchema{
 				{
 					Name:        "min",
@@ -33,6 +36,10 @@ func RandFunctionMetadata() workflow.FunctionMetadata {
 					Default:     100,
 				},
 			},
+			Edges: workflow.InputEdgeMetadata{
+				Count:      0,
+				Parameters: make([]workflow.ParameterSchema, 0),
+			},
 		},
 		Output: workflow.OutputMetadata{
 			Parameters: []workflow.ParameterSchema{
@@ -43,6 +50,7 @@ func RandFunctionMetadata() workflow.FunctionMetadata {
 					Description: "Generated random number",
 				},
 			},
+			Edges: make([]workflow.OutputEdgeMetadata, 0),
 		},
 	}
 }

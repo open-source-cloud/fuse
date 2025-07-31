@@ -33,6 +33,7 @@ var MongoModule = fx.Module(
 var mongoCollections = []string{
 	repositories.GraphMongoCollection,
 	repositories.WorkflowMongoCollection,
+	repositories.PackageMongoCollection,
 }
 
 // provideMongoClient provides a MongoDB client if the driver is MongoDB, otherwise returns nil

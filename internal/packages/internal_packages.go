@@ -4,34 +4,26 @@ import (
 	"github.com/open-source-cloud/fuse/internal/packages/functions/debug"
 	"github.com/open-source-cloud/fuse/internal/packages/functions/http"
 	"github.com/open-source-cloud/fuse/internal/packages/functions/logic"
-	"github.com/open-source-cloud/fuse/internal/packages/transport"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 )
 
+type (
+	// InternalPackages defines the interface for an internal package
+	InternalPackages interface {
+		List() []*workflow.Package
+	}
+)
+
 // NewInternal creates new InternalPackages service
-func NewInternal(registry Registry) *InternalPackages {
-	return &InternalPackages{
-		registry: registry,
-	}
+func NewInternal() InternalPackages {
+	return &DefaultInternalPackages{}
 }
 
-// InternalPackages service for registering internal packages
-type InternalPackages struct {
-	registry Registry
-}
-
-// Register registers internal packages
-func (p *InternalPackages) Register() {
-	for _, pkg := range p.List() {
-		for _, function := range pkg.Functions {
-			function.Metadata.Transport = transport.Internal
-		}
-		p.registry.Register(pkg)
-	}
-}
+// DefaultInternalPackages service for registering internal packages
+type DefaultInternalPackages struct{}
 
 // List returns the list of internal packages
-func (p *InternalPackages) List() []*workflow.Package {
+func (p *DefaultInternalPackages) List() []*workflow.Package {
 	return []*workflow.Package{
 		debug.New(),
 		logic.New(),

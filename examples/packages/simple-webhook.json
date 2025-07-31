@@ -1,0 +1,60 @@
+{
+  "id": "simple-webhook",
+  "functions": [
+    {
+      "id": "simple-webhook-function",
+      "metadata": {
+        "transport": "http",
+        "input": {
+          "customParameters": true,
+          "parameters": [
+            {
+              "name": "host",
+              "type": "string",
+              "required": true,
+              "validations": [],
+              "description": "The host to request",
+              "default": "https://webhook.site/ddb862e2-1459-4ef8-98c0-fcbb987b9c32"
+            },
+            {
+              "name": "content",
+              "type": "string",
+              "required": true,
+              "validations": [],
+              "description": "The content to request",
+              "default": "Hello, world!"
+            }
+          ],
+          "edges": {
+            "count": 1,
+            "parameters": [
+              {
+                "name": "response",
+                "type": "string",
+                "required": true,
+                "validations": [],
+                "description": "The response from the request"
+              }
+            ]
+          }
+        },
+        "output": {
+          "customParameters": false,
+          "parameters": []
+        }
+      },
+      "tags": {
+        "owner": "open-source-cloud",
+        "type": "webhook",
+        "team": "fuse",
+        "version": "1.0.0"
+      }
+    }
+  ],
+  "tags": {
+    "owner": "open-source-cloud",
+    "type": "webhook",
+    "team": "fuse",
+    "version": "1.0.0"
+  }
+}
