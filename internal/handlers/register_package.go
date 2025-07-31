@@ -46,6 +46,11 @@ func NewRegisterPackageHandler(packageService services.PackageService) *Register
 func (h *RegisterPackageHandler) HandlePut(from gen.PID, w http.ResponseWriter, r *http.Request) error {
 	h.Log().Info("received register package request from: %v remoteAddr: %s", from, r.RemoteAddr)
 
+	packageID, err := h.GetPathParam(r, "packageID")
+	if err != nil {
+		return h.SendBadRequest(w, err, []string{"packageID is required"})
+	}
+
 	var pkg *workflow.Package
 	if err := h.BindJSON(w, r, &pkg); err != nil {
 		return h.SendJSON(w, http.StatusBadRequest, Response{
@@ -54,15 +59,15 @@ func (h *RegisterPackageHandler) HandlePut(from gen.PID, w http.ResponseWriter, 
 		})
 	}
 
-	pkg, err := h.packageService.Save(pkg)
+	pkg, err = h.packageService.Save(pkg)
 	if err != nil {
-		h.Log().Error("failed to save package", "error", err, "packageID", pkg.ID)
+		h.Log().Error("failed to save package", "error", err, "packageID", packageID)
 		if errors.As(err, &validator.ValidationErrors{}) {
 			return h.SendValidationErr(w, err)
 		}
 		if errors.Is(err, repositories.ErrPackageNotFound) {
 			return h.SendJSON(w, http.StatusNotFound, Response{
-				"message": fmt.Sprintf("package %s not found", pkg.ID),
+				"message": fmt.Sprintf("package %s not found", packageID),
 				"code":    "NOT_FOUND",
 			})
 		}
