@@ -72,9 +72,11 @@ func provideMongoClient(cfg *config.Config) *mongo.Client {
 	log.Debug().Msg("connected to mongodb")
 
 	// Test the connection
-	ctx := context.Background()
-	if err := client.Ping(ctx, nil); err != nil {
-		log.Fatal().Msgf("Failed to ping MongoDB: %v", err)
+	if cfg.Database.TestConnection {
+		ctx := context.Background()
+		if err := client.Ping(ctx, nil); err != nil {
+			log.Fatal().Msgf("Failed to ping MongoDB: %v", err)
+		}
 	}
 
 	log.Debug().Msg("pinged mongodb")

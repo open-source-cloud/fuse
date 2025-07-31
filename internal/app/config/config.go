@@ -24,10 +24,11 @@ type (
 
 	// DatabaseConfig represents the configuration settings required to connect to a database.
 	DatabaseConfig struct {
-		Driver string `env:"DB_DRIVER" envDefault:"memory"`
-		Name   string `env:"DB_NAME" envDefault:"fuse"`
-		URL    string `env:"DB_URL"`
-		Mongo  MongoConfig
+		Driver         string `env:"DB_DRIVER" envDefault:"memory"`
+		Name           string `env:"DB_NAME" envDefault:"fuse"`
+		URL            string `env:"DB_URL"`
+		TestConnection bool   `env:"DB_TEST_CONNECTION" envDefault:"false"`
+		Mongo          MongoConfig
 	}
 
 	// MongoConfig represents the configuration settings required to connect to a MongoDB database.
