@@ -1,4 +1,4 @@
-FROM golang:1.24 as build
+FROM golang:1.24 AS build
 
 WORKDIR /app
 
@@ -13,7 +13,7 @@ RUN CGO_ENABLED=0 go build -o bin/fuse /app/cmd/fuse/main.go
 
 ## Runnable container
 
-FROM gcr.io/distroless/base-debian11 as runnable
+FROM gcr.io/distroless/base-debian11 AS runnable
 
 COPY --from=build /app/bin/fuse /
 

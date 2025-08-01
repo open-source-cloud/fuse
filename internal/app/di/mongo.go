@@ -11,6 +11,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/mongo/readpref"
 	"go.uber.org/fx"
 )
 
@@ -45,13 +46,20 @@ func provideMongoClient(cfg *config.Config) *mongo.Client {
 		return nil
 	}
 
-	mongoCfg := cfg.Database.Mongo
-	authSource := utils.SerializeString(mongoCfg.AuthSource)
+	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
+
 	uri := cfg.Database.URL
-	if authSource != "" {
-		uri = fmt.Sprintf("%s?authSource=%s", uri, authSource)
+	clientOptions := options.Client().ApplyURI(uri).SetServerAPIOptions(serverAPI)
+
+	mongoCfg := cfg.Mongo
+	if mongoCfg.Username != "" && mongoCfg.Password != "" {
+		clientOptions.SetAuth(options.Credential{
+			Username:      mongoCfg.Username,
+			Password:      mongoCfg.Password,
+			AuthSource:    mongoCfg.AuthSource,
+			AuthMechanism: mongoCfg.AuthMechanism,
+		})
 	}
-	clientOptions := options.Client().ApplyURI(uri)
 
 	// To understand the options, see: https://www.mongodb.com/docs/drivers/go/current/fundamentals/bson/
 	clientOptions.SetBSONOptions(&options.BSONOptions{
@@ -74,7 +82,7 @@ func provideMongoClient(cfg *config.Config) *mongo.Client {
 	// Test the connection
 	if cfg.Database.TestConnection {
 		ctx := context.Background()
-		if err := client.Ping(ctx, nil); err != nil {
+		if err := client.Ping(ctx, readpref.Primary()); err != nil {
 			log.Fatal().Msgf("Failed to ping MongoDB: %v", err)
 		}
 	}

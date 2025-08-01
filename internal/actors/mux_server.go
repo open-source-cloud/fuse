@@ -56,9 +56,10 @@ func (m *muxServer) Init(_ ...any) error {
 
 	// nolint:gosec // port is validated by the config
 	serverOptions := meta.WebServerOptions{
-		Port:    uint16(port),
-		Host:    "localhost",
-		Handler: muxRouter,
+		Port:        uint16(port),
+		Host:        m.config.Server.Host,
+		Handler:     muxRouter,
+		CertManager: m.Node().CertManager(),
 	}
 
 	webserver, err := meta.CreateWebServer(serverOptions)
