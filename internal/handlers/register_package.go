@@ -6,9 +6,9 @@ import (
 	"net/http"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/open-source-cloud/fuse/internal/dtos"
 	"github.com/open-source-cloud/fuse/internal/repositories"
 	"github.com/open-source-cloud/fuse/internal/services"
-	"github.com/open-source-cloud/fuse/pkg/workflow"
 
 	"ergo.services/ergo/gen"
 )
@@ -51,35 +51,35 @@ func (h *RegisterPackageHandler) HandlePut(from gen.PID, w http.ResponseWriter, 
 		return h.SendBadRequest(w, err, []string{"packageID is required"})
 	}
 
-	var pkg *workflow.Package
-	if err := h.BindJSON(w, r, &pkg); err != nil {
-		return h.SendJSON(w, http.StatusBadRequest, Response{
-			"message": fmt.Sprintf("invalid request: %s", err),
-			"code":    BadRequest,
+	var req *dtos.CreatePackageRequest
+	if err := h.BindJSON(w, r, &req); err != nil {
+		return h.SendJSON(w, http.StatusBadRequest, ErrorResponse{
+			Message: fmt.Sprintf("invalid request: %s", err),
+			Code:    BadRequest,
 		})
 	}
 
-	pkg, err = h.packageService.Save(pkg)
+	pkg, err := h.packageService.Save(req.Package)
 	if err != nil {
 		h.Log().Error("failed to save package", "error", err, "packageID", packageID)
 		if errors.As(err, &validator.ValidationErrors{}) {
 			return h.SendValidationErr(w, err)
 		}
 		if errors.Is(err, repositories.ErrPackageNotFound) {
-			return h.SendJSON(w, http.StatusNotFound, Response{
-				"message": fmt.Sprintf("package %s not found", packageID),
-				"code":    "NOT_FOUND",
+			return h.SendJSON(w, http.StatusNotFound, ErrorResponse{
+				Message: fmt.Sprintf("package %s not found", packageID),
+				Code:    "NOT_FOUND",
 			})
 		}
-		return h.SendJSON(w, http.StatusInternalServerError, Response{
-			"message": fmt.Sprintf("failed to save package: %s", err),
-			"code":    InternalServerError,
+		return h.SendJSON(w, http.StatusInternalServerError, ErrorResponse{
+			Message: fmt.Sprintf("failed to save package: %s", err),
+			Code:    InternalServerError,
 		})
 	}
 
-	return h.SendJSON(w, http.StatusOK, Response{
-		"message":   "Package registered successfully",
-		"packageId": pkg.ID,
+	return h.SendJSON(w, http.StatusOK, dtos.PackageCreatedResponse{
+		Message:   "Package registered successfully",
+		PackageID: pkg.ID,
 	})
 }
 

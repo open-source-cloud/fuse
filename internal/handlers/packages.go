@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"ergo.services/ergo/gen"
+	"github.com/open-source-cloud/fuse/internal/dtos"
 	"github.com/open-source-cloud/fuse/internal/services"
 )
 
@@ -53,12 +54,11 @@ func (h *PackagesHandler) HandleGet(from gen.PID, w http.ResponseWriter, r *http
 
 	h.Log().Info("packages listed", "from", from, "remoteAddr", r.RemoteAddr, "packages", len(packages))
 
-	return h.SendJSON(w, http.StatusOK, Response{
-		"metadata": PaginationMetadata{
-			Total: len(packages),
-			Page:  0,
-			Size:  0,
-		},
-		"items": packages,
-	})
+	metadata := dtos.PaginationMetadata{
+		Total: len(packages),
+		Page:  0,
+		Size:  0,
+	}
+	pagination := dtos.NewPaginatedResponse(packages, metadata)
+	return h.SendJSON(w, http.StatusOK, pagination)
 }
