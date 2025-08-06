@@ -1,6 +1,10 @@
 package services
 
 import (
+	"sync"
+
+	"github.com/rs/zerolog/log"
+
 	"github.com/open-source-cloud/fuse/internal/packages"
 	"github.com/open-source-cloud/fuse/internal/repositories"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
@@ -89,10 +93,19 @@ func (s *DefaultPackageService) Save(pkg *workflow.Package) (*workflow.Package, 
 
 // RegisterInternalPackages registers the internal packages to the repository and registry
 func (s *DefaultPackageService) RegisterInternalPackages() error {
+	wg := sync.WaitGroup{}
+	wg.Add(len(s.internalPackages.List()))
+
 	for _, pkg := range s.internalPackages.List() {
-		if _, err := s.Save(pkg); err != nil {
-			return err
-		}
+		go func(pkg *workflow.Package) {
+			defer wg.Done()
+			if _, err := s.Save(pkg); err != nil {
+				log.Error().Err(err).Msgf("failed to save internal package %s", pkg.ID)
+			}
+		}(pkg)
 	}
+
+	wg.Wait()
+
 	return nil
 }

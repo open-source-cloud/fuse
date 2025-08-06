@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/open-source-cloud/fuse/internal/services"
 	internalworkflow "github.com/open-source-cloud/fuse/internal/workflow"
 	"github.com/open-source-cloud/fuse/internal/workflow/workflowactions"
 
@@ -21,14 +22,14 @@ type WorkflowHandlerFactory ActorFactory[*WorkflowHandler]
 // NewWorkflowHandlerFactory DI method for creating the WorkflowHandler factory
 func NewWorkflowHandlerFactory(
 	cfg *config.Config,
-	graphRepository repositories.GraphRepository,
+	graphService services.GraphService,
 	workflowRepository repositories.WorkflowRepository,
 ) *WorkflowHandlerFactory {
 	return &WorkflowHandlerFactory{
 		Factory: func() gen.ProcessBehavior {
 			return &WorkflowHandler{
 				config:             cfg,
-				graphRepository:    graphRepository,
+				graphService:       graphService,
 				workflowRepository: workflowRepository,
 			}
 		},
@@ -41,7 +42,7 @@ type (
 		act.Actor
 
 		config             *config.Config
-		graphRepository    repositories.GraphRepository
+		graphService       services.GraphService
 		workflowRepository repositories.WorkflowRepository
 
 		workflow *internalworkflow.Workflow
@@ -123,7 +124,7 @@ func (a *WorkflowHandler) handleMsgActorInit(msg messaging.Message) error {
 	}
 
 	// doesnt exist - create
-	graphRef, err := a.graphRepository.FindByID(initArgs.schemaID)
+	graphRef, err := a.graphService.FindByID(initArgs.schemaID)
 	if err != nil {
 		a.Log().Error("failed to get graph for schema id %s: %s", initArgs.schemaID, err)
 		return gen.TerminateReasonPanic

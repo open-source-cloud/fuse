@@ -250,15 +250,32 @@ func (w *Workflow) newRunFunctionAction(currentThread *thread, edge *Edge) *work
 
 func (w *Workflow) inputMapping(edge *Edge, mappings []InputMapping) map[string]any {
 	args := store.New()
-	for _, mapping := range mappings {
-		inputParamSchema, exists := edge.To().FunctionMetadata().Input.Parameters[mapping.MapTo]
-		if !edge.To().FunctionMetadata().Input.CustomParameters && !exists {
-			log.Error().Str("edge", edge.ID()).Str("param", mapping.MapTo).
-				Msg("Input ParamSchema not found for input mapping")
-		}
-		allowCustomInputParameters := edge.To().FunctionMetadata().Input.CustomParameters
 
-		log.Debug().Msgf("Mapping: %+v", mapping)
+	log.Debug().Msgf("mappings: %+v", mappings)
+	log.Debug().Msgf("edge: %+v, from: %+v, to: %+v", edge, edge.From(), edge.To())
+
+	for _, mapping := range mappings {
+		nodeTo := edge.To()
+		if nodeTo == nil {
+			log.Error().Str("edge", edge.ID()).Str("param", mapping.MapTo).
+				Msg("Node to is nil")
+			break
+		}
+		nodeToMetadata := nodeTo.FunctionMetadata()
+		if nodeToMetadata == nil {
+			log.Error().Str("edge", edge.ID()).Str("param", mapping.MapTo).
+				Msg("Node to metadata is nil")
+			break
+		}
+
+		inputParamSchema, exists := nodeToMetadata.Input.Parameters[mapping.MapTo]
+		if !nodeToMetadata.Input.CustomParameters && !exists {
+			log.Warn().Str("edge", edge.ID()).Str("param", mapping.MapTo).
+				Msg("Input ParamSchema not found for input mapping")
+			continue
+		}
+
+		allowCustomInputParameters := nodeToMetadata.Input.CustomParameters
 
 		switch mapping.Source {
 		case SourceSchema:
@@ -273,7 +290,21 @@ func (w *Workflow) inputMapping(edge *Edge, mappings []InputMapping) map[string]
 			args.Set(mapping.MapTo, mapping.Value)
 		case SourceFlow:
 			outputParamName := utils.AfterFirstDot(mapping.Variable)
-			outputParamSchema, exists := edge.From().FunctionMetadata().Output.Parameters[outputParamName]
+
+			nodeFrom := edge.From()
+			if nodeFrom == nil {
+				log.Error().Str("edge", edge.ID()).Str("param", outputParamName).
+					Msg("Node from is nil")
+				break
+			}
+			nodeFromMetadata := nodeFrom.FunctionMetadata()
+			if nodeFromMetadata == nil {
+				log.Error().Str("edge", edge.ID()).Str("param", outputParamName).
+					Msg("Node from metadata is nil")
+				break
+			}
+
+			outputParamSchema, exists := nodeFromMetadata.Output.Parameters[outputParamName]
 			if !allowCustomInputParameters && !exists {
 				log.Error().Str("edge", edge.ID()).Str("param", outputParamName).
 					Msgf("Output ParamSchema not found for input mapping")
@@ -318,6 +349,11 @@ func (w *Workflow) inputMapping(edge *Edge, mappings []InputMapping) map[string]
 					args.Set(mapping.MapTo, value)
 				}
 				continue
+			}
+
+			// if the value is nil, and there is a default value, use the default value
+			if value == nil && inputParamSchema.Default != nil {
+				value = inputParamSchema.Default
 			}
 
 			args.Set(mapping.MapTo, value)

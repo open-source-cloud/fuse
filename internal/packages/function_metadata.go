@@ -15,6 +15,9 @@ type (
 
 	// FunctionInputMetadata input metadata for a registered function
 	FunctionInputMetadata struct {
+		// CustomParameters serves to indicate that the some parameters are schemaless and can be mapped directly from the input (raw data).
+		// This is useful for functions like (logic/if), (logic/switch), (logic/for).
+		// For using the raw values as conditions of the function expressions.
 		CustomParameters bool                                `json:"customParameters"`
 		Parameters       map[string]workflow.ParameterSchema `json:"parameters"`
 		Edges            FunctionInputEdgeMetadata           `json:"edges"`

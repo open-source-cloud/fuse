@@ -11,11 +11,15 @@
       "function": "fuse/pkg/http/request"
     },
     {
-      "id": "if-request-failed",
+      "id": "if-request",
       "function": "fuse/pkg/logic/if"
     },
     {
-      "id": "debug-print",
+      "id": "if-request-print-success",
+      "function": "fuse/pkg/debug/print"
+    },
+    {
+      "id": "if-request-print-failure",
       "function": "fuse/pkg/debug/print"
     }
   ],
@@ -54,7 +58,7 @@
     {
       "id": "01982dc2-1e89-7f09-be6e-26d6ed1eac4f",
       "from": "github-http-request",
-      "to": "if-request-failed",
+      "to": "if-request",
       "input": [
         {
           "source": "flow",
@@ -70,8 +74,8 @@
     },
     {
       "id": "01982dc1-f1f4-7371-a2b2-0a6e5a5b3a1a",
-      "from": "if-request-failed",
-      "to": "debug-print",
+      "from": "if-request",
+      "to": "if-request-print-success",
       "conditional": {
         "name": "if-true",
         "value": true
@@ -96,8 +100,8 @@
     },
     {
       "id": "01982dc1-c106-767a-a1bc-e36611ac4488",
-      "from": "if-request-failed",
-      "to": "debug-print",
+      "from": "if-request",
+      "to": "if-request-print-failure",
       "conditional": {
         "name": "if-false",
         "value": false

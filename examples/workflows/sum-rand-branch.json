@@ -8,7 +8,7 @@
     },
     {
       "id": "logic-timer",
-      "function": "fuse/pkg/debug/timer"
+      "function": "fuse/pkg/logic/timer"
     },
     {
       "id": "logic-rand-1",
@@ -55,17 +55,53 @@
     {
       "id": "01965ddc-8890-7eed-a894-6fbabbf8681f",
       "from": "logic-timer",
-      "to": "logic-rand-1"
+      "to": "logic-rand-1",
+      "input": [
+        {
+          "source": "schema",
+          "value": 300,
+          "mapTo": "min"
+        },
+        {
+          "source": "schema",
+          "value": 3000,
+          "mapTo": "max"
+        }
+      ]
     },
     {
       "id": "01965ddc-8890-76ca-8c0b-e65655437777",
       "from": "logic-timer",
-      "to": "logic-rand-2"
+      "to": "logic-rand-2",
+      "input": [
+        {
+          "source": "schema",
+          "value": 300,
+          "mapTo": "min"
+        },
+        {
+          "source": "schema",
+          "value": 3000,
+          "mapTo": "max"
+        }
+      ]
     },
     {
       "id": "01965e1b-a954-7bde-ad0b-744b7ba78332",
       "from": "logic-timer",
-      "to": "logic-rand-3"
+      "to": "logic-rand-3",
+      "input": [
+        {
+          "source": "schema",
+          "value": 300,
+          "mapTo": "min"
+        },
+        {
+          "source": "schema",
+          "value": 3000,
+          "mapTo": "max"
+        }
+      ]
     },
     {
       "id": "01965e15-b7fc-7e9b-8ccb-cebb0e3e4d36",
@@ -74,30 +110,34 @@
       "input": [
         {
           "source": "flow",
-          "variable": "01965ddc-8890-7eed-a894-6fbabbf8681f.rand",
-          "mapTo": "values"
-        },
-        {
-          "source": "flow",
-          "variable": "01965ddc-8890-76ca-8c0b-e65655437777.rand",
-          "mapTo": "values"
-        },
-        {
-          "source": "flow",
-          "variable": "01965e1b-a954-7bde-ad0b-744b7ba78332.rand",
+          "variable": "logic-rand-1.rand",
           "mapTo": "values"
         }
       ]
     },
     {
-      "id": "01969cb7-c8b6-7f6c-afc7-77dd1afa6900",
+      "id": "01965e15-b7fc-7e9b-8ccb-cebb0e3e4d36",
       "from": "logic-rand-2",
-      "to": "logic-sum"
+      "to": "logic-sum",
+      "input": [
+        {
+          "source": "flow",
+          "variable": "logic-rand-2.rand",
+          "mapTo": "values"
+        }
+      ]
     },
     {
-      "id": "01969cb7-c8b6-7f7e-a2f9-58954f9f2b87",
+      "id": "01965e15-b7fc-7e9b-8ccb-cebb0e3e4d36",
       "from": "logic-rand-3",
-      "to": "logic-sum"
+      "to": "logic-sum",
+      "input": [
+        {
+          "source": "flow",
+          "variable": "logic-rand-3.rand",
+          "mapTo": "values"
+        }
+      ]
     },
     {
       "id": "01967474-ed78-73b8-a01f-275498bdc2c6",
@@ -105,14 +145,19 @@
       "to": "if-conditional",
       "input": [
         {
-          "source": "schema",
-          "value": "sum > 1500",
-          "mapTo": "expression"
+          "source": "flow",
+          "variable": "logic-sum.sum",
+          "mapTo": "sum"
         },
         {
-          "source": "flow",
-          "variable": "sum",
-          "mapTo": "sum"
+          "source": "schema",
+          "value": 1500,
+          "mapTo": "threshold"
+        },
+        {
+          "source": "schema",
+          "value": "sum > threshold",
+          "mapTo": "expression"
         }
       ]
     },
@@ -123,7 +168,8 @@
       "conditional": {
         "name": "if-true",
         "value": true
-      }
+      },
+      "input": []
     },
     {
       "id": "01967738-9b23-7973-8096-af24ffc82f0f",
@@ -132,7 +178,8 @@
       "conditional": {
         "name": "if-false",
         "value": false
-      }
+      },
+      "input": []
     }
   ]
 }

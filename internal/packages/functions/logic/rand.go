@@ -17,7 +17,7 @@ func RandFunctionMetadata() workflow.FunctionMetadata {
 	return workflow.FunctionMetadata{
 		Transport: transport.Internal,
 		Input: workflow.InputMetadata{
-			CustomParameters: true,
+			CustomParameters: false,
 			Parameters: []workflow.ParameterSchema{
 				{
 					Name:        "min",
@@ -25,7 +25,7 @@ func RandFunctionMetadata() workflow.FunctionMetadata {
 					Required:    false,
 					Validations: nil,
 					Description: "Minimum value of the random number",
-					Default:     0,
+					Default:     1,
 				},
 				{
 					Name:        "max",

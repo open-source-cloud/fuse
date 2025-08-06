@@ -4,9 +4,9 @@ package workflow
 
 import (
 	"fmt"
-	"github.com/open-source-cloud/fuse/internal/packages"
 	"sort"
-	"sync"
+
+	"github.com/open-source-cloud/fuse/internal/packages"
 
 	"github.com/TyphonHill/go-mermaid/diagrams/flowchart"
 )
@@ -387,15 +387,17 @@ func (g *Graph) compute() error {
 		return err
 	}
 
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-
-	go func() {
-		defer wg.Done()
-		g.calculateThreads()
-	}()
-
-	wg.Wait()
+	g.calculateThreads()
 
 	return nil
+}
+
+// IsNodesMetadataPopulated checks if the metadata of the graph's nodes are populated
+func (g *Graph) IsNodesMetadataPopulated() bool {
+	for _, node := range g.nodes {
+		if node.functionMetadata == nil {
+			return false
+		}
+	}
+	return true
 }

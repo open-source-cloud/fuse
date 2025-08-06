@@ -14,7 +14,6 @@ type (
 		Params   ParamsConfig
 		Server   ServerConfig
 		Database DatabaseConfig
-		Mongo    MongoConfig
 	}
 
 	// ParamsConfig configuration parameters
@@ -27,16 +26,8 @@ type (
 	DatabaseConfig struct {
 		Driver         string `env:"DB_DRIVER" envDefault:"memory"`
 		Name           string `env:"DB_NAME" envDefault:"fuse"`
-		URL            string `env:"DB_URL"`
+		URL            string `env:"DB_URL" envDefault:""`
 		TestConnection bool   `env:"DB_TEST_CONNECTION" envDefault:"true"`
-	}
-
-	// MongoConfig represents the configuration settings required to connect to a MongoDB database.
-	MongoConfig struct {
-		AuthSource    string `env:"MONGO_AUTH_SOURCE" envDefault:"admin"`
-		AuthMechanism string `env:"MONGO_AUTH_MECHANISM" envDefault:"SCRAM-SHA-1"`
-		Username      string `env:"MONGO_USERNAME" envDefault:""`
-		Password      string `env:"MONGO_PASSWORD" envDefault:""`
 	}
 
 	// ServerConfig http server config
