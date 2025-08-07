@@ -11,6 +11,9 @@ type FunctionMetadata struct {
 
 // InputMetadata represents one Input or Result Metadata descriptor
 type InputMetadata struct {
+	// CustomParameters serves to indicate that the some parameters are schemaless and can be mapped directly from the input (raw data).
+	// This is useful for functions like (logic/if), (logic/switch), (logic/for).
+	// For using the raw values as conditions of the function expressions.
 	CustomParameters bool              `json:"customParameters"`
 	Parameters       []ParameterSchema `json:"parameters"`
 	Edges            InputEdgeMetadata `json:"edges,omitempty"`

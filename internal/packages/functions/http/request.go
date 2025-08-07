@@ -28,7 +28,7 @@ func RequestFunctionMetadata() workflow.FunctionMetadata {
 	return workflow.FunctionMetadata{
 		Transport: transport.Internal,
 		Input: workflow.InputMetadata{
-			CustomParameters: true,
+			CustomParameters: false,
 			Parameters: []workflow.ParameterSchema{
 				{
 					Name:        "host",
@@ -92,7 +92,7 @@ func RequestFunctionMetadata() workflow.FunctionMetadata {
 					Required:    true,
 					Validations: nil,
 					Description: "The raw body of the response",
-					Default:     []byte{},
+					Default:     nil,
 				},
 				{
 					Name:        "status",

@@ -2,7 +2,6 @@
 package packages
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/open-source-cloud/fuse/pkg/workflow"
@@ -25,18 +24,24 @@ type (
 	}
 )
 
+// pkgRegistry is a global package registry
+var pkgRegistry Registry
+
 // NewPackageRegistry creates a new provider MemoryRegistry
 func NewPackageRegistry() Registry {
-	return &MemoryRegistry{
-		packages: make(map[string]*LoadedPackage),
+	if pkgRegistry == nil {
+		pkgRegistry = &MemoryRegistry{
+			packages: make(map[string]*LoadedPackage),
+		}
 	}
+	return pkgRegistry
 }
 
 // Register registers a provider by id
 func (r *MemoryRegistry) Register(pkg *workflow.Package) {
-	log.Info().Str("packageID", pkg.ID).Msg("Package registered")
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	log.Info().Str("packageID", pkg.ID).Msg("Package registered")
 	r.packages[pkg.ID] = MapToRegistryPackage(pkg)
 }
 
@@ -46,7 +51,7 @@ func (r *MemoryRegistry) Get(pkgID string) (*LoadedPackage, error) {
 	defer r.mu.RUnlock()
 	pkg, exists := r.packages[pkgID]
 	if !exists {
-		return nil, fmt.Errorf("package %s not found", pkgID)
+		return nil, ErrLoadedPackageNotFound
 	}
 	return pkg, nil
 }

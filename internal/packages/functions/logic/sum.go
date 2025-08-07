@@ -13,7 +13,7 @@ func SumFunctionMetadata() workflow.FunctionMetadata {
 	return workflow.FunctionMetadata{
 		Transport: transport.Internal,
 		Input: workflow.InputMetadata{
-			CustomParameters: true,
+			CustomParameters: false,
 			Parameters: []workflow.ParameterSchema{
 				{
 					Name:        "values",

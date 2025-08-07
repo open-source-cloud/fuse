@@ -46,20 +46,12 @@ func provideMongoClient(cfg *config.Config) *mongo.Client {
 		return nil
 	}
 
-	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
-
-	uri := cfg.Database.URL
-	clientOptions := options.Client().ApplyURI(uri).SetServerAPIOptions(serverAPI)
-
-	mongoCfg := cfg.Mongo
-	if mongoCfg.Username != "" && mongoCfg.Password != "" {
-		clientOptions.SetAuth(options.Credential{
-			Username:      mongoCfg.Username,
-			Password:      mongoCfg.Password,
-			AuthSource:    mongoCfg.AuthSource,
-			AuthMechanism: mongoCfg.AuthMechanism,
-		})
+	if cfg.Database.URL == "" {
+		log.Fatal().Msg("DB_URL is not set, please set it in the environment variables")
 	}
+
+	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
+	clientOptions := options.Client().ApplyURI(cfg.Database.URL).SetServerAPIOptions(serverAPI)
 
 	// To understand the options, see: https://www.mongodb.com/docs/drivers/go/current/fundamentals/bson/
 	clientOptions.SetBSONOptions(&options.BSONOptions{
@@ -69,6 +61,10 @@ func provideMongoClient(cfg *config.Config) *mongo.Client {
 		NilByteSliceAsEmpty: false,
 		OmitEmpty:           true,
 	})
+
+	if err := clientOptions.Validate(); err != nil {
+		log.Fatal().Msgf("Failed to validate MongoDB client options: %v", err)
+	}
 
 	log.Debug().Msg("connecting to mongodb")
 
