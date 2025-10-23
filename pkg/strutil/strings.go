@@ -1,5 +1,6 @@
-// Package utils utility functions
-package utils
+// Package strutil provides string utility functions for common string operations.
+// It includes functions for string manipulation, token replacement, and serialization.
+package strutil
 
 import (
 	"fmt"

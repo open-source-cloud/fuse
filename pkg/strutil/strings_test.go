@@ -1,9 +1,9 @@
-package utils_test
+package strutil_test
 
 import (
 	"testing"
 
-	"github.com/open-source-cloud/fuse/pkg/utils"
+	"github.com/open-source-cloud/fuse/pkg/strutil"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -50,7 +50,7 @@ func (s *StringsTestSuite) TestReplaceTokens() {
 
 	for _, test := range tests {
 		s.Run(test.name, func() {
-			message := utils.ReplaceTokens(test.input, test.inputMap)
+			message := strutil.ReplaceTokens(test.input, test.inputMap)
 			s.Equal(test.expected, message)
 		})
 	}

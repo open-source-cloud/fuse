@@ -1,3 +1,5 @@
+// Package dtos provides Data Transfer Objects for HTTP request and response handling.
+// It includes standard error response types and validation structures used across the API.
 package dtos
 
 // ErrorResponse represents a standard error response

@@ -5,7 +5,7 @@ import (
 
 	"github.com/open-source-cloud/fuse/internal/app/config"
 	"github.com/open-source-cloud/fuse/internal/workflow"
-	"github.com/open-source-cloud/fuse/pkg/utils"
+	"github.com/open-source-cloud/fuse/pkg/strutil"
 	"github.com/rs/zerolog/log"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -27,7 +27,7 @@ type MongoGraphRepository struct {
 
 // NewMongoGraphRepository creates a new MongoDB GraphRepository
 func NewMongoGraphRepository(client *mongo.Client, config *config.Config) GraphRepository {
-	dbName := utils.SerializeString(config.Database.Name)
+	dbName := strutil.SerializeString(config.Database.Name)
 	database := client.Database(dbName)
 	collection := database.Collection(GraphMongoCollection)
 	return &MongoGraphRepository{

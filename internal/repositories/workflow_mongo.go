@@ -31,7 +31,7 @@ type MongoWorkflowRepository struct {
 
 // NewMongoWorkflowRepository creates a new MongoDB WorkflowRepository
 func NewMongoWorkflowRepository(client *mongo.Client, config *config.Config) WorkflowRepository {
-	dbName := utils.SerializeString(config.Database.Name)
+	dbName := strutil.SerializeString(config.Database.Name)
 	database := client.Database(dbName)
 	collection := database.Collection(WorkflowMongoCollection)
 

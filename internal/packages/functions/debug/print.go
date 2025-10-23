@@ -4,7 +4,7 @@ import (
 	"errors"
 
 	"github.com/open-source-cloud/fuse/internal/packages/transport"
-	"github.com/open-source-cloud/fuse/pkg/utils"
+	"github.com/open-source-cloud/fuse/pkg/strutil"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 	"github.com/rs/zerolog/log"
 )
@@ -40,7 +40,7 @@ func PrintFunction(execInfo *workflow.ExecutionInfo) (workflow.FunctionResult, e
 		return workflow.NewFunctionResultError(errors.New("message is required"))
 	}
 
-	message = utils.ReplaceTokens(message, execInfo.Input.Raw())
+	message = strutil.ReplaceTokens(message, execInfo.Input.Raw())
 
 	log.Info().Msgf("debug print: %s", message)
 

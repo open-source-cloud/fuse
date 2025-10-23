@@ -6,7 +6,7 @@ import (
 
 	"github.com/open-source-cloud/fuse/internal/app/config"
 	"github.com/open-source-cloud/fuse/internal/repositories"
-	"github.com/open-source-cloud/fuse/pkg/utils"
+	"github.com/open-source-cloud/fuse/pkg/strutil"
 	"github.com/rs/zerolog/log"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -93,7 +93,7 @@ func createCollectionsIndexes(
 	cfg *config.Config,
 	mongoClient *mongo.Client,
 ) error {
-	dbName := utils.SerializeString(cfg.Database.Name)
+	dbName := strutil.SerializeString(cfg.Database.Name)
 	database := mongoClient.Database(dbName)
 
 	for _, collectionName := range mongoCollections {

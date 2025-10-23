@@ -10,7 +10,7 @@ import (
 
 	"github.com/open-source-cloud/fuse/internal/typeschema"
 	"github.com/open-source-cloud/fuse/pkg/store"
-	"github.com/open-source-cloud/fuse/pkg/utils"
+	"github.com/open-source-cloud/fuse/pkg/strutil"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -289,7 +289,7 @@ func (w *Workflow) inputMapping(edge *Edge, mappings []InputMapping) map[string]
 			}
 			args.Set(mapping.MapTo, mapping.Value)
 		case SourceFlow:
-			outputParamName := utils.AfterFirstDot(mapping.Variable)
+			outputParamName := strutil.AfterFirstDot(mapping.Variable)
 
 			nodeFrom := edge.From()
 			if nodeFrom == nil {

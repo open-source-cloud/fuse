@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/open-source-cloud/fuse/internal/app/config"
-	"github.com/open-source-cloud/fuse/pkg/utils"
+	"github.com/open-source-cloud/fuse/pkg/strutil"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 	"github.com/rs/zerolog/log"
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -29,7 +29,7 @@ type (
 
 // NewMongoPackageRepository creates a new MongoDB PackageRepository
 func NewMongoPackageRepository(client *mongo.Client, config *config.Config) PackageRepository {
-	dbName := utils.SerializeString(config.Database.Name)
+	dbName := strutil.SerializeString(config.Database.Name)
 	database := client.Database(dbName)
 	collection := database.Collection(PackageMongoCollection)
 	return &MongoPackageRepository{
