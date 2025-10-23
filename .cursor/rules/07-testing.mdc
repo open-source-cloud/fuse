@@ -1,0 +1,963 @@
+---
+alwaysApply: true
+---
+
+# Testing Strategies
+
+Focus on solid unit tests with coverage for integration and actor-specific patterns.
+
+## Unit Tests
+
+### File Naming and Structure
+
+- **File naming**: `*_test.go` alongside source files
+- **Package**: Use the same package for white-box testing (access to private members)
+- **Test naming**: `TestFunctionName_Scenario`
+
+### Examples
+
+```go
+// Good test names
+TestNewGraph_ValidSchema
+TestNewGraph_InvalidSchema_ReturnsError
+TestWorkflowRepository_Get_NotFound
+TestWorkflowRepository_Get_Success
+TestNodeExecution_ConditionalBranch
+TestNodeExecution_UnconditionalFlow
+```
+
+### Test Structure (Arrange-Act-Assert)
+
+```go
+func TestNewGraph_ValidSchema(t *testing.T) {
+    // Arrange - Set up test data and dependencies
+    schema := &GraphSchema{
+        ID: "test-graph",
+        Nodes: []*NodeSchema{
+            {ID: "trigger", Function: "trigger"},
+            {ID: "process", Function: "transform"},
+        },
+        Edges: []*EdgeSchema{
+            {From: "trigger", To: "process"},
+        },
+    }
+
+    // Act - Execute the function under test
+    graph, err := NewGraph(schema)
+
+    // Assert - Verify the results
+    require.NoError(t, err)
+    assert.NotNil(t, graph)
+    assert.Equal(t, "test-graph", graph.ID())
+    assert.Equal(t, 2, len(graph.nodes))
+}
+```
+
+### Assertions
+
+Use `testify` package for assertions:
+
+```go
+import (
+    "testing"
+
+    "github.com/stretchr/testify/assert"
+    "github.com/stretchr/testify/require"
+)
+
+// Use require for critical assertions (stops test on failure)
+require.NoError(t, err)
+require.NotNil(t, obj)
+
+// Use assert for non-critical assertions (continues test)
+assert.Equal(t, expected, actual)
+assert.True(t, condition)
+assert.Contains(t, slice, element)
+```
+
+### Table-Driven Tests
+
+For testing multiple scenarios:
+
+```go
+func TestValidateSchema(t *testing.T) {
+    tests := []struct {
+        name    string
+        schema  *GraphSchema
+        wantErr bool
+    }{
+        {
+            name: "valid schema",
+            schema: &GraphSchema{
+                ID:    "test",
+                Nodes: []*NodeSchema{{ID: "node1", Function: "fn1"}},
+            },
+            wantErr: false,
+        },
+        {
+            name: "missing ID",
+            schema: &GraphSchema{
+                Nodes: []*NodeSchema{{ID: "node1", Function: "fn1"}},
+            },
+            wantErr: true,
+        },
+        {
+            name: "no nodes",
+            schema: &GraphSchema{
+                ID:    "test",
+                Nodes: []*NodeSchema{},
+            },
+            wantErr: true,
+        },
+    }
+
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            err := tt.schema.Validate()
+            if tt.wantErr {
+                assert.Error(t, err)
+            } else {
+                assert.NoError(t, err)
+            }
+        })
+    }
+}
+```
+
+## Mocking
+
+### Mock Interfaces
+
+Mock interfaces using `testify/mock` or manual mocks:
+
+```go
+package mocks
+
+import (
+    "github.com/stretchr/testify/mock"
+    "github.com/open-source-cloud/fuse/internal/workflow"
+)
+
+type MockWorkflowRepository struct {
+    mock.Mock
+}
+
+func (m *MockWorkflowRepository) Get(id string) (*workflow.Workflow, error) {
+    args := m.Called(id)
+    if args.Get(0) == nil {
+        return nil, args.Error(1)
+    }
+    return args.Get(0).(*workflow.Workflow), args.Error(1)
+}
+
+func (m *MockWorkflowRepository) Save(workflow *workflow.Workflow) error {
+    args := m.Called(workflow)
+    return args.Error(0)
+}
+
+func (m *MockWorkflowRepository) Exists(id string) bool {
+    args := m.Called(id)
+    return args.Bool(0)
+}
+```
+
+### Using Mocks in Tests
+
+```go
+func TestWorkflowService_CreateWorkflow(t *testing.T) {
+    // Arrange
+    mockRepo := new(mocks.MockWorkflowRepository)
+    mockGraphRepo := new(mocks.MockGraphRepository)
+
+    service := NewWorkflowService(mockRepo, mockGraphRepo)
+
+    schema := &workflow.GraphSchema{
+        ID:    "test-graph",
+        Nodes: []*NodeSchema{{ID: "node1", Function: "fn1"}},
+    }
+
+    // Setup mock expectations
+    mockGraphRepo.On("Save", mock.AnythingOfType("*workflow.Graph")).Return(nil)
+    mockRepo.On("Save", mock.AnythingOfType("*workflow.Workflow")).Return(nil)
+
+    // Act
+    wf, err := service.CreateWorkflow(schema)
+
+    // Assert
+    require.NoError(t, err)
+    assert.NotNil(t, wf)
+
+    // Verify mock expectations were met
+    mockRepo.AssertExpectations(t)
+    mockGraphRepo.AssertExpectations(t)
+}
+```
+
+### Mock Organization
+
+- Place mocks in `internal/mocks/` for reusability
+- Generate mocks with `mockery` if available:
+  ```bash
+  mockery --name=WorkflowRepository --output=internal/mocks
+  ```
+
+## Integration Tests
+
+### Repository Tests
+
+Test repository implementations against real dependencies:
+
+```go
+func TestMongoWorkflowRepository_Integration(t *testing.T) {
+    if testing.Short() {
+        t.Skip("skipping integration test")
+    }
+
+    // Setup - Connect to test MongoDB instance
+    client, err := mongo.Connect(context.Background(), options.Client().ApplyURI("mongodb://localhost:27017"))
+    require.NoError(t, err)
+    defer client.Disconnect(context.Background())
+
+    config := &config.Config{
+        Database: config.Database{Name: "test_db"},
+    }
+    repo := NewMongoWorkflowRepository(client, config)
+
+    // Arrange
+    workflow := createTestWorkflow()
+
+    // Act - Save
+    err = repo.Save(workflow)
+    require.NoError(t, err)
+
+    // Act - Get
+    retrieved, err := repo.Get(workflow.ID().String())
+
+    // Assert
+    require.NoError(t, err)
+    assert.Equal(t, workflow.ID(), retrieved.ID())
+
+    // Cleanup
+    _ = repo.Delete(workflow.ID().String())
+}
+```
+
+### Concurrent Access Tests
+
+Test thread safety of in-memory repositories:
+
+```go
+func TestMemoryWorkflowRepository_ConcurrentAccess(t *testing.T) {
+    repo := NewMemoryWorkflowRepository()
+
+    // Create workflows
+    workflows := make([]*workflow.Workflow, 100)
+    for i := 0; i < 100; i++ {
+        workflows[i] = createTestWorkflow()
+    }
+
+    // Concurrent writes
+    var wg sync.WaitGroup
+    for _, wf := range workflows {
+        wg.Add(1)
+        go func(w *workflow.Workflow) {
+            defer wg.Done()
+            err := repo.Save(w)
+            assert.NoError(t, err)
+        }(wf)
+    }
+    wg.Wait()
+
+    // Concurrent reads
+    for _, wf := range workflows {
+        wg.Add(1)
+        go func(w *workflow.Workflow) {
+            defer wg.Done()
+            retrieved, err := repo.Get(w.ID().String())
+            assert.NoError(t, err)
+            assert.NotNil(t, retrieved)
+        }(wf)
+    }
+    wg.Wait()
+}
+```
+
+## Actor-Specific Testing
+
+### Actor Initialization
+
+```go
+func TestWorkflowHandler_Init(t *testing.T) {
+    // Arrange
+    handler := &WorkflowHandler{
+        config:  &config.Config{},
+        service: &mockWorkflowService{},
+    }
+
+    // Act
+    err := handler.Init()
+
+    // Assert
+    require.NoError(t, err)
+}
+```
+
+### Message Handling
+
+```go
+func TestWorkflowHandler_HandleMessage_ExecuteWorkflow(t *testing.T) {
+    // Arrange
+    mockService := new(mocks.MockWorkflowService)
+    handler := &WorkflowHandler{
+        config:  &config.Config{},
+        service: mockService,
+    }
+
+    msg := &messaging.ExecuteWorkflow{
+        WorkflowID: "test-workflow",
+        Input:      map[string]any{"key": "value"},
+    }
+
+    mockService.On("ExecuteWorkflow", "test-workflow", mock.Anything).Return(nil)
+
+    // Act
+    err := handler.HandleMessage(gen.PID{}, msg)
+
+    // Assert
+    require.NoError(t, err)
+    mockService.AssertExpectations(t)
+}
+
+func TestWorkflowHandler_HandleMessage_UnknownType(t *testing.T) {
+    // Arrange
+    handler := &WorkflowHandler{}
+
+    // Act
+    err := handler.HandleMessage(gen.PID{}, "unknown message")
+
+    // Assert
+    assert.Error(t, err)
+    assert.Contains(t, err.Error(), "unknown message type")
+}
+```
+
+## HTTP Handler Tests
+
+Use `httptest.ResponseRecorder` for HTTP tests:
+
+```go
+func TestHealthCheckHandler_HandleGet(t *testing.T) {
+    // Arrange
+    handler := &HealthCheckHandler{}
+    req := httptest.NewRequest("GET", "/health", nil)
+    w := httptest.NewRecorder()
+
+    // Act
+    err := handler.HandleGet(gen.PID{}, w, req)
+
+    // Assert
+    require.NoError(t, err)
+    assert.Equal(t, http.StatusOK, w.Code)
+
+    // Parse response body
+    var response map[string]any
+    err = json.NewDecoder(w.Body).Decode(&response)
+    require.NoError(t, err)
+    assert.Equal(t, "OK", response["message"])
+}
+
+func TestTriggerWorkflowHandler_HandlePost(t *testing.T) {
+    // Arrange
+    mockService := new(mocks.MockWorkflowService)
+    handler := &TriggerWorkflowHandler{
+        service: mockService,
+    }
+
+    requestBody := TriggerWorkflowRequest{
+        SchemaID: "test-schema",
+    }
+    bodyBytes, _ := json.Marshal(requestBody)
+    req := httptest.NewRequest("POST", "/v1/workflows/trigger", bytes.NewReader(bodyBytes))
+    req.Header.Set("Content-Type", "application/json")
+    w := httptest.NewRecorder()
+
+    mockService.On("TriggerWorkflow", "test-schema", mock.Anything).Return("wf-123", nil)
+
+    // Act
+    err := handler.HandlePost(gen.PID{}, w, req)
+
+    // Assert
+    require.NoError(t, err)
+    assert.Equal(t, http.StatusOK, w.Code)
+    mockService.AssertExpectations(t)
+}
+```
+
+## Test Coverage
+
+### Coverage Goals
+
+- **Critical business logic**: 90%+
+- **Repository implementations**: 80%+
+- **HTTP handlers**: 70%+
+- **Actor message handling**: 80%+
+
+### Running Tests
+
+```bash
+# Run all tests
+make test
+
+# Run tests with coverage
+go test -cover ./...
+
+# Generate coverage report
+go test -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out
+
+# Run only unit tests (skip integration)
+go test -short ./...
+
+# Run specific package tests
+go test ./internal/workflow/...
+
+# Run with verbose output
+go test -v ./...
+```
+
+### Focus on Meaningful Coverage
+
+- Prioritize business logic and error paths over simple getters/setters
+- Test edge cases and boundary conditions
+- Test error handling paths
+- Test concurrent access patterns
+- Don't aim for 100% coverage - focus on critical paths
+
+## Test Helpers
+
+Create helper functions for common test setup:
+
+```go
+// test_helpers.go
+package workflow
+
+func createTestWorkflow() *Workflow {
+    schema := &GraphSchema{
+        ID: "test-wf-" + uuid.New().String(),
+        Nodes: []*NodeSchema{
+            {ID: "node1", Function: "fn1"},
+        },
+    }
+    graph, _ := NewGraph(schema)
+    return New(graph)
+}
+
+func createTestGraph() *Graph {
+    schema := &GraphSchema{
+        ID: "test-graph",
+        Nodes: []*NodeSchema{
+            {ID: "trigger", Function: "trigger"},
+            {ID: "process", Function: "process"},
+        },
+        Edges: []*EdgeSchema{
+            {From: "trigger", To: "process"},
+        },
+    }
+    graph, _ := NewGraph(schema)
+    return graph
+}
+```
+
+## Best Practices
+
+- Write tests alongside code, not after
+- Use table-driven tests for multiple scenarios
+- Keep tests focused and independent
+- Use meaningful test names that describe the scenario
+- Mock external dependencies, test real logic
+- Test error paths, not just happy paths
+- Run tests frequently during development
+- Use `require` for critical assertions, `assert` for supplementary
+- Clean up resources in integration tests
+- Use test helpers to reduce boilerplate
+- Skip slow integration tests in short mode (`-short`)
+
+# Testing Strategies
+
+Focus on solid unit tests with coverage for integration and actor-specific patterns.
+
+## Unit Tests
+
+### File Naming and Structure
+
+- **File naming**: `*_test.go` alongside source files
+- **Package**: Use the same package for white-box testing (access to private members)
+- **Test naming**: `TestFunctionName_Scenario`
+
+### Examples
+
+```go
+// Good test names
+TestNewGraph_ValidSchema
+TestNewGraph_InvalidSchema_ReturnsError
+TestWorkflowRepository_Get_NotFound
+TestWorkflowRepository_Get_Success
+TestNodeExecution_ConditionalBranch
+TestNodeExecution_UnconditionalFlow
+```
+
+### Test Structure (Arrange-Act-Assert)
+
+```go
+func TestNewGraph_ValidSchema(t *testing.T) {
+    // Arrange - Set up test data and dependencies
+    schema := &GraphSchema{
+        ID: "test-graph",
+        Nodes: []*NodeSchema{
+            {ID: "trigger", Function: "trigger"},
+            {ID: "process", Function: "transform"},
+        },
+        Edges: []*EdgeSchema{
+            {From: "trigger", To: "process"},
+        },
+    }
+
+    // Act - Execute the function under test
+    graph, err := NewGraph(schema)
+
+    // Assert - Verify the results
+    require.NoError(t, err)
+    assert.NotNil(t, graph)
+    assert.Equal(t, "test-graph", graph.ID())
+    assert.Equal(t, 2, len(graph.nodes))
+}
+```
+
+### Assertions
+
+Use `testify` package for assertions:
+
+```go
+import (
+    "testing"
+
+    "github.com/stretchr/testify/assert"
+    "github.com/stretchr/testify/require"
+)
+
+// Use require for critical assertions (stops test on failure)
+require.NoError(t, err)
+require.NotNil(t, obj)
+
+// Use assert for non-critical assertions (continues test)
+assert.Equal(t, expected, actual)
+assert.True(t, condition)
+assert.Contains(t, slice, element)
+```
+
+### Table-Driven Tests
+
+For testing multiple scenarios:
+
+```go
+func TestValidateSchema(t *testing.T) {
+    tests := []struct {
+        name    string
+        schema  *GraphSchema
+        wantErr bool
+    }{
+        {
+            name: "valid schema",
+            schema: &GraphSchema{
+                ID:    "test",
+                Nodes: []*NodeSchema{{ID: "node1", Function: "fn1"}},
+            },
+            wantErr: false,
+        },
+        {
+            name: "missing ID",
+            schema: &GraphSchema{
+                Nodes: []*NodeSchema{{ID: "node1", Function: "fn1"}},
+            },
+            wantErr: true,
+        },
+        {
+            name: "no nodes",
+            schema: &GraphSchema{
+                ID:    "test",
+                Nodes: []*NodeSchema{},
+            },
+            wantErr: true,
+        },
+    }
+
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            err := tt.schema.Validate()
+            if tt.wantErr {
+                assert.Error(t, err)
+            } else {
+                assert.NoError(t, err)
+            }
+        })
+    }
+}
+```
+
+## Mocking
+
+### Mock Interfaces
+
+Mock interfaces using `testify/mock` or manual mocks:
+
+```go
+package mocks
+
+import (
+    "github.com/stretchr/testify/mock"
+    "github.com/open-source-cloud/fuse/internal/workflow"
+)
+
+type MockWorkflowRepository struct {
+    mock.Mock
+}
+
+func (m *MockWorkflowRepository) Get(id string) (*workflow.Workflow, error) {
+    args := m.Called(id)
+    if args.Get(0) == nil {
+        return nil, args.Error(1)
+    }
+    return args.Get(0).(*workflow.Workflow), args.Error(1)
+}
+
+func (m *MockWorkflowRepository) Save(workflow *workflow.Workflow) error {
+    args := m.Called(workflow)
+    return args.Error(0)
+}
+
+func (m *MockWorkflowRepository) Exists(id string) bool {
+    args := m.Called(id)
+    return args.Bool(0)
+}
+```
+
+### Using Mocks in Tests
+
+```go
+func TestWorkflowService_CreateWorkflow(t *testing.T) {
+    // Arrange
+    mockRepo := new(mocks.MockWorkflowRepository)
+    mockGraphRepo := new(mocks.MockGraphRepository)
+
+    service := NewWorkflowService(mockRepo, mockGraphRepo)
+
+    schema := &workflow.GraphSchema{
+        ID:    "test-graph",
+        Nodes: []*NodeSchema{{ID: "node1", Function: "fn1"}},
+    }
+
+    // Setup mock expectations
+    mockGraphRepo.On("Save", mock.AnythingOfType("*workflow.Graph")).Return(nil)
+    mockRepo.On("Save", mock.AnythingOfType("*workflow.Workflow")).Return(nil)
+
+    // Act
+    wf, err := service.CreateWorkflow(schema)
+
+    // Assert
+    require.NoError(t, err)
+    assert.NotNil(t, wf)
+
+    // Verify mock expectations were met
+    mockRepo.AssertExpectations(t)
+    mockGraphRepo.AssertExpectations(t)
+}
+```
+
+### Mock Organization
+
+- Place mocks in `internal/mocks/` for reusability
+- Generate mocks with `mockery` if available:
+  ```bash
+  mockery --name=WorkflowRepository --output=internal/mocks
+  ```
+
+## Integration Tests
+
+### Repository Tests
+
+Test repository implementations against real dependencies:
+
+```go
+func TestMongoWorkflowRepository_Integration(t *testing.T) {
+    if testing.Short() {
+        t.Skip("skipping integration test")
+    }
+
+    // Setup - Connect to test MongoDB instance
+    client, err := mongo.Connect(context.Background(), options.Client().ApplyURI("mongodb://localhost:27017"))
+    require.NoError(t, err)
+    defer client.Disconnect(context.Background())
+
+    config := &config.Config{
+        Database: config.Database{Name: "test_db"},
+    }
+    repo := NewMongoWorkflowRepository(client, config)
+
+    // Arrange
+    workflow := createTestWorkflow()
+
+    // Act - Save
+    err = repo.Save(workflow)
+    require.NoError(t, err)
+
+    // Act - Get
+    retrieved, err := repo.Get(workflow.ID().String())
+
+    // Assert
+    require.NoError(t, err)
+    assert.Equal(t, workflow.ID(), retrieved.ID())
+
+    // Cleanup
+    _ = repo.Delete(workflow.ID().String())
+}
+```
+
+### Concurrent Access Tests
+
+Test thread safety of in-memory repositories:
+
+```go
+func TestMemoryWorkflowRepository_ConcurrentAccess(t *testing.T) {
+    repo := NewMemoryWorkflowRepository()
+
+    // Create workflows
+    workflows := make([]*workflow.Workflow, 100)
+    for i := 0; i < 100; i++ {
+        workflows[i] = createTestWorkflow()
+    }
+
+    // Concurrent writes
+    var wg sync.WaitGroup
+    for _, wf := range workflows {
+        wg.Add(1)
+        go func(w *workflow.Workflow) {
+            defer wg.Done()
+            err := repo.Save(w)
+            assert.NoError(t, err)
+        }(wf)
+    }
+    wg.Wait()
+
+    // Concurrent reads
+    for _, wf := range workflows {
+        wg.Add(1)
+        go func(w *workflow.Workflow) {
+            defer wg.Done()
+            retrieved, err := repo.Get(w.ID().String())
+            assert.NoError(t, err)
+            assert.NotNil(t, retrieved)
+        }(wf)
+    }
+    wg.Wait()
+}
+```
+
+## Actor-Specific Testing
+
+### Actor Initialization
+
+```go
+func TestWorkflowHandler_Init(t *testing.T) {
+    // Arrange
+    handler := &WorkflowHandler{
+        config:  &config.Config{},
+        service: &mockWorkflowService{},
+    }
+
+    // Act
+    err := handler.Init()
+
+    // Assert
+    require.NoError(t, err)
+}
+```
+
+### Message Handling
+
+```go
+func TestWorkflowHandler_HandleMessage_ExecuteWorkflow(t *testing.T) {
+    // Arrange
+    mockService := new(mocks.MockWorkflowService)
+    handler := &WorkflowHandler{
+        config:  &config.Config{},
+        service: mockService,
+    }
+
+    msg := &messaging.ExecuteWorkflow{
+        WorkflowID: "test-workflow",
+        Input:      map[string]any{"key": "value"},
+    }
+
+    mockService.On("ExecuteWorkflow", "test-workflow", mock.Anything).Return(nil)
+
+    // Act
+    err := handler.HandleMessage(gen.PID{}, msg)
+
+    // Assert
+    require.NoError(t, err)
+    mockService.AssertExpectations(t)
+}
+
+func TestWorkflowHandler_HandleMessage_UnknownType(t *testing.T) {
+    // Arrange
+    handler := &WorkflowHandler{}
+
+    // Act
+    err := handler.HandleMessage(gen.PID{}, "unknown message")
+
+    // Assert
+    assert.Error(t, err)
+    assert.Contains(t, err.Error(), "unknown message type")
+}
+```
+
+## HTTP Handler Tests
+
+Use `httptest.ResponseRecorder` for HTTP tests:
+
+```go
+func TestHealthCheckHandler_HandleGet(t *testing.T) {
+    // Arrange
+    handler := &HealthCheckHandler{}
+    req := httptest.NewRequest("GET", "/health", nil)
+    w := httptest.NewRecorder()
+
+    // Act
+    err := handler.HandleGet(gen.PID{}, w, req)
+
+    // Assert
+    require.NoError(t, err)
+    assert.Equal(t, http.StatusOK, w.Code)
+
+    // Parse response body
+    var response map[string]any
+    err = json.NewDecoder(w.Body).Decode(&response)
+    require.NoError(t, err)
+    assert.Equal(t, "OK", response["message"])
+}
+
+func TestTriggerWorkflowHandler_HandlePost(t *testing.T) {
+    // Arrange
+    mockService := new(mocks.MockWorkflowService)
+    handler := &TriggerWorkflowHandler{
+        service: mockService,
+    }
+
+    requestBody := TriggerWorkflowRequest{
+        SchemaID: "test-schema",
+    }
+    bodyBytes, _ := json.Marshal(requestBody)
+    req := httptest.NewRequest("POST", "/v1/workflows/trigger", bytes.NewReader(bodyBytes))
+    req.Header.Set("Content-Type", "application/json")
+    w := httptest.NewRecorder()
+
+    mockService.On("TriggerWorkflow", "test-schema", mock.Anything).Return("wf-123", nil)
+
+    // Act
+    err := handler.HandlePost(gen.PID{}, w, req)
+
+    // Assert
+    require.NoError(t, err)
+    assert.Equal(t, http.StatusOK, w.Code)
+    mockService.AssertExpectations(t)
+}
+```
+
+## Test Coverage
+
+### Coverage Goals
+
+- **Critical business logic**: 90%+
+- **Repository implementations**: 80%+
+- **HTTP handlers**: 70%+
+- **Actor message handling**: 80%+
+
+### Running Tests
+
+```bash
+# Run all tests
+make test
+
+# Run tests with coverage
+go test -cover ./...
+
+# Generate coverage report
+go test -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out
+
+# Run only unit tests (skip integration)
+go test -short ./...
+
+# Run specific package tests
+go test ./internal/workflow/...
+
+# Run with verbose output
+go test -v ./...
+```
+
+### Focus on Meaningful Coverage
+
+- Prioritize business logic and error paths over simple getters/setters
+- Test edge cases and boundary conditions
+- Test error handling paths
+- Test concurrent access patterns
+- Don't aim for 100% coverage - focus on critical paths
+
+## Test Helpers
+
+Create helper functions for common test setup:
+
+```go
+// test_helpers.go
+package workflow
+
+func createTestWorkflow() *Workflow {
+    schema := &GraphSchema{
+        ID: "test-wf-" + uuid.New().String(),
+        Nodes: []*NodeSchema{
+            {ID: "node1", Function: "fn1"},
+        },
+    }
+    graph, _ := NewGraph(schema)
+    return New(graph)
+}
+
+func createTestGraph() *Graph {
+    schema := &GraphSchema{
+        ID: "test-graph",
+        Nodes: []*NodeSchema{
+            {ID: "trigger", Function: "trigger"},
+            {ID: "process", Function: "process"},
+        },
+        Edges: []*EdgeSchema{
+            {From: "trigger", To: "process"},
+        },
+    }
+    graph, _ := NewGraph(schema)
+    return graph
+}
+```
+
+## Best Practices
+
+- Write tests alongside code, not after
+- Use table-driven tests for multiple scenarios
+- Keep tests focused and independent
+- Use meaningful test names that describe the scenario
+- Mock external dependencies, test real logic
+- Test error paths, not just happy paths
+- Run tests frequently during development
+- Use `require` for critical assertions, `assert` for supplementary
+- Clean up resources in integration tests
+- Use test helpers to reduce boilerplate
+- Skip slow integration tests in short mode (`-short`)

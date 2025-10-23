@@ -1,0 +1,713 @@
+---
+alwaysApply: true
+---
+
+# Repository & Service Layer Patterns
+
+## Interface-First Design
+
+Define repository interfaces in `internal/repositories/[entity].go`:
+
+```go
+package repositories
+
+import "github.com/open-source-cloud/fuse/internal/workflow"
+
+// WorkflowRepository defines the interface for workflow persistence
+type WorkflowRepository interface {
+    Get(id string) (*workflow.Workflow, error)
+    Save(workflow *workflow.Workflow) error
+    Exists(id string) bool
+    Delete(id string) error
+}
+
+// GraphRepository defines the interface for graph persistence
+type GraphRepository interface {
+    FindByID(id string) (*workflow.Graph, error)
+    Save(graph *workflow.Graph) error
+}
+
+// PackageRepository defines the interface for package persistence
+type PackageRepository interface {
+    FindByID(id string) (*workflow.Package, error)
+    FindAll() ([]*workflow.Package, error)
+    Save(pkg *workflow.Package) error
+    Delete(id string) error
+}
+```
+
+## Multiple Implementations
+
+Provide both in-memory (for testing/development) and MongoDB (for production) implementations.
+
+### Naming Convention
+
+- **Interface**: `WorkflowRepository`
+- **Memory**: `MemoryWorkflowRepository`
+- **MongoDB**: `MongoWorkflowRepository`
+
+## Thread-Safe In-Memory Repositories
+
+```go
+package repositories
+
+import (
+    "fmt"
+    "sync"
+
+    "github.com/open-source-cloud/fuse/internal/workflow"
+)
+
+type MemoryWorkflowRepository struct {
+    WorkflowRepository              // Embed interface for type checking
+    mu        sync.RWMutex           // Protect concurrent access
+    workflows map[string]*workflow.Workflow
+}
+
+func NewMemoryWorkflowRepository() WorkflowRepository {
+    return &MemoryWorkflowRepository{
+        workflows: make(map[string]*workflow.Workflow),
+    }
+}
+
+// Exists checks if a workflow exists (read operation)
+func (m *MemoryWorkflowRepository) Exists(id string) bool {
+    m.mu.RLock()
+    defer m.mu.RUnlock()
+
+    _, ok := m.workflows[id]
+    return ok
+}
+
+// Get retrieves a workflow (read operation)
+func (m *MemoryWorkflowRepository) Get(id string) (*workflow.Workflow, error) {
+    m.mu.RLock()
+    defer m.mu.RUnlock()
+
+    workflow, ok := m.workflows[id]
+    if !ok {
+        return nil, ErrWorkflowNotFound
+    }
+    return workflow, nil
+}
+
+// Save stores a workflow (write operation)
+func (m *MemoryWorkflowRepository) Save(workflow *workflow.Workflow) error {
+    m.mu.Lock()
+    defer m.mu.Unlock()
+
+    m.workflows[workflow.ID().String()] = workflow
+    return nil
+}
+
+// Delete removes a workflow (write operation)
+func (m *MemoryWorkflowRepository) Delete(id string) error {
+    m.mu.Lock()
+    defer m.mu.Unlock()
+
+    if _, ok := m.workflows[id]; !ok {
+        return ErrWorkflowNotFound
+    }
+
+    delete(m.workflows, id)
+    return nil
+}
+```
+
+## MongoDB Repository Pattern
+
+```go
+package repositories
+
+import (
+    "context"
+    "fmt"
+
+    "github.com/open-source-cloud/fuse/internal/app/config"
+    "github.com/open-source-cloud/fuse/internal/workflow"
+    "github.com/open-source-cloud/fuse/pkg/utils"
+    "github.com/rs/zerolog/log"
+    "go.mongodb.org/mongo-driver/v2/bson"
+    "go.mongodb.org/mongo-driver/v2/mongo"
+    "go.mongodb.org/mongo-driver/v2/mongo/options"
+)
+
+const (
+    WorkflowMongoCollection = "workflows"
+)
+
+type MongoWorkflowRepository struct {
+    WorkflowRepository
+    client     *mongo.Client
+    database   *mongo.Database
+    collection *mongo.Collection
+}
+
+func NewMongoWorkflowRepository(client *mongo.Client, config *config.Config) WorkflowRepository {
+    dbName := utils.SerializeString(config.Database.Name)
+    database := client.Database(dbName)
+    collection := database.Collection(WorkflowMongoCollection)
+
+    return &MongoWorkflowRepository{
+        client:     client,
+        database:   database,
+        collection: collection,
+    }
+}
+
+// FindByID finds a workflow by ID
+func (m *MongoWorkflowRepository) Get(id string) (*workflow.Workflow, error) {
+    filter := bson.M{"id": id}
+    var wf workflow.Workflow
+
+    err := m.collection.FindOne(context.Background(), filter).Decode(&wf)
+    if err != nil {
+        if err == mongo.ErrNoDocuments {
+            return nil, ErrWorkflowNotFound
+        }
+        log.Error().Str("workflowID", id).Msgf("failed to find workflow: %v", err)
+        return nil, fmt.Errorf("failed to find workflow: %w", err)
+    }
+
+    return &wf, nil
+}
+
+// Save inserts or updates a workflow
+func (m *MongoWorkflowRepository) Save(workflow *workflow.Workflow) error {
+    filter := bson.M{"id": workflow.ID().String()}
+    update := bson.M{"$set": workflow}
+    opts := options.Update().SetUpsert(true)
+
+    _, err := m.collection.UpdateOne(context.Background(), filter, update, opts)
+    if err != nil {
+        log.Error().Str("workflowID", workflow.ID().String()).Msgf("failed to save workflow: %v", err)
+        return fmt.Errorf("failed to save workflow: %w", err)
+    }
+
+    return nil
+}
+
+// Exists checks if a workflow exists
+func (m *MongoWorkflowRepository) Exists(id string) bool {
+    filter := bson.M{"id": id}
+    count, err := m.collection.CountDocuments(context.Background(), filter)
+    if err != nil {
+        return false
+    }
+    return count > 0
+}
+
+// Delete removes a workflow
+func (m *MongoWorkflowRepository) Delete(id string) error {
+    filter := bson.M{"id": id}
+    result, err := m.collection.DeleteOne(context.Background(), filter)
+    if err != nil {
+        return fmt.Errorf("failed to delete workflow: %w", err)
+    }
+
+    if result.DeletedCount == 0 {
+        return ErrWorkflowNotFound
+    }
+
+    return nil
+}
+```
+
+## Error Handling in Repositories
+
+Define custom domain errors:
+
+```go
+package repositories
+
+import "errors"
+
+var (
+    // Workflow errors
+    ErrWorkflowNotFound = errors.New("workflow not found")
+
+    // Package errors
+    ErrPackageNotFound    = errors.New("package not found")
+    ErrPackageNotModified = errors.New("package not modified")
+
+    // Graph errors
+    ErrGraphNotFound = errors.New("graph not found")
+
+    // Generic errors
+    ErrEntityNotFound = errors.New("entity not found")
+    ErrInvalidID      = errors.New("invalid ID")
+)
+```
+
+## Service Layer
+
+Services orchestrate business logic and depend on repositories:
+
+```go
+package services
+
+import (
+    "fmt"
+
+    "github.com/open-source-cloud/fuse/internal/repositories"
+    "github.com/open-source-cloud/fuse/internal/workflow"
+    "github.com/rs/zerolog/log"
+)
+
+// WorkflowService defines the interface for workflow business logic
+type WorkflowService interface {
+    CreateWorkflow(schema *workflow.GraphSchema) (*workflow.Workflow, error)
+    ExecuteWorkflow(id string, input map[string]any) error
+    GetWorkflow(id string) (*workflow.Workflow, error)
+    StopWorkflow(id string) error
+}
+
+// workflowService implements WorkflowService
+type workflowService struct {
+    workflowRepo repositories.WorkflowRepository
+    graphRepo    repositories.GraphRepository
+    validator    *validator.Validate
+}
+
+// NewWorkflowService creates a new workflow service
+func NewWorkflowService(
+    workflowRepo repositories.WorkflowRepository,
+    graphRepo repositories.GraphRepository,
+) WorkflowService {
+    return &workflowService{
+        workflowRepo: workflowRepo,
+        graphRepo:    graphRepo,
+        validator:    validator.New(),
+    }
+}
+
+// CreateWorkflow creates a new workflow from a schema
+func (s *workflowService) CreateWorkflow(schema *workflow.GraphSchema) (*workflow.Workflow, error) {
+    // Validate schema
+    if err := s.validator.Struct(schema); err != nil {
+        return nil, fmt.Errorf("invalid schema: %w", err)
+    }
+
+    // Create graph from schema
+    graph, err := workflow.NewGraph(schema)
+    if err != nil {
+        log.Error().Err(err).Msg("failed to create graph")
+        return nil, fmt.Errorf("failed to create graph: %w", err)
+    }
+
+    // Save graph
+    if err := s.graphRepo.Save(graph); err != nil {
+        return nil, fmt.Errorf("failed to save graph: %w", err)
+    }
+
+    // Create workflow
+    wf := workflow.New(graph)
+
+    // Save workflow
+    if err := s.workflowRepo.Save(wf); err != nil {
+        return nil, fmt.Errorf("failed to save workflow: %w", err)
+    }
+
+    log.Info().Str("workflowID", wf.ID().String()).Msg("workflow created")
+    return wf, nil
+}
+
+// ExecuteWorkflow executes a workflow by ID
+func (s *workflowService) ExecuteWorkflow(id string, input map[string]any) error {
+    // Get workflow
+    wf, err := s.workflowRepo.Get(id)
+    if err != nil {
+        return fmt.Errorf("workflow not found: %w", err)
+    }
+
+    // Execute workflow (actual execution would be async via actors)
+    log.Info().Str("workflowID", id).Msg("executing workflow")
+
+    // Update state
+    if err := s.workflowRepo.Save(wf); err != nil {
+        return fmt.Errorf("failed to update workflow state: %w", err)
+    }
+
+    return nil
+}
+```
+
+## MongoDB Constants
+
+Use constants for collection names:
+
+```go
+const (
+    WorkflowMongoCollection = "workflows"
+    PackageMongoCollection  = "packages"
+    GraphMongoCollection    = "graphs"
+)
+```
+
+## Best Practices
+
+- Always define repository interfaces first
+- Provide both memory and MongoDB implementations
+- Use `sync.RWMutex` for thread-safe in-memory repositories
+- Pass `context.Context` for MongoDB operations (for cancellation/timeout)
+- Define custom domain errors for clear error handling
+- Log errors before returning them
+- Use dependency injection (fx) to wire repositories to services
+- Keep service layer focused on business logic, not data access
+- Use repositories from services, never bypass them
+- Test repositories with both implementations
+
+# Repository & Service Layer Patterns
+
+## Interface-First Design
+
+Define repository interfaces in `internal/repositories/[entity].go`:
+
+```go
+package repositories
+
+import "github.com/open-source-cloud/fuse/internal/workflow"
+
+// WorkflowRepository defines the interface for workflow persistence
+type WorkflowRepository interface {
+    Get(id string) (*workflow.Workflow, error)
+    Save(workflow *workflow.Workflow) error
+    Exists(id string) bool
+    Delete(id string) error
+}
+
+// GraphRepository defines the interface for graph persistence
+type GraphRepository interface {
+    FindByID(id string) (*workflow.Graph, error)
+    Save(graph *workflow.Graph) error
+}
+
+// PackageRepository defines the interface for package persistence
+type PackageRepository interface {
+    FindByID(id string) (*workflow.Package, error)
+    FindAll() ([]*workflow.Package, error)
+    Save(pkg *workflow.Package) error
+    Delete(id string) error
+}
+```
+
+## Multiple Implementations
+
+Provide both in-memory (for testing/development) and MongoDB (for production) implementations.
+
+### Naming Convention
+
+- **Interface**: `WorkflowRepository`
+- **Memory**: `MemoryWorkflowRepository`
+- **MongoDB**: `MongoWorkflowRepository`
+
+## Thread-Safe In-Memory Repositories
+
+```go
+package repositories
+
+import (
+    "fmt"
+    "sync"
+
+    "github.com/open-source-cloud/fuse/internal/workflow"
+)
+
+type MemoryWorkflowRepository struct {
+    WorkflowRepository              // Embed interface for type checking
+    mu        sync.RWMutex           // Protect concurrent access
+    workflows map[string]*workflow.Workflow
+}
+
+func NewMemoryWorkflowRepository() WorkflowRepository {
+    return &MemoryWorkflowRepository{
+        workflows: make(map[string]*workflow.Workflow),
+    }
+}
+
+// Exists checks if a workflow exists (read operation)
+func (m *MemoryWorkflowRepository) Exists(id string) bool {
+    m.mu.RLock()
+    defer m.mu.RUnlock()
+
+    _, ok := m.workflows[id]
+    return ok
+}
+
+// Get retrieves a workflow (read operation)
+func (m *MemoryWorkflowRepository) Get(id string) (*workflow.Workflow, error) {
+    m.mu.RLock()
+    defer m.mu.RUnlock()
+
+    workflow, ok := m.workflows[id]
+    if !ok {
+        return nil, ErrWorkflowNotFound
+    }
+    return workflow, nil
+}
+
+// Save stores a workflow (write operation)
+func (m *MemoryWorkflowRepository) Save(workflow *workflow.Workflow) error {
+    m.mu.Lock()
+    defer m.mu.Unlock()
+
+    m.workflows[workflow.ID().String()] = workflow
+    return nil
+}
+
+// Delete removes a workflow (write operation)
+func (m *MemoryWorkflowRepository) Delete(id string) error {
+    m.mu.Lock()
+    defer m.mu.Unlock()
+
+    if _, ok := m.workflows[id]; !ok {
+        return ErrWorkflowNotFound
+    }
+
+    delete(m.workflows, id)
+    return nil
+}
+```
+
+## MongoDB Repository Pattern
+
+```go
+package repositories
+
+import (
+    "context"
+    "fmt"
+
+    "github.com/open-source-cloud/fuse/internal/app/config"
+    "github.com/open-source-cloud/fuse/internal/workflow"
+    "github.com/open-source-cloud/fuse/pkg/utils"
+    "github.com/rs/zerolog/log"
+    "go.mongodb.org/mongo-driver/v2/bson"
+    "go.mongodb.org/mongo-driver/v2/mongo"
+    "go.mongodb.org/mongo-driver/v2/mongo/options"
+)
+
+const (
+    WorkflowMongoCollection = "workflows"
+)
+
+type MongoWorkflowRepository struct {
+    WorkflowRepository
+    client     *mongo.Client
+    database   *mongo.Database
+    collection *mongo.Collection
+}
+
+func NewMongoWorkflowRepository(client *mongo.Client, config *config.Config) WorkflowRepository {
+    dbName := utils.SerializeString(config.Database.Name)
+    database := client.Database(dbName)
+    collection := database.Collection(WorkflowMongoCollection)
+
+    return &MongoWorkflowRepository{
+        client:     client,
+        database:   database,
+        collection: collection,
+    }
+}
+
+// FindByID finds a workflow by ID
+func (m *MongoWorkflowRepository) Get(id string) (*workflow.Workflow, error) {
+    filter := bson.M{"id": id}
+    var wf workflow.Workflow
+
+    err := m.collection.FindOne(context.Background(), filter).Decode(&wf)
+    if err != nil {
+        if err == mongo.ErrNoDocuments {
+            return nil, ErrWorkflowNotFound
+        }
+        log.Error().Str("workflowID", id).Msgf("failed to find workflow: %v", err)
+        return nil, fmt.Errorf("failed to find workflow: %w", err)
+    }
+
+    return &wf, nil
+}
+
+// Save inserts or updates a workflow
+func (m *MongoWorkflowRepository) Save(workflow *workflow.Workflow) error {
+    filter := bson.M{"id": workflow.ID().String()}
+    update := bson.M{"$set": workflow}
+    opts := options.Update().SetUpsert(true)
+
+    _, err := m.collection.UpdateOne(context.Background(), filter, update, opts)
+    if err != nil {
+        log.Error().Str("workflowID", workflow.ID().String()).Msgf("failed to save workflow: %v", err)
+        return fmt.Errorf("failed to save workflow: %w", err)
+    }
+
+    return nil
+}
+
+// Exists checks if a workflow exists
+func (m *MongoWorkflowRepository) Exists(id string) bool {
+    filter := bson.M{"id": id}
+    count, err := m.collection.CountDocuments(context.Background(), filter)
+    if err != nil {
+        return false
+    }
+    return count > 0
+}
+
+// Delete removes a workflow
+func (m *MongoWorkflowRepository) Delete(id string) error {
+    filter := bson.M{"id": id}
+    result, err := m.collection.DeleteOne(context.Background(), filter)
+    if err != nil {
+        return fmt.Errorf("failed to delete workflow: %w", err)
+    }
+
+    if result.DeletedCount == 0 {
+        return ErrWorkflowNotFound
+    }
+
+    return nil
+}
+```
+
+## Error Handling in Repositories
+
+Define custom domain errors:
+
+```go
+package repositories
+
+import "errors"
+
+var (
+    // Workflow errors
+    ErrWorkflowNotFound = errors.New("workflow not found")
+
+    // Package errors
+    ErrPackageNotFound    = errors.New("package not found")
+    ErrPackageNotModified = errors.New("package not modified")
+
+    // Graph errors
+    ErrGraphNotFound = errors.New("graph not found")
+
+    // Generic errors
+    ErrEntityNotFound = errors.New("entity not found")
+    ErrInvalidID      = errors.New("invalid ID")
+)
+```
+
+## Service Layer
+
+Services orchestrate business logic and depend on repositories:
+
+```go
+package services
+
+import (
+    "fmt"
+
+    "github.com/open-source-cloud/fuse/internal/repositories"
+    "github.com/open-source-cloud/fuse/internal/workflow"
+    "github.com/rs/zerolog/log"
+)
+
+// WorkflowService defines the interface for workflow business logic
+type WorkflowService interface {
+    CreateWorkflow(schema *workflow.GraphSchema) (*workflow.Workflow, error)
+    ExecuteWorkflow(id string, input map[string]any) error
+    GetWorkflow(id string) (*workflow.Workflow, error)
+    StopWorkflow(id string) error
+}
+
+// workflowService implements WorkflowService
+type workflowService struct {
+    workflowRepo repositories.WorkflowRepository
+    graphRepo    repositories.GraphRepository
+    validator    *validator.Validate
+}
+
+// NewWorkflowService creates a new workflow service
+func NewWorkflowService(
+    workflowRepo repositories.WorkflowRepository,
+    graphRepo repositories.GraphRepository,
+) WorkflowService {
+    return &workflowService{
+        workflowRepo: workflowRepo,
+        graphRepo:    graphRepo,
+        validator:    validator.New(),
+    }
+}
+
+// CreateWorkflow creates a new workflow from a schema
+func (s *workflowService) CreateWorkflow(schema *workflow.GraphSchema) (*workflow.Workflow, error) {
+    // Validate schema
+    if err := s.validator.Struct(schema); err != nil {
+        return nil, fmt.Errorf("invalid schema: %w", err)
+    }
+
+    // Create graph from schema
+    graph, err := workflow.NewGraph(schema)
+    if err != nil {
+        log.Error().Err(err).Msg("failed to create graph")
+        return nil, fmt.Errorf("failed to create graph: %w", err)
+    }
+
+    // Save graph
+    if err := s.graphRepo.Save(graph); err != nil {
+        return nil, fmt.Errorf("failed to save graph: %w", err)
+    }
+
+    // Create workflow
+    wf := workflow.New(graph)
+
+    // Save workflow
+    if err := s.workflowRepo.Save(wf); err != nil {
+        return nil, fmt.Errorf("failed to save workflow: %w", err)
+    }
+
+    log.Info().Str("workflowID", wf.ID().String()).Msg("workflow created")
+    return wf, nil
+}
+
+// ExecuteWorkflow executes a workflow by ID
+func (s *workflowService) ExecuteWorkflow(id string, input map[string]any) error {
+    // Get workflow
+    wf, err := s.workflowRepo.Get(id)
+    if err != nil {
+        return fmt.Errorf("workflow not found: %w", err)
+    }
+
+    // Execute workflow (actual execution would be async via actors)
+    log.Info().Str("workflowID", id).Msg("executing workflow")
+
+    // Update state
+    if err := s.workflowRepo.Save(wf); err != nil {
+        return fmt.Errorf("failed to update workflow state: %w", err)
+    }
+
+    return nil
+}
+```
+
+## MongoDB Constants
+
+Use constants for collection names:
+
+```go
+const (
+    WorkflowMongoCollection = "workflows"
+    PackageMongoCollection  = "packages"
+    GraphMongoCollection    = "graphs"
+)
+```
+
+## Best Practices
+
+- Always define repository interfaces first
+- Provide both memory and MongoDB implementations
+- Use `sync.RWMutex` for thread-safe in-memory repositories
+- Pass `context.Context` for MongoDB operations (for cancellation/timeout)
+- Define custom domain errors for clear error handling
+- Log errors before returning them
+- Use dependency injection (fx) to wire repositories to services
+- Keep service layer focused on business logic, not data access
+- Use repositories from services, never bypass them
+- Test repositories with both implementations

@@ -1,0 +1,869 @@
+---
+alwaysApply: true
+---
+
+# Dependency Injection (uber-go/fx)
+
+The FUSE project uses [uber-go/fx](https://uber-go.github.io/fx/) for dependency injection and application lifecycle management.
+
+## Module Structure
+
+Organize dependencies into logical modules:
+
+```go
+package di
+
+import (
+    "go.uber.org/fx"
+    "github.com/open-source-cloud/fuse/internal/actors"
+    "github.com/open-source-cloud/fuse/internal/handlers"
+    "github.com/open-source-cloud/fuse/internal/repositories"
+    "github.com/open-source-cloud/fuse/internal/services"
+)
+
+// ActorModule provides all actor factories
+var ActorModule = fx.Module(
+    "actor",
+    fx.Provide(
+        actors.NewMuxServerSupFactory,
+        actors.NewWorkflowSupervisorFactory,
+        actors.NewWorkflowHandlerFactory,
+        actors.NewWorkflowFuncPoolFactory,
+        actors.NewWorkflowFuncFactory,
+    ),
+)
+
+// WorkerModule provides HTTP handler factories
+var WorkerModule = fx.Module(
+    "worker",
+    fx.Provide(
+        handlers.NewHealthCheckHandler,
+        handlers.NewWorkflowSchemaHandlerFactory,
+        handlers.NewTriggerWorkflowHandlerFactory,
+        handlers.NewPackagesHandler,
+    ),
+    // Initialize workers
+    fx.Invoke(func(
+        workers *actors.Workers,
+        healthHandler *handlers.HealthCheckHandlerFactory,
+        workflowHandler *handlers.TriggerWorkflowHandlerFactory,
+    ) {
+        workers.AddFactory(handlers.HealthCheckHandlerName, healthHandler.Factory)
+        workers.AddFactory(handlers.TriggerWorkflowHandlerName, workflowHandler.Factory)
+    }),
+)
+
+// RepositoryModule provides all repositories
+var RepositoryModule = fx.Module(
+    "repository",
+    fx.Provide(
+        // Choose implementation based on config
+        fx.Annotate(
+            repositories.NewMemoryWorkflowRepository,  // or NewMongoWorkflowRepository
+            fx.As(new(repositories.WorkflowRepository)),
+        ),
+        fx.Annotate(
+            repositories.NewMemoryGraphRepository,
+            fx.As(new(repositories.GraphRepository)),
+        ),
+        fx.Annotate(
+            repositories.NewMemoryPackageRepository,
+            fx.As(new(repositories.PackageRepository)),
+        ),
+    ),
+)
+
+// ServiceModule provides all services
+var ServiceModule = fx.Module(
+    "service",
+    fx.Provide(
+        services.NewWorkflowService,
+        services.NewGraphService,
+        services.NewPackageService,
+    ),
+)
+```
+
+## Constructor Naming
+
+### Standard Constructors
+
+- **`New[Type]`** - Returns concrete type or interface
+- **`New[Type]Factory`** - Returns `*[Type]Factory` for actors/handlers
+
+```go
+// Standard constructor - returns interface
+func NewWorkflowService(
+    repo repositories.WorkflowRepository,
+    graphRepo repositories.GraphRepository,
+) services.WorkflowService {
+    return &workflowService{
+        workflowRepo: repo,
+        graphRepo:    graphRepo,
+    }
+}
+
+// Factory constructor - returns factory for actors
+func NewWorkflowHandlerFactory(
+    cfg *config.Config,
+    service services.WorkflowService,
+) *actors.WorkflowHandlerFactory {
+    return &actors.WorkflowHandlerFactory{
+        Factory: func() gen.ProcessBehavior {
+            return &actors.WorkflowHandler{
+                config:  cfg,
+                service: service,
+            }
+        },
+    }
+}
+
+// Repository constructor - returns interface
+func NewMemoryWorkflowRepository() repositories.WorkflowRepository {
+    return &repositories.MemoryWorkflowRepository{
+        workflows: make(map[string]*workflow.Workflow),
+    }
+}
+```
+
+## Providing Dependencies
+
+### Basic Provide
+
+```go
+fx.Provide(
+    config.LoadConfig,              // Provides *config.Config
+    services.NewWorkflowService,    // Provides services.WorkflowService
+    repositories.NewMemoryWorkflowRepository,  // Provides repositories.WorkflowRepository
+)
+```
+
+### Provide with Interface Annotation
+
+Use `fx.Annotate` to explicitly declare interface satisfaction:
+
+```go
+fx.Provide(
+    fx.Annotate(
+        repositories.NewMemoryWorkflowRepository,
+        fx.As(new(repositories.WorkflowRepository)),  // Provide as interface
+    ),
+)
+```
+
+### Conditional Provides
+
+Provide different implementations based on configuration:
+
+```go
+fx.Provide(
+    func(cfg *config.Config) repositories.WorkflowRepository {
+        if cfg.Database.UseMongo {
+            return repositories.NewMongoWorkflowRepository(client, cfg)
+        }
+        return repositories.NewMemoryWorkflowRepository()
+    },
+)
+```
+
+### Provide with Result Struct
+
+When a constructor returns multiple values:
+
+```go
+type DatabaseResult struct {
+    fx.Out
+
+    Client   *mongo.Client
+    Database *mongo.Database
+}
+
+func NewDatabase(cfg *config.Config) (DatabaseResult, error) {
+    client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(cfg.Database.URI))
+    if err != nil {
+        return DatabaseResult{}, err
+    }
+
+    database := client.Database(cfg.Database.Name)
+
+    return DatabaseResult{
+        Client:   client,
+        Database: database,
+    }, nil
+}
+
+// Usage
+fx.Provide(NewDatabase)
+```
+
+## Initialization Logic
+
+Use `fx.Invoke` for initialization that needs to run at startup:
+
+```go
+fx.Invoke(func(
+    workers *actors.Workers,
+    healthHandler *handlers.HealthCheckHandlerFactory,
+    workflowHandler *handlers.TriggerWorkflowHandlerFactory,
+) {
+    // Register handlers with worker pool
+    workers.AddFactory(handlers.HealthCheckHandlerName, healthHandler.Factory)
+    workers.AddFactory(handlers.TriggerWorkflowHandlerName, workflowHandler.Factory)
+}),
+```
+
+### Logging Initialization
+
+```go
+fx.Invoke(func(cfg *config.Config) {
+    // Configure logger based on config
+    zerolog.SetGlobalLevel(parseLogLevel(cfg.LogLevel))
+    log.Info().Str("level", cfg.LogLevel).Msg("logger initialized")
+}),
+```
+
+## Lifecycle Management
+
+Use fx lifecycle hooks for startup and shutdown:
+
+```go
+func NewMongoClient(lc fx.Lifecycle, cfg *config.Config) (*mongo.Client, error) {
+    client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(cfg.Database.URI))
+    if err != nil {
+        return nil, err
+    }
+
+    lc.Append(fx.Hook{
+        OnStart: func(ctx context.Context) error {
+            // Verify connection on startup
+            if err := client.Ping(ctx, nil); err != nil {
+                return fmt.Errorf("failed to ping MongoDB: %w", err)
+            }
+            log.Info().Msg("MongoDB connected")
+            return nil
+        },
+        OnStop: func(ctx context.Context) error {
+            // Clean disconnect on shutdown
+            log.Info().Msg("disconnecting MongoDB")
+            return client.Disconnect(ctx)
+        },
+    })
+
+    return client, nil
+}
+```
+
+### HTTP Server Lifecycle
+
+```go
+func NewHTTPServer(lc fx.Lifecycle, cfg *config.Config, handler http.Handler) *http.Server {
+    srv := &http.Server{
+        Addr:    ":" + cfg.Port,
+        Handler: handler,
+    }
+
+    lc.Append(fx.Hook{
+        OnStart: func(ctx context.Context) error {
+            go func() {
+                log.Info().Str("port", cfg.Port).Msg("starting HTTP server")
+                if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+                    log.Fatal().Err(err).Msg("HTTP server error")
+                }
+            }()
+            return nil
+        },
+        OnStop: func(ctx context.Context) error {
+            log.Info().Msg("shutting down HTTP server")
+            return srv.Shutdown(ctx)
+        },
+    })
+
+    return srv
+}
+```
+
+### Ergo Node Lifecycle
+
+```go
+func NewErgoNode(lc fx.Lifecycle, cfg *config.Config) (node.Node, error) {
+    opts := node.Options{
+        // Configure node options
+    }
+
+    n, err := node.Start(cfg.NodeName, opts)
+    if err != nil {
+        return nil, err
+    }
+
+    lc.Append(fx.Hook{
+        OnStart: func(ctx context.Context) error {
+            log.Info().Str("node", cfg.NodeName).Msg("ergo node started")
+            return nil
+        },
+        OnStop: func(ctx context.Context) error {
+            log.Info().Msg("stopping ergo node")
+            n.Stop()
+            return nil
+        },
+    })
+
+    return n, nil
+}
+```
+
+## Application Setup
+
+### Main Application
+
+```go
+package main
+
+import (
+    "go.uber.org/fx"
+
+    "github.com/open-source-cloud/fuse/internal/app/di"
+)
+
+func main() {
+    app := fx.New(
+        // Configuration
+        fx.Provide(config.LoadConfig),
+
+        // Core modules
+        di.RepositoryModule,
+        di.ServiceModule,
+        di.ActorModule,
+        di.WorkerModule,
+
+        // Infrastructure
+        fx.Provide(
+            NewMongoClient,
+            NewErgoNode,
+            NewHTTPServer,
+        ),
+
+        // Logging
+        fx.WithLogger(func() fxevent.Logger {
+            return &fxevent.ZapLogger{Logger: zap.NewNop()}
+        }),
+    )
+
+    app.Run()
+}
+```
+
+## Parameter Structs
+
+Use parameter structs for functions with many dependencies:
+
+```go
+type WorkflowServiceParams struct {
+    fx.In
+
+    WorkflowRepo repositories.WorkflowRepository
+    GraphRepo    repositories.GraphRepository
+    PackageRepo  repositories.PackageRepository
+    Config       *config.Config
+    Validator    *validator.Validate
+}
+
+func NewWorkflowService(p WorkflowServiceParams) services.WorkflowService {
+    return &workflowService{
+        workflowRepo: p.WorkflowRepo,
+        graphRepo:    p.GraphRepo,
+        packageRepo:  p.PackageRepo,
+        config:       p.Config,
+        validator:    p.Validator,
+    }
+}
+```
+
+## Error Handling
+
+Handle errors in constructors:
+
+```go
+func NewMongoClient(cfg *config.Config) (*mongo.Client, error) {
+    client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(cfg.Database.URI))
+    if err != nil {
+        return nil, fmt.Errorf("failed to connect to MongoDB: %w", err)
+    }
+    return client, nil
+}
+
+// fx will handle the error and prevent app startup
+```
+
+## Best Practices
+
+- **Organize by layer** - Group related dependencies in modules (actors, services, repositories)
+- **Use interfaces** - Provide interfaces, not concrete types (enables testing and swapping implementations)
+- **Explicit interfaces** - Use `fx.Annotate` with `fx.As` for clarity
+- **Lifecycle hooks** - Use for resources that need cleanup (databases, connections)
+- **Constructor naming** - Follow conventions (`New[Type]`, `New[Type]Factory`)
+- **Error handling** - Return errors from constructors, fx will handle them
+- **Parameter structs** - Use `fx.In` structs for functions with 4+ dependencies
+- **Result structs** - Use `fx.Out` structs when providing multiple values
+- **Initialization** - Use `fx.Invoke` for startup logic (don't do work in constructors)
+- **Testing** - Use `fx.New` with `fx.NopLogger` in tests
+- **Avoid globals** - Let fx manage all dependencies
+
+## Testing with fx
+
+```go
+func TestService(t *testing.T) {
+    var service services.WorkflowService
+
+    app := fx.New(
+        // Provide test dependencies
+        fx.Provide(
+            repositories.NewMemoryWorkflowRepository,
+            repositories.NewMemoryGraphRepository,
+            services.NewWorkflowService,
+        ),
+        // Populate service variable
+        fx.Populate(&service),
+        // Disable logging in tests
+        fx.NopLogger,
+    )
+
+    require.NoError(t, app.Err())
+
+    // Use service in tests
+    result, err := service.CreateWorkflow(schema)
+    require.NoError(t, err)
+}
+```
+
+# Dependency Injection (uber-go/fx)
+
+The FUSE project uses [uber-go/fx](https://uber-go.github.io/fx/) for dependency injection and application lifecycle management.
+
+## Module Structure
+
+Organize dependencies into logical modules:
+
+```go
+package di
+
+import (
+    "go.uber.org/fx"
+    "github.com/open-source-cloud/fuse/internal/actors"
+    "github.com/open-source-cloud/fuse/internal/handlers"
+    "github.com/open-source-cloud/fuse/internal/repositories"
+    "github.com/open-source-cloud/fuse/internal/services"
+)
+
+// ActorModule provides all actor factories
+var ActorModule = fx.Module(
+    "actor",
+    fx.Provide(
+        actors.NewMuxServerSupFactory,
+        actors.NewWorkflowSupervisorFactory,
+        actors.NewWorkflowHandlerFactory,
+        actors.NewWorkflowFuncPoolFactory,
+        actors.NewWorkflowFuncFactory,
+    ),
+)
+
+// WorkerModule provides HTTP handler factories
+var WorkerModule = fx.Module(
+    "worker",
+    fx.Provide(
+        handlers.NewHealthCheckHandler,
+        handlers.NewWorkflowSchemaHandlerFactory,
+        handlers.NewTriggerWorkflowHandlerFactory,
+        handlers.NewPackagesHandler,
+    ),
+    // Initialize workers
+    fx.Invoke(func(
+        workers *actors.Workers,
+        healthHandler *handlers.HealthCheckHandlerFactory,
+        workflowHandler *handlers.TriggerWorkflowHandlerFactory,
+    ) {
+        workers.AddFactory(handlers.HealthCheckHandlerName, healthHandler.Factory)
+        workers.AddFactory(handlers.TriggerWorkflowHandlerName, workflowHandler.Factory)
+    }),
+)
+
+// RepositoryModule provides all repositories
+var RepositoryModule = fx.Module(
+    "repository",
+    fx.Provide(
+        // Choose implementation based on config
+        fx.Annotate(
+            repositories.NewMemoryWorkflowRepository,  // or NewMongoWorkflowRepository
+            fx.As(new(repositories.WorkflowRepository)),
+        ),
+        fx.Annotate(
+            repositories.NewMemoryGraphRepository,
+            fx.As(new(repositories.GraphRepository)),
+        ),
+        fx.Annotate(
+            repositories.NewMemoryPackageRepository,
+            fx.As(new(repositories.PackageRepository)),
+        ),
+    ),
+)
+
+// ServiceModule provides all services
+var ServiceModule = fx.Module(
+    "service",
+    fx.Provide(
+        services.NewWorkflowService,
+        services.NewGraphService,
+        services.NewPackageService,
+    ),
+)
+```
+
+## Constructor Naming
+
+### Standard Constructors
+
+- **`New[Type]`** - Returns concrete type or interface
+- **`New[Type]Factory`** - Returns `*[Type]Factory` for actors/handlers
+
+```go
+// Standard constructor - returns interface
+func NewWorkflowService(
+    repo repositories.WorkflowRepository,
+    graphRepo repositories.GraphRepository,
+) services.WorkflowService {
+    return &workflowService{
+        workflowRepo: repo,
+        graphRepo:    graphRepo,
+    }
+}
+
+// Factory constructor - returns factory for actors
+func NewWorkflowHandlerFactory(
+    cfg *config.Config,
+    service services.WorkflowService,
+) *actors.WorkflowHandlerFactory {
+    return &actors.WorkflowHandlerFactory{
+        Factory: func() gen.ProcessBehavior {
+            return &actors.WorkflowHandler{
+                config:  cfg,
+                service: service,
+            }
+        },
+    }
+}
+
+// Repository constructor - returns interface
+func NewMemoryWorkflowRepository() repositories.WorkflowRepository {
+    return &repositories.MemoryWorkflowRepository{
+        workflows: make(map[string]*workflow.Workflow),
+    }
+}
+```
+
+## Providing Dependencies
+
+### Basic Provide
+
+```go
+fx.Provide(
+    config.LoadConfig,              // Provides *config.Config
+    services.NewWorkflowService,    // Provides services.WorkflowService
+    repositories.NewMemoryWorkflowRepository,  // Provides repositories.WorkflowRepository
+)
+```
+
+### Provide with Interface Annotation
+
+Use `fx.Annotate` to explicitly declare interface satisfaction:
+
+```go
+fx.Provide(
+    fx.Annotate(
+        repositories.NewMemoryWorkflowRepository,
+        fx.As(new(repositories.WorkflowRepository)),  // Provide as interface
+    ),
+)
+```
+
+### Conditional Provides
+
+Provide different implementations based on configuration:
+
+```go
+fx.Provide(
+    func(cfg *config.Config) repositories.WorkflowRepository {
+        if cfg.Database.UseMongo {
+            return repositories.NewMongoWorkflowRepository(client, cfg)
+        }
+        return repositories.NewMemoryWorkflowRepository()
+    },
+)
+```
+
+### Provide with Result Struct
+
+When a constructor returns multiple values:
+
+```go
+type DatabaseResult struct {
+    fx.Out
+
+    Client   *mongo.Client
+    Database *mongo.Database
+}
+
+func NewDatabase(cfg *config.Config) (DatabaseResult, error) {
+    client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(cfg.Database.URI))
+    if err != nil {
+        return DatabaseResult{}, err
+    }
+
+    database := client.Database(cfg.Database.Name)
+
+    return DatabaseResult{
+        Client:   client,
+        Database: database,
+    }, nil
+}
+
+// Usage
+fx.Provide(NewDatabase)
+```
+
+## Initialization Logic
+
+Use `fx.Invoke` for initialization that needs to run at startup:
+
+```go
+fx.Invoke(func(
+    workers *actors.Workers,
+    healthHandler *handlers.HealthCheckHandlerFactory,
+    workflowHandler *handlers.TriggerWorkflowHandlerFactory,
+) {
+    // Register handlers with worker pool
+    workers.AddFactory(handlers.HealthCheckHandlerName, healthHandler.Factory)
+    workers.AddFactory(handlers.TriggerWorkflowHandlerName, workflowHandler.Factory)
+}),
+```
+
+### Logging Initialization
+
+```go
+fx.Invoke(func(cfg *config.Config) {
+    // Configure logger based on config
+    zerolog.SetGlobalLevel(parseLogLevel(cfg.LogLevel))
+    log.Info().Str("level", cfg.LogLevel).Msg("logger initialized")
+}),
+```
+
+## Lifecycle Management
+
+Use fx lifecycle hooks for startup and shutdown:
+
+```go
+func NewMongoClient(lc fx.Lifecycle, cfg *config.Config) (*mongo.Client, error) {
+    client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(cfg.Database.URI))
+    if err != nil {
+        return nil, err
+    }
+
+    lc.Append(fx.Hook{
+        OnStart: func(ctx context.Context) error {
+            // Verify connection on startup
+            if err := client.Ping(ctx, nil); err != nil {
+                return fmt.Errorf("failed to ping MongoDB: %w", err)
+            }
+            log.Info().Msg("MongoDB connected")
+            return nil
+        },
+        OnStop: func(ctx context.Context) error {
+            // Clean disconnect on shutdown
+            log.Info().Msg("disconnecting MongoDB")
+            return client.Disconnect(ctx)
+        },
+    })
+
+    return client, nil
+}
+```
+
+### HTTP Server Lifecycle
+
+```go
+func NewHTTPServer(lc fx.Lifecycle, cfg *config.Config, handler http.Handler) *http.Server {
+    srv := &http.Server{
+        Addr:    ":" + cfg.Port,
+        Handler: handler,
+    }
+
+    lc.Append(fx.Hook{
+        OnStart: func(ctx context.Context) error {
+            go func() {
+                log.Info().Str("port", cfg.Port).Msg("starting HTTP server")
+                if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+                    log.Fatal().Err(err).Msg("HTTP server error")
+                }
+            }()
+            return nil
+        },
+        OnStop: func(ctx context.Context) error {
+            log.Info().Msg("shutting down HTTP server")
+            return srv.Shutdown(ctx)
+        },
+    })
+
+    return srv
+}
+```
+
+### Ergo Node Lifecycle
+
+```go
+func NewErgoNode(lc fx.Lifecycle, cfg *config.Config) (node.Node, error) {
+    opts := node.Options{
+        // Configure node options
+    }
+
+    n, err := node.Start(cfg.NodeName, opts)
+    if err != nil {
+        return nil, err
+    }
+
+    lc.Append(fx.Hook{
+        OnStart: func(ctx context.Context) error {
+            log.Info().Str("node", cfg.NodeName).Msg("ergo node started")
+            return nil
+        },
+        OnStop: func(ctx context.Context) error {
+            log.Info().Msg("stopping ergo node")
+            n.Stop()
+            return nil
+        },
+    })
+
+    return n, nil
+}
+```
+
+## Application Setup
+
+### Main Application
+
+```go
+package main
+
+import (
+    "go.uber.org/fx"
+
+    "github.com/open-source-cloud/fuse/internal/app/di"
+)
+
+func main() {
+    app := fx.New(
+        // Configuration
+        fx.Provide(config.LoadConfig),
+
+        // Core modules
+        di.RepositoryModule,
+        di.ServiceModule,
+        di.ActorModule,
+        di.WorkerModule,
+
+        // Infrastructure
+        fx.Provide(
+            NewMongoClient,
+            NewErgoNode,
+            NewHTTPServer,
+        ),
+
+        // Logging
+        fx.WithLogger(func() fxevent.Logger {
+            return &fxevent.ZapLogger{Logger: zap.NewNop()}
+        }),
+    )
+
+    app.Run()
+}
+```
+
+## Parameter Structs
+
+Use parameter structs for functions with many dependencies:
+
+```go
+type WorkflowServiceParams struct {
+    fx.In
+
+    WorkflowRepo repositories.WorkflowRepository
+    GraphRepo    repositories.GraphRepository
+    PackageRepo  repositories.PackageRepository
+    Config       *config.Config
+    Validator    *validator.Validate
+}
+
+func NewWorkflowService(p WorkflowServiceParams) services.WorkflowService {
+    return &workflowService{
+        workflowRepo: p.WorkflowRepo,
+        graphRepo:    p.GraphRepo,
+        packageRepo:  p.PackageRepo,
+        config:       p.Config,
+        validator:    p.Validator,
+    }
+}
+```
+
+## Error Handling
+
+Handle errors in constructors:
+
+```go
+func NewMongoClient(cfg *config.Config) (*mongo.Client, error) {
+    client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(cfg.Database.URI))
+    if err != nil {
+        return nil, fmt.Errorf("failed to connect to MongoDB: %w", err)
+    }
+    return client, nil
+}
+
+// fx will handle the error and prevent app startup
+```
+
+## Best Practices
+
+- **Organize by layer** - Group related dependencies in modules (actors, services, repositories)
+- **Use interfaces** - Provide interfaces, not concrete types (enables testing and swapping implementations)
+- **Explicit interfaces** - Use `fx.Annotate` with `fx.As` for clarity
+- **Lifecycle hooks** - Use for resources that need cleanup (databases, connections)
+- **Constructor naming** - Follow conventions (`New[Type]`, `New[Type]Factory`)
+- **Error handling** - Return errors from constructors, fx will handle them
+- **Parameter structs** - Use `fx.In` structs for functions with 4+ dependencies
+- **Result structs** - Use `fx.Out` structs when providing multiple values
+- **Initialization** - Use `fx.Invoke` for startup logic (don't do work in constructors)
+- **Testing** - Use `fx.New` with `fx.NopLogger` in tests
+- **Avoid globals** - Let fx manage all dependencies
+
+## Testing with fx
+
+```go
+func TestService(t *testing.T) {
+    var service services.WorkflowService
+
+    app := fx.New(
+        // Provide test dependencies
+        fx.Provide(
+            repositories.NewMemoryWorkflowRepository,
+            repositories.NewMemoryGraphRepository,
+            services.NewWorkflowService,
+        ),
+        // Populate service variable
+        fx.Populate(&service),
+        // Disable logging in tests
+        fx.NopLogger,
+    )
+
+    require.NoError(t, app.Err())
+
+    // Use service in tests
+    result, err := service.CreateWorkflow(schema)
+    require.NoError(t, err)
+}
+```

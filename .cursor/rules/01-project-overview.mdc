@@ -1,0 +1,179 @@
+---
+alwaysApply: true
+---
+
+# Project Overview
+
+FUSE (FUSE Utility for Stateful Events) is a flexible and extensible workflow engine built on the **ergo actor model** for creating end-to-end automations and task pipelines. Each node in a workflow operates as an independent actor, enabling isolated execution, message passing, supervision, and distributed scalability.
+
+## Key Technologies
+
+- **Go 1.24+** - Programming language
+- **[ergo.services](https://docs.ergo.services/)** - Actor model framework
+- **MongoDB** - Persistent storage
+- **zerolog** - Structured logging
+- **uber-go/fx** - Dependency injection
+- **go-playground/validator** - Validation
+
+## Project Architecture
+
+```
+fuse/
+├── cmd/              # Command-line applications and entry points
+├── pkg/              # Public libraries (importable by external projects)
+├── internal/         # Private application code
+│   ├── actors/       # Actor implementations (supervisors, pools, workers)
+│   ├── handlers/     # HTTP handler patterns (base handler, endpoints)
+│   ├── services/     # Service layer implementations
+│   ├── repositories/ # Repository patterns (interface, memory, MongoDB)
+│   ├── workflow/     # Core workflow logic (graph, nodes, edges)
+│   ├── messaging/    # Message type definitions
+│   └── ...
+├── docs/             # Documentation
+└── examples/         # Example workflows
+```
+
+## Core Concepts
+
+### Actor Model Implementation
+
+FUSE leverages the ergo actor model to provide:
+
+- **Isolated Execution** - Each node runs as an independent actor
+- **Message Passing** - Asynchronous communication between nodes
+- **Supervision** - Built-in fault tolerance and recovery
+- **State Management** - Actor-based state handling
+- **Scalability** - Distributed execution capabilities
+
+### Workflow Components
+
+- **Node** - Fundamental building block that executes specific logic
+- **Graph** - Collection of nodes and edges defining workflow structure
+- **Edge** - Connection between nodes (conditional or unconditional)
+- **Trigger Node** - Starting point of workflow execution
+- **Thread Management** - Execution ordering through thread IDs
+
+## Key Reference Files
+
+- `.golangci.yml` - Linting configuration and enabled linters
+- `docs/CONTRIBUTE.md` - Contribution guidelines and development workflow
+- `internal/actors/*` - Actor implementations
+- `internal/workflow/*` - Core workflow logic
+- `internal/repositories/*` - Repository patterns
+- `internal/handlers/*` - HTTP handler patterns
+- `internal/services/*` - Service layer implementations
+- `pkg/workflow/*` - Public workflow API
+
+## Ergo.services Resources
+
+### Official Documentation
+
+- [Main Documentation](https://docs.ergo.services/)
+- [Actor Model Basics](https://docs.ergo.services/basics/actor-model)
+- [Supervision Tree](https://docs.ergo.services/basics/supervision-tree)
+- [Actor](https://docs.ergo.services/actors/actor)
+- [Supervisor](https://docs.ergo.services/actors/supervisor)
+- [Pool](https://docs.ergo.services/actors/pool)
+- [WebWorker](https://docs.ergo.services/actors/webworker)
+- [Testing](https://docs.ergo.services/testing/unit)
+
+### Quick Reference
+
+- All actors embed base types: `act.Actor`, `act.Supervisor`, `act.Pool`, or `act.WebWorker`
+- Message passing is the primary communication mechanism
+- Supervisors provide fault tolerance and recovery
+- Pools manage worker actors for concurrent workloads
+- WebWorkers handle HTTP requests as actors
+- Network transparency enables distributed actor systems
+
+---
+
+**Remember:** This is an actor-based system. Think in terms of isolated processes communicating through messages, supervised for fault tolerance, and designed for distributed execution.
+
+# Project Overview
+
+FUSE (FUSE Utility for Stateful Events) is a flexible and extensible workflow engine built on the **ergo actor model** for creating end-to-end automations and task pipelines. Each node in a workflow operates as an independent actor, enabling isolated execution, message passing, supervision, and distributed scalability.
+
+## Key Technologies
+
+- **Go 1.24+** - Programming language
+- **[ergo.services](https://docs.ergo.services/)** - Actor model framework
+- **MongoDB** - Persistent storage
+- **zerolog** - Structured logging
+- **uber-go/fx** - Dependency injection
+- **go-playground/validator** - Validation
+
+## Project Architecture
+
+```
+fuse/
+├── cmd/              # Command-line applications and entry points
+├── pkg/              # Public libraries (importable by external projects)
+├── internal/         # Private application code
+│   ├── actors/       # Actor implementations (supervisors, pools, workers)
+│   ├── handlers/     # HTTP handler patterns (base handler, endpoints)
+│   ├── services/     # Service layer implementations
+│   ├── repositories/ # Repository patterns (interface, memory, MongoDB)
+│   ├── workflow/     # Core workflow logic (graph, nodes, edges)
+│   ├── messaging/    # Message type definitions
+│   └── ...
+├── docs/             # Documentation
+└── examples/         # Example workflows
+```
+
+## Core Concepts
+
+### Actor Model Implementation
+
+FUSE leverages the ergo actor model to provide:
+
+- **Isolated Execution** - Each node runs as an independent actor
+- **Message Passing** - Asynchronous communication between nodes
+- **Supervision** - Built-in fault tolerance and recovery
+- **State Management** - Actor-based state handling
+- **Scalability** - Distributed execution capabilities
+
+### Workflow Components
+
+- **Node** - Fundamental building block that executes specific logic
+- **Graph** - Collection of nodes and edges defining workflow structure
+- **Edge** - Connection between nodes (conditional or unconditional)
+- **Trigger Node** - Starting point of workflow execution
+- **Thread Management** - Execution ordering through thread IDs
+
+## Key Reference Files
+
+- `.golangci.yml` - Linting configuration and enabled linters
+- `docs/CONTRIBUTE.md` - Contribution guidelines and development workflow
+- `internal/actors/*` - Actor implementations
+- `internal/workflow/*` - Core workflow logic
+- `internal/repositories/*` - Repository patterns
+- `internal/handlers/*` - HTTP handler patterns
+- `internal/services/*` - Service layer implementations
+- `pkg/workflow/*` - Public workflow API
+
+## Ergo.services Resources
+
+### Official Documentation
+
+- [Main Documentation](https://docs.ergo.services/)
+- [Actor Model Basics](https://docs.ergo.services/basics/actor-model)
+- [Supervision Tree](https://docs.ergo.services/basics/supervision-tree)
+- [Actor](https://docs.ergo.services/actors/actor)
+- [Supervisor](https://docs.ergo.services/actors/supervisor)
+- [Pool](https://docs.ergo.services/actors/pool)
+- [WebWorker](https://docs.ergo.services/actors/webworker)
+- [Testing](https://docs.ergo.services/testing/unit)
+
+### Quick Reference
+
+- All actors embed base types: `act.Actor`, `act.Supervisor`, `act.Pool`, or `act.WebWorker`
+- Message passing is the primary communication mechanism
+- Supervisors provide fault tolerance and recovery
+- Pools manage worker actors for concurrent workloads
+- WebWorkers handle HTTP requests as actors
+- Network transparency enables distributed actor systems
+
+---
+
+**Remember:** This is an actor-based system. Think in terms of isolated processes communicating through messages, supervised for fault tolerance, and designed for distributed execution.

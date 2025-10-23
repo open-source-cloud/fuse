@@ -1,0 +1,473 @@
+---
+alwaysApply: true
+---
+
+# Go Code Conventions
+
+## General Guidelines
+
+- Follow [Effective Go](https://golang.org/doc/effective_go) and all linters defined in `.golangci.yml`
+- Run `make lint` before committing code
+- Keep functions small and focused on a single responsibility
+- Use meaningful variable and function names
+- Write comprehensive comments for public APIs
+
+## Naming Conventions
+
+### Identifiers
+
+- **Exported identifiers**: PascalCase (e.g., `NodeSchema`, `WorkflowRepository`)
+- **Private identifiers**: camelCase (e.g., `nodeSchema`, `workflowRepo`)
+- **Interfaces**: Descriptive names ending in purpose (e.g., `WorkflowRepository`, `PackageService`)
+- **Constants**: PascalCase for exported, camelCase for private
+- **Acronyms**: Keep consistent casing (e.g., `ID`, `HTTP`, `URL`, `PID`)
+
+### Examples
+
+```go
+// Exported struct
+type WorkflowRepository interface {
+    Get(id string) (*Workflow, error)
+    Save(workflow *Workflow) error
+}
+
+// Private implementation
+type memoryWorkflowRepository struct {
+    workflows map[string]*Workflow
+}
+
+// Constants
+const (
+    MaxRetries        = 3              // exported
+    defaultTimeout    = 30 * time.Second // private
+)
+```
+
+## Error Handling
+
+### Rules
+
+- Always handle errors explicitly; never ignore them
+- Return errors as the last return value
+- Define custom error types for domain-specific errors
+- Wrap errors with context using `fmt.Errorf("context: %w", err)`
+- Log errors at the appropriate level before returning
+
+### Custom Errors
+
+```go
+var (
+    ErrWorkflowNotFound   = errors.New("workflow not found")
+    ErrPackageNotFound    = errors.New("package not found")
+    ErrPackageNotModified = errors.New("package not modified")
+    ErrInvalidSchema      = errors.New("invalid schema")
+)
+```
+
+### Error Wrapping Pattern
+
+```go
+func (r *Repository) Get(id string) (*Entity, error) {
+    entity, err := r.findByID(id)
+    if err != nil {
+        return nil, fmt.Errorf("failed to get entity %s: %w", id, err)
+    }
+    return entity, nil
+}
+
+func (s *Service) ProcessWorkflow(id string) error {
+    workflow, err := s.repo.Get(id)
+    if err != nil {
+        log.Error().Err(err).Str("workflowID", id).Msg("failed to retrieve workflow")
+        return fmt.Errorf("process workflow failed: %w", err)
+    }
+    // Process workflow...
+    return nil
+}
+```
+
+## Concurrency & Thread Safety
+
+### Thread-Safe Repositories
+
+Use `sync.RWMutex` for thread-safe in-memory repositories:
+
+- Always lock before accessing shared state
+- Use `defer` to ensure locks are released
+- Prefer read locks (`RLock()`) when only reading data
+- Use write locks (`Lock()`) when modifying data
+
+```go
+type MemoryRepository struct {
+    mu        sync.RWMutex
+    entities  map[string]*Entity
+}
+
+// Read operation - use RLock
+func (m *MemoryRepository) Get(id string) (*Entity, error) {
+    m.mu.RLock()
+    defer m.mu.RUnlock()
+
+    entity, ok := m.entities[id]
+    if !ok {
+        return nil, ErrEntityNotFound
+    }
+    return entity, nil
+}
+
+// Write operation - use Lock
+func (m *MemoryRepository) Save(entity *Entity) error {
+    m.mu.Lock()
+    defer m.mu.Unlock()
+
+    m.entities[entity.ID] = entity
+    return nil
+}
+
+// Read multiple - still use RLock
+func (m *MemoryRepository) FindAll() ([]*Entity, error) {
+    m.mu.RLock()
+    defer m.mu.RUnlock()
+
+    entities := make([]*Entity, 0, len(m.entities))
+    for _, entity := range m.entities {
+        entities = append(entities, entity)
+    }
+    return entities, nil
+}
+```
+
+## Interfaces & Modularity
+
+### Interface Design
+
+- Define interfaces in the package that uses them (not where they're implemented)
+- Keep interfaces small and focused (Interface Segregation Principle)
+- Use interfaces to enable testing and multiple implementations
+
+```go
+// Define interface in the package that uses it
+package service
+
+type WorkflowRepository interface {
+    Get(id string) (*workflow.Workflow, error)
+    Save(workflow *workflow.Workflow) error
+    Exists(id string) bool
+}
+
+type WorkflowService struct {
+    repo WorkflowRepository // Uses interface, not concrete type
+}
+```
+
+### Multiple Implementations
+
+```go
+// Memory implementation (for testing/development)
+package repositories
+
+type MemoryWorkflowRepository struct {
+    mu        sync.RWMutex
+    workflows map[string]*workflow.Workflow
+}
+
+func (m *MemoryWorkflowRepository) Get(id string) (*workflow.Workflow, error) {
+    // implementation
+}
+
+// MongoDB implementation (for production)
+type MongoWorkflowRepository struct {
+    client     *mongo.Client
+    collection *mongo.Collection
+}
+
+func (m *MongoWorkflowRepository) Get(id string) (*workflow.Workflow, error) {
+    // implementation
+}
+```
+
+## Code Organization
+
+### Package Structure
+
+```go
+// One primary type per file
+// File: workflow.go
+package workflow
+
+type Workflow struct {
+    // fields
+}
+
+func NewWorkflow() *Workflow {
+    // constructor
+}
+
+func (w *Workflow) Execute() error {
+    // methods
+}
+```
+
+### Import Grouping
+
+```go
+import (
+    // Standard library
+    "context"
+    "fmt"
+    "time"
+
+    // External dependencies
+    "ergo.services/ergo/act"
+    "ergo.services/ergo/gen"
+    "github.com/rs/zerolog/log"
+    "go.mongodb.org/mongo-driver/v2/mongo"
+
+    // Internal imports
+    "github.com/open-source-cloud/fuse/internal/workflow"
+    "github.com/open-source-cloud/fuse/pkg/utils"
+)
+```
+
+## Best Practices
+
+- Use `make lint` to ensure code quality
+- Follow the linter rules defined in `.golangci.yml`
+- Keep cyclomatic complexity under 15 (as defined in linter config)
+- Write self-documenting code with clear variable names
+- Add comments for complex logic, not obvious code
+
+# Go Code Conventions
+
+## General Guidelines
+
+- Follow [Effective Go](https://golang.org/doc/effective_go) and all linters defined in `.golangci.yml`
+- Run `make lint` before committing code
+- Keep functions small and focused on a single responsibility
+- Use meaningful variable and function names
+- Write comprehensive comments for public APIs
+
+## Naming Conventions
+
+### Identifiers
+
+- **Exported identifiers**: PascalCase (e.g., `NodeSchema`, `WorkflowRepository`)
+- **Private identifiers**: camelCase (e.g., `nodeSchema`, `workflowRepo`)
+- **Interfaces**: Descriptive names ending in purpose (e.g., `WorkflowRepository`, `PackageService`)
+- **Constants**: PascalCase for exported, camelCase for private
+- **Acronyms**: Keep consistent casing (e.g., `ID`, `HTTP`, `URL`, `PID`)
+
+### Examples
+
+```go
+// Exported struct
+type WorkflowRepository interface {
+    Get(id string) (*Workflow, error)
+    Save(workflow *Workflow) error
+}
+
+// Private implementation
+type memoryWorkflowRepository struct {
+    workflows map[string]*Workflow
+}
+
+// Constants
+const (
+    MaxRetries        = 3              // exported
+    defaultTimeout    = 30 * time.Second // private
+)
+```
+
+## Error Handling
+
+### Rules
+
+- Always handle errors explicitly; never ignore them
+- Return errors as the last return value
+- Define custom error types for domain-specific errors
+- Wrap errors with context using `fmt.Errorf("context: %w", err)`
+- Log errors at the appropriate level before returning
+
+### Custom Errors
+
+```go
+var (
+    ErrWorkflowNotFound   = errors.New("workflow not found")
+    ErrPackageNotFound    = errors.New("package not found")
+    ErrPackageNotModified = errors.New("package not modified")
+    ErrInvalidSchema      = errors.New("invalid schema")
+)
+```
+
+### Error Wrapping Pattern
+
+```go
+func (r *Repository) Get(id string) (*Entity, error) {
+    entity, err := r.findByID(id)
+    if err != nil {
+        return nil, fmt.Errorf("failed to get entity %s: %w", id, err)
+    }
+    return entity, nil
+}
+
+func (s *Service) ProcessWorkflow(id string) error {
+    workflow, err := s.repo.Get(id)
+    if err != nil {
+        log.Error().Err(err).Str("workflowID", id).Msg("failed to retrieve workflow")
+        return fmt.Errorf("process workflow failed: %w", err)
+    }
+    // Process workflow...
+    return nil
+}
+```
+
+## Concurrency & Thread Safety
+
+### Thread-Safe Repositories
+
+Use `sync.RWMutex` for thread-safe in-memory repositories:
+
+- Always lock before accessing shared state
+- Use `defer` to ensure locks are released
+- Prefer read locks (`RLock()`) when only reading data
+- Use write locks (`Lock()`) when modifying data
+
+```go
+type MemoryRepository struct {
+    mu        sync.RWMutex
+    entities  map[string]*Entity
+}
+
+// Read operation - use RLock
+func (m *MemoryRepository) Get(id string) (*Entity, error) {
+    m.mu.RLock()
+    defer m.mu.RUnlock()
+
+    entity, ok := m.entities[id]
+    if !ok {
+        return nil, ErrEntityNotFound
+    }
+    return entity, nil
+}
+
+// Write operation - use Lock
+func (m *MemoryRepository) Save(entity *Entity) error {
+    m.mu.Lock()
+    defer m.mu.Unlock()
+
+    m.entities[entity.ID] = entity
+    return nil
+}
+
+// Read multiple - still use RLock
+func (m *MemoryRepository) FindAll() ([]*Entity, error) {
+    m.mu.RLock()
+    defer m.mu.RUnlock()
+
+    entities := make([]*Entity, 0, len(m.entities))
+    for _, entity := range m.entities {
+        entities = append(entities, entity)
+    }
+    return entities, nil
+}
+```
+
+## Interfaces & Modularity
+
+### Interface Design
+
+- Define interfaces in the package that uses them (not where they're implemented)
+- Keep interfaces small and focused (Interface Segregation Principle)
+- Use interfaces to enable testing and multiple implementations
+
+```go
+// Define interface in the package that uses it
+package service
+
+type WorkflowRepository interface {
+    Get(id string) (*workflow.Workflow, error)
+    Save(workflow *workflow.Workflow) error
+    Exists(id string) bool
+}
+
+type WorkflowService struct {
+    repo WorkflowRepository // Uses interface, not concrete type
+}
+```
+
+### Multiple Implementations
+
+```go
+// Memory implementation (for testing/development)
+package repositories
+
+type MemoryWorkflowRepository struct {
+    mu        sync.RWMutex
+    workflows map[string]*workflow.Workflow
+}
+
+func (m *MemoryWorkflowRepository) Get(id string) (*workflow.Workflow, error) {
+    // implementation
+}
+
+// MongoDB implementation (for production)
+type MongoWorkflowRepository struct {
+    client     *mongo.Client
+    collection *mongo.Collection
+}
+
+func (m *MongoWorkflowRepository) Get(id string) (*workflow.Workflow, error) {
+    // implementation
+}
+```
+
+## Code Organization
+
+### Package Structure
+
+```go
+// One primary type per file
+// File: workflow.go
+package workflow
+
+type Workflow struct {
+    // fields
+}
+
+func NewWorkflow() *Workflow {
+    // constructor
+}
+
+func (w *Workflow) Execute() error {
+    // methods
+}
+```
+
+### Import Grouping
+
+```go
+import (
+    // Standard library
+    "context"
+    "fmt"
+    "time"
+
+    // External dependencies
+    "ergo.services/ergo/act"
+    "ergo.services/ergo/gen"
+    "github.com/rs/zerolog/log"
+    "go.mongodb.org/mongo-driver/v2/mongo"
+
+    // Internal imports
+    "github.com/open-source-cloud/fuse/internal/workflow"
+    "github.com/open-source-cloud/fuse/pkg/utils"
+)
+```
+
+## Best Practices
+
+- Use `make lint` to ensure code quality
+- Follow the linter rules defined in `.golangci.yml`
+- Keep cyclomatic complexity under 15 (as defined in linter config)
+- Write self-documenting code with clear variable names
+- Add comments for complex logic, not obvious code

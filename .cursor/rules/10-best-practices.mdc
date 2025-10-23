@@ -1,0 +1,873 @@
+---
+alwaysApply: true
+---
+
+# Common Patterns & Best Practices
+
+## Logging
+
+### Use zerolog for Application Logging
+
+```go
+import "github.com/rs/zerolog/log"
+
+// Different log levels
+log.Info().Str("workflowID", id).Msg("starting workflow execution")
+log.Error().Err(err).Str("nodeID", nodeID).Msg("node execution failed")
+log.Debug().Interface("payload", data).Msg("received payload")
+log.Warn().Str("type", fmt.Sprintf("%T", msg)).Msg("unexpected message type")
+
+// Structured logging with multiple fields
+log.Info().
+    Str("workflowID", wfID).
+    Str("nodeID", nodeID).
+    Int("attempt", retryCount).
+    Dur("duration", elapsed).
+    Msg("node execution completed")
+
+// Error logging with stack trace context
+log.Error().
+    Err(err).
+    Str("operation", "workflow_execution").
+    Str("workflowID", wfID).
+    Stack().
+    Msg("workflow execution failed")
+```
+
+### Use Actor Logger in Actors
+
+```go
+// Inside actor methods - use a.Log()
+a.Log().Info("actor started", "pid", a.PID())
+a.Log().Debug("processing message", "from", from, "type", fmt.Sprintf("%T", message))
+a.Log().Error("failed to process message", "error", err, "from", from)
+a.Log().Warn("received unknown message", "type", fmt.Sprintf("%T", message))
+
+// With multiple structured fields
+a.Log().Info("workflow started",
+    "workflowID", wfID,
+    "pid", a.PID(),
+    "trigger", trigger,
+    "input_size", len(input))
+```
+
+### Log Levels
+
+- **Debug** - Detailed information for debugging
+- **Info** - General informational messages
+- **Warn** - Warning messages (not errors, but noteworthy)
+- **Error** - Error conditions that need attention
+- **Fatal** - Critical errors that cause application termination
+
+### Logging Guidelines
+
+- Log important state transitions
+- Log errors before returning them
+- Include relevant context (IDs, PIDs, request info)
+- Use structured logging, not string formatting
+- Don't log sensitive information (passwords, tokens)
+- Keep log messages concise and actionable
+
+## Configuration
+
+### Use caarlos0/env for Environment Variables
+
+```go
+import "github.com/caarlos0/env/v11"
+
+type Config struct {
+    // Server configuration
+    Port     string `env:"PORT" envDefault:"8080"`
+    LogLevel string `env:"LOG_LEVEL" envDefault:"info"`
+    NodeName string `env:"NODE_NAME" envDefault:"fuse@localhost"`
+
+    // Database configuration
+    Database struct {
+        URI  string `env:"MONGODB_URI" envDefault:"mongodb://localhost:27017"`
+        Name string `env:"MONGODB_NAME" envDefault:"fuse"`
+        UseMongo bool `env:"USE_MONGO" envDefault:"false"`
+    }
+
+    // Application configuration
+    MaxWorkers int           `env:"MAX_WORKERS" envDefault:"10"`
+    Timeout    time.Duration `env:"TIMEOUT" envDefault:"30s"`
+}
+
+func LoadConfig() (*Config, error) {
+    cfg := &Config{}
+    if err := env.Parse(cfg); err != nil {
+        return nil, fmt.Errorf("failed to parse config: %w", err)
+    }
+    return cfg, nil
+}
+
+// Usage
+func main() {
+    cfg, err := LoadConfig()
+    if err != nil {
+        log.Fatal().Err(err).Msg("failed to load configuration")
+    }
+
+    log.Info().
+        Str("port", cfg.Port).
+        Str("logLevel", cfg.LogLevel).
+        Msg("configuration loaded")
+}
+```
+
+### Configuration Best Practices
+
+- Use environment variables for deployment-specific values
+- Provide sensible defaults with `envDefault`
+- Validate configuration after loading
+- Document all configuration options
+- Use typed fields (int, duration, bool) not just strings
+- Keep sensitive values in environment, not code
+
+## UUID Generation
+
+### Use google/uuid for ID Generation
+
+```go
+import "github.com/google/uuid"
+
+// Generate new UUID
+func generateWorkflowID() string {
+    return uuid.New().String()
+}
+
+// Generate UUID v4
+func newWorkflowID() workflow.ID {
+    return workflow.ID(uuid.New().String())
+}
+
+// Parse UUID string
+func parseWorkflowID(s string) (workflow.ID, error) {
+    if _, err := uuid.Parse(s); err != nil {
+        return "", fmt.Errorf("invalid workflow ID: %w", err)
+    }
+    return workflow.ID(s), nil
+}
+
+// Check if valid UUID
+func isValidUUID(s string) bool {
+    _, err := uuid.Parse(s)
+    return err == nil
+}
+```
+
+### UUID Best Practices
+
+- Use UUIDs for distributed system identifiers
+- Use UUID v4 for random IDs (default with `uuid.New()`)
+- Store as string in databases for portability
+- Validate UUIDs when receiving from external sources
+- Consider typed aliases (e.g., `type WorkflowID string`) for clarity
+
+## JSON Handling
+
+### Use Struct Tags for JSON Marshaling
+
+```go
+type WorkflowRequest struct {
+    SchemaID string         `json:"schemaID" validate:"required"`
+    Input    map[string]any `json:"input,omitempty"`
+    Timeout  int            `json:"timeout,omitempty" validate:"min=1,max=3600"`
+}
+
+type WorkflowResponse struct {
+    ID        string         `json:"id"`
+    Status    string         `json:"status"`
+    CreatedAt time.Time      `json:"createdAt"`
+    UpdatedAt time.Time      `json:"updatedAt,omitempty"`
+    Result    map[string]any `json:"result,omitempty"`
+}
+
+// Marshaling
+data, err := json.Marshal(response)
+if err != nil {
+    return fmt.Errorf("failed to marshal response: %w", err)
+}
+
+// Unmarshaling
+var req WorkflowRequest
+if err := json.Unmarshal(data, &req); err != nil {
+    return fmt.Errorf("failed to unmarshal request: %w", err)
+}
+```
+
+### JSON Tag Options
+
+- `json:"fieldName"` - Custom field name
+- `json:"fieldName,omitempty"` - Omit if zero value
+- `json:"-"` - Never serialize
+- `json:"fieldName,string"` - Marshal as string
+
+## Validation
+
+### Use go-playground/validator Struct Tags
+
+```go
+import "github.com/go-playground/validator/v10"
+
+type NodeSchema struct {
+    ID       string `json:"id" validate:"required,min=1,max=100"`
+    Function string `json:"function" validate:"required"`
+    Config   map[string]any `json:"config" validate:"omitempty"`
+}
+
+type EdgeSchema struct {
+    From      string `json:"from" validate:"required"`
+    To        string `json:"to" validate:"required"`
+    Condition string `json:"condition" validate:"omitempty"`
+}
+
+func validateSchema(schema *NodeSchema) error {
+    validate := validator.New()
+    if err := validate.Struct(schema); err != nil {
+        return fmt.Errorf("validation failed: %w", err)
+    }
+    return nil
+}
+
+// Custom validation
+func (s *GraphSchema) Validate() error {
+    // Standard validation
+    validate := validator.New()
+    if err := validate.Struct(s); err != nil {
+        return fmt.Errorf("schema validation failed: %w", err)
+    }
+
+    // Business logic validation
+    if len(s.Nodes) == 0 {
+        return errors.New("schema must have at least one node")
+    }
+
+    // Cross-field validation
+    nodeIDs := make(map[string]bool)
+    for _, node := range s.Nodes {
+        if nodeIDs[node.ID] {
+            return fmt.Errorf("duplicate node ID: %s", node.ID)
+        }
+        nodeIDs[node.ID] = true
+    }
+
+    return nil
+}
+```
+
+### Common Validation Tags
+
+- `required` - Field must be present
+- `min=X` - Minimum value/length
+- `max=X` - Maximum value/length
+- `email` - Valid email format
+- `url` - Valid URL format
+- `oneof=red green blue` - Must be one of values
+- `gt=X` - Greater than
+- `lt=X` - Less than
+
+## Mermaid Visualization
+
+### Use go-mermaid for Workflow Visualization
+
+```go
+import "github.com/TyphonHill/go-mermaid/diagrams/flowchart"
+
+func (g *Graph) MermaidFlowchart() string {
+    fc := flowchart.New()
+
+    // Add nodes
+    for id, node := range g.nodes {
+        fc.AddNode(id, node.schema.Function)
+    }
+
+    // Add edges
+    for _, edge := range g.edges {
+        if edge.IsConditional() {
+            fc.AddEdge(edge.from.ID(), edge.to.ID(), edge.condition)
+        } else {
+            fc.AddEdge(edge.from.ID(), edge.to.ID(), "")
+        }
+    }
+
+    return fc.String()
+}
+
+// Usage
+func (h *GraphHandler) HandleGet(from gen.PID, w http.ResponseWriter, r *http.Request) error {
+    graphID, _ := h.GetPathParam(r, "graphID")
+
+    graph, err := h.service.GetGraph(graphID)
+    if err != nil {
+        return h.SendInternalError(w, err)
+    }
+
+    return h.SendJSON(w, http.StatusOK, Response{
+        "id":      graph.ID(),
+        "mermaid": graph.MermaidFlowchart(),
+    })
+}
+```
+
+## Make Commands
+
+Use Makefile targets for common operations:
+
+```makefile
+.PHONY: build test lint lint-fix run clean
+
+# Build the application
+build:
+    go build -o bin/fuse cmd/fuse/main.go
+
+# Run all tests
+test:
+    gotestsum --format testdox -- ./pkg/... ./internal/...
+
+# Run linters
+lint:
+    golangci-lint run ./... --timeout=5m
+
+# Run linters with auto-fix
+lint-fix:
+    golangci-lint run ./... --fix --timeout=5m
+
+# Build and run
+run: build
+    ./bin/fuse server -p 9090 -l debug
+
+# Clean build artifacts
+clean:
+    rm -rf bin/
+```
+
+### Usage
+
+```bash
+# Development workflow
+make lint        # Check code quality
+make test        # Run tests
+make build       # Build binary
+make run         # Run application
+
+# Before committing
+make lint-fix    # Fix linting issues
+make test        # Ensure tests pass
+
+# Clean up
+make clean       # Remove build artifacts
+```
+
+## Error Handling Patterns
+
+### Wrap Errors with Context
+
+```go
+func (s *Service) ProcessWorkflow(id string) error {
+    workflow, err := s.repo.Get(id)
+    if err != nil {
+        return fmt.Errorf("failed to get workflow %s: %w", id, err)
+    }
+
+    if err := s.executor.Execute(workflow); err != nil {
+        return fmt.Errorf("failed to execute workflow %s: %w", id, err)
+    }
+
+    return nil
+}
+```
+
+### Check for Specific Errors
+
+```go
+workflow, err := repo.Get(id)
+if err != nil {
+    if errors.Is(err, repositories.ErrWorkflowNotFound) {
+        return h.SendJSON(w, http.StatusNotFound, Response{
+            "message": "Workflow not found",
+            "code":    EntityNotFound,
+        })
+    }
+    return h.SendInternalError(w, err)
+}
+```
+
+## Context Usage
+
+### Pass Context for Cancellation
+
+```go
+func (r *MongoRepository) Get(ctx context.Context, id string) (*Workflow, error) {
+    filter := bson.M{"id": id}
+    var wf Workflow
+
+    err := r.collection.FindOne(ctx, filter).Decode(&wf)
+    if err != nil {
+        return nil, err
+    }
+
+    return &wf, nil
+}
+
+// Usage with timeout
+ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+defer cancel()
+
+workflow, err := repo.Get(ctx, workflowID)
+```
+
+## Performance Tips
+
+- Use sync.RWMutex for read-heavy workloads
+- Pool database connections
+- Use context for operation timeouts
+- Avoid allocations in hot paths
+- Use worker pools for parallel processing
+- Cache expensive computations
+- Profile before optimizing
+
+## Security Best Practices
+
+- Never log sensitive data (passwords, tokens, API keys)
+- Validate all external inputs
+- Use parameterized queries for databases
+- Set appropriate timeouts for external calls
+- Implement rate limiting for public endpoints
+- Use HTTPS in production
+- Keep dependencies updated
+
+# Common Patterns & Best Practices
+
+## Logging
+
+### Use zerolog for Application Logging
+
+```go
+import "github.com/rs/zerolog/log"
+
+// Different log levels
+log.Info().Str("workflowID", id).Msg("starting workflow execution")
+log.Error().Err(err).Str("nodeID", nodeID).Msg("node execution failed")
+log.Debug().Interface("payload", data).Msg("received payload")
+log.Warn().Str("type", fmt.Sprintf("%T", msg)).Msg("unexpected message type")
+
+// Structured logging with multiple fields
+log.Info().
+    Str("workflowID", wfID).
+    Str("nodeID", nodeID).
+    Int("attempt", retryCount).
+    Dur("duration", elapsed).
+    Msg("node execution completed")
+
+// Error logging with stack trace context
+log.Error().
+    Err(err).
+    Str("operation", "workflow_execution").
+    Str("workflowID", wfID).
+    Stack().
+    Msg("workflow execution failed")
+```
+
+### Use Actor Logger in Actors
+
+```go
+// Inside actor methods - use a.Log()
+a.Log().Info("actor started", "pid", a.PID())
+a.Log().Debug("processing message", "from", from, "type", fmt.Sprintf("%T", message))
+a.Log().Error("failed to process message", "error", err, "from", from)
+a.Log().Warn("received unknown message", "type", fmt.Sprintf("%T", message))
+
+// With multiple structured fields
+a.Log().Info("workflow started",
+    "workflowID", wfID,
+    "pid", a.PID(),
+    "trigger", trigger,
+    "input_size", len(input))
+```
+
+### Log Levels
+
+- **Debug** - Detailed information for debugging
+- **Info** - General informational messages
+- **Warn** - Warning messages (not errors, but noteworthy)
+- **Error** - Error conditions that need attention
+- **Fatal** - Critical errors that cause application termination
+
+### Logging Guidelines
+
+- Log important state transitions
+- Log errors before returning them
+- Include relevant context (IDs, PIDs, request info)
+- Use structured logging, not string formatting
+- Don't log sensitive information (passwords, tokens)
+- Keep log messages concise and actionable
+
+## Configuration
+
+### Use caarlos0/env for Environment Variables
+
+```go
+import "github.com/caarlos0/env/v11"
+
+type Config struct {
+    // Server configuration
+    Port     string `env:"PORT" envDefault:"8080"`
+    LogLevel string `env:"LOG_LEVEL" envDefault:"info"`
+    NodeName string `env:"NODE_NAME" envDefault:"fuse@localhost"`
+
+    // Database configuration
+    Database struct {
+        URI  string `env:"MONGODB_URI" envDefault:"mongodb://localhost:27017"`
+        Name string `env:"MONGODB_NAME" envDefault:"fuse"`
+        UseMongo bool `env:"USE_MONGO" envDefault:"false"`
+    }
+
+    // Application configuration
+    MaxWorkers int           `env:"MAX_WORKERS" envDefault:"10"`
+    Timeout    time.Duration `env:"TIMEOUT" envDefault:"30s"`
+}
+
+func LoadConfig() (*Config, error) {
+    cfg := &Config{}
+    if err := env.Parse(cfg); err != nil {
+        return nil, fmt.Errorf("failed to parse config: %w", err)
+    }
+    return cfg, nil
+}
+
+// Usage
+func main() {
+    cfg, err := LoadConfig()
+    if err != nil {
+        log.Fatal().Err(err).Msg("failed to load configuration")
+    }
+
+    log.Info().
+        Str("port", cfg.Port).
+        Str("logLevel", cfg.LogLevel).
+        Msg("configuration loaded")
+}
+```
+
+### Configuration Best Practices
+
+- Use environment variables for deployment-specific values
+- Provide sensible defaults with `envDefault`
+- Validate configuration after loading
+- Document all configuration options
+- Use typed fields (int, duration, bool) not just strings
+- Keep sensitive values in environment, not code
+
+## UUID Generation
+
+### Use google/uuid for ID Generation
+
+```go
+import "github.com/google/uuid"
+
+// Generate new UUID
+func generateWorkflowID() string {
+    return uuid.New().String()
+}
+
+// Generate UUID v4
+func newWorkflowID() workflow.ID {
+    return workflow.ID(uuid.New().String())
+}
+
+// Parse UUID string
+func parseWorkflowID(s string) (workflow.ID, error) {
+    if _, err := uuid.Parse(s); err != nil {
+        return "", fmt.Errorf("invalid workflow ID: %w", err)
+    }
+    return workflow.ID(s), nil
+}
+
+// Check if valid UUID
+func isValidUUID(s string) bool {
+    _, err := uuid.Parse(s)
+    return err == nil
+}
+```
+
+### UUID Best Practices
+
+- Use UUIDs for distributed system identifiers
+- Use UUID v4 for random IDs (default with `uuid.New()`)
+- Store as string in databases for portability
+- Validate UUIDs when receiving from external sources
+- Consider typed aliases (e.g., `type WorkflowID string`) for clarity
+
+## JSON Handling
+
+### Use Struct Tags for JSON Marshaling
+
+```go
+type WorkflowRequest struct {
+    SchemaID string         `json:"schemaID" validate:"required"`
+    Input    map[string]any `json:"input,omitempty"`
+    Timeout  int            `json:"timeout,omitempty" validate:"min=1,max=3600"`
+}
+
+type WorkflowResponse struct {
+    ID        string         `json:"id"`
+    Status    string         `json:"status"`
+    CreatedAt time.Time      `json:"createdAt"`
+    UpdatedAt time.Time      `json:"updatedAt,omitempty"`
+    Result    map[string]any `json:"result,omitempty"`
+}
+
+// Marshaling
+data, err := json.Marshal(response)
+if err != nil {
+    return fmt.Errorf("failed to marshal response: %w", err)
+}
+
+// Unmarshaling
+var req WorkflowRequest
+if err := json.Unmarshal(data, &req); err != nil {
+    return fmt.Errorf("failed to unmarshal request: %w", err)
+}
+```
+
+### JSON Tag Options
+
+- `json:"fieldName"` - Custom field name
+- `json:"fieldName,omitempty"` - Omit if zero value
+- `json:"-"` - Never serialize
+- `json:"fieldName,string"` - Marshal as string
+
+## Validation
+
+### Use go-playground/validator Struct Tags
+
+```go
+import "github.com/go-playground/validator/v10"
+
+type NodeSchema struct {
+    ID       string `json:"id" validate:"required,min=1,max=100"`
+    Function string `json:"function" validate:"required"`
+    Config   map[string]any `json:"config" validate:"omitempty"`
+}
+
+type EdgeSchema struct {
+    From      string `json:"from" validate:"required"`
+    To        string `json:"to" validate:"required"`
+    Condition string `json:"condition" validate:"omitempty"`
+}
+
+func validateSchema(schema *NodeSchema) error {
+    validate := validator.New()
+    if err := validate.Struct(schema); err != nil {
+        return fmt.Errorf("validation failed: %w", err)
+    }
+    return nil
+}
+
+// Custom validation
+func (s *GraphSchema) Validate() error {
+    // Standard validation
+    validate := validator.New()
+    if err := validate.Struct(s); err != nil {
+        return fmt.Errorf("schema validation failed: %w", err)
+    }
+
+    // Business logic validation
+    if len(s.Nodes) == 0 {
+        return errors.New("schema must have at least one node")
+    }
+
+    // Cross-field validation
+    nodeIDs := make(map[string]bool)
+    for _, node := range s.Nodes {
+        if nodeIDs[node.ID] {
+            return fmt.Errorf("duplicate node ID: %s", node.ID)
+        }
+        nodeIDs[node.ID] = true
+    }
+
+    return nil
+}
+```
+
+### Common Validation Tags
+
+- `required` - Field must be present
+- `min=X` - Minimum value/length
+- `max=X` - Maximum value/length
+- `email` - Valid email format
+- `url` - Valid URL format
+- `oneof=red green blue` - Must be one of values
+- `gt=X` - Greater than
+- `lt=X` - Less than
+
+## Mermaid Visualization
+
+### Use go-mermaid for Workflow Visualization
+
+```go
+import "github.com/TyphonHill/go-mermaid/diagrams/flowchart"
+
+func (g *Graph) MermaidFlowchart() string {
+    fc := flowchart.New()
+
+    // Add nodes
+    for id, node := range g.nodes {
+        fc.AddNode(id, node.schema.Function)
+    }
+
+    // Add edges
+    for _, edge := range g.edges {
+        if edge.IsConditional() {
+            fc.AddEdge(edge.from.ID(), edge.to.ID(), edge.condition)
+        } else {
+            fc.AddEdge(edge.from.ID(), edge.to.ID(), "")
+        }
+    }
+
+    return fc.String()
+}
+
+// Usage
+func (h *GraphHandler) HandleGet(from gen.PID, w http.ResponseWriter, r *http.Request) error {
+    graphID, _ := h.GetPathParam(r, "graphID")
+
+    graph, err := h.service.GetGraph(graphID)
+    if err != nil {
+        return h.SendInternalError(w, err)
+    }
+
+    return h.SendJSON(w, http.StatusOK, Response{
+        "id":      graph.ID(),
+        "mermaid": graph.MermaidFlowchart(),
+    })
+}
+```
+
+## Make Commands
+
+Use Makefile targets for common operations:
+
+```makefile
+.PHONY: build test lint lint-fix run clean
+
+# Build the application
+build:
+    go build -o bin/fuse cmd/fuse/main.go
+
+# Run all tests
+test:
+    gotestsum --format testdox -- ./pkg/... ./internal/...
+
+# Run linters
+lint:
+    golangci-lint run ./... --timeout=5m
+
+# Run linters with auto-fix
+lint-fix:
+    golangci-lint run ./... --fix --timeout=5m
+
+# Build and run
+run: build
+    ./bin/fuse server -p 9090 -l debug
+
+# Clean build artifacts
+clean:
+    rm -rf bin/
+```
+
+### Usage
+
+```bash
+# Development workflow
+make lint        # Check code quality
+make test        # Run tests
+make build       # Build binary
+make run         # Run application
+
+# Before committing
+make lint-fix    # Fix linting issues
+make test        # Ensure tests pass
+
+# Clean up
+make clean       # Remove build artifacts
+```
+
+## Error Handling Patterns
+
+### Wrap Errors with Context
+
+```go
+func (s *Service) ProcessWorkflow(id string) error {
+    workflow, err := s.repo.Get(id)
+    if err != nil {
+        return fmt.Errorf("failed to get workflow %s: %w", id, err)
+    }
+
+    if err := s.executor.Execute(workflow); err != nil {
+        return fmt.Errorf("failed to execute workflow %s: %w", id, err)
+    }
+
+    return nil
+}
+```
+
+### Check for Specific Errors
+
+```go
+workflow, err := repo.Get(id)
+if err != nil {
+    if errors.Is(err, repositories.ErrWorkflowNotFound) {
+        return h.SendJSON(w, http.StatusNotFound, Response{
+            "message": "Workflow not found",
+            "code":    EntityNotFound,
+        })
+    }
+    return h.SendInternalError(w, err)
+}
+```
+
+## Context Usage
+
+### Pass Context for Cancellation
+
+```go
+func (r *MongoRepository) Get(ctx context.Context, id string) (*Workflow, error) {
+    filter := bson.M{"id": id}
+    var wf Workflow
+
+    err := r.collection.FindOne(ctx, filter).Decode(&wf)
+    if err != nil {
+        return nil, err
+    }
+
+    return &wf, nil
+}
+
+// Usage with timeout
+ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+defer cancel()
+
+workflow, err := repo.Get(ctx, workflowID)
+```
+
+## Performance Tips
+
+- Use sync.RWMutex for read-heavy workloads
+- Pool database connections
+- Use context for operation timeouts
+- Avoid allocations in hot paths
+- Use worker pools for parallel processing
+- Cache expensive computations
+- Profile before optimizing
+
+## Security Best Practices
+
+- Never log sensitive data (passwords, tokens, API keys)
+- Validate all external inputs
+- Use parameterized queries for databases
+- Set appropriate timeouts for external calls
+- Implement rate limiting for public endpoints
+- Use HTTPS in production
+- Keep dependencies updated

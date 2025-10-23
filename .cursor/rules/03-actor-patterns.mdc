@@ -1,0 +1,655 @@
+---
+alwaysApply: true
+---
+
+# Actor Model Patterns (ergo.services)
+
+**Reference:** [ergo.services documentation](https://docs.ergo.services/)
+
+## Actor Structure
+
+All actors must embed one of these base types from `ergo.services/ergo/act`:
+
+- **`act.Actor`** - Basic actor for general-purpose processing
+- **`act.Supervisor`** - Actor that supervises child processes
+- **`act.Pool`** - Pool of worker actors
+- **`act.WebWorker`** - Actor for handling HTTP requests
+
+## Factory Pattern
+
+Use the generic `ActorFactory[T]` pattern for dependency injection:
+
+```go
+// Define factory type
+type WorkflowHandlerFactory ActorFactory[*WorkflowHandler]
+
+// Create factory with dependencies injected
+func NewWorkflowHandlerFactory(
+    cfg *config.Config,
+    service WorkflowService,
+) *WorkflowHandlerFactory {
+    return &WorkflowHandlerFactory{
+        Factory: func() gen.ProcessBehavior {
+            return &WorkflowHandler{
+                config:  cfg,
+                service: service,
+            }
+        },
+    }
+}
+```
+
+## Basic Actor Implementation
+
+### Actor Structure
+
+```go
+type WorkflowHandler struct {
+    act.Actor  // Embed base actor type
+
+    // Dependencies
+    config  *config.Config
+    service WorkflowService
+
+    // Actor state
+    workflow *workflow.Workflow
+}
+```
+
+### Mandatory Methods
+
+#### Init Method
+
+Called when actor is spawned - use for initialization:
+
+```go
+func (a *WorkflowHandler) Init(args ...any) error {
+    a.Log().Debug("starting workflow handler %s", a.PID())
+
+    // Parse initialization arguments if needed
+    if len(args) > 0 {
+        if initArgs, ok := args[0].(WorkflowHandlerInitArgs); ok {
+            a.workflowID = initArgs.WorkflowID
+        }
+    }
+
+    // Initialize state
+    // Load resources
+    // Setup connections
+
+    return nil
+}
+```
+
+#### HandleMessage Method
+
+Handles incoming messages with type switching:
+
+```go
+func (a *WorkflowHandler) HandleMessage(from gen.PID, message any) error {
+    switch msg := message.(type) {
+    case *messaging.ExecuteWorkflow:
+        return a.handleExecuteWorkflow(from, msg)
+
+    case *messaging.StopWorkflow:
+        return a.handleStopWorkflow(from, msg)
+
+    case *messaging.GetStatus:
+        return a.handleGetStatus(from, msg)
+
+    default:
+        a.Log().Warn("received unknown message type: %T", message)
+        return fmt.Errorf("unknown message type: %T", message)
+    }
+}
+
+// Private handler methods
+func (a *WorkflowHandler) handleExecuteWorkflow(from gen.PID, msg *messaging.ExecuteWorkflow) error {
+    a.Log().Info("executing workflow", "workflowID", msg.WorkflowID, "from", from)
+    // Implementation
+    return nil
+}
+```
+
+## Supervisor Pattern
+
+Supervisors manage child processes with fault tolerance strategies:
+
+```go
+type WorkflowSupervisor struct {
+    act.Supervisor  // Embed supervisor type
+
+    config             *config.Config
+    childFactory       *WorkflowHandlerFactory
+    runningWorkflows   map[string]gen.PID
+}
+
+func (a *WorkflowSupervisor) Init(_ ...any) (act.SupervisorSpec, error) {
+    a.Log().Debug("starting workflow supervisor %s", a.PID())
+
+    spec := act.SupervisorSpec{
+        Type:    act.SupervisorTypeOneForOne,  // Restart strategy
+        Restart: act.SupervisorRestartTemporary, // Restart policy
+        Children: []act.SupervisorChildSpec{
+            {
+                Name:    "workflow_handler_1",
+                Factory: a.childFactory.Factory,
+                Args:    []any{},
+            },
+        },
+    }
+
+    return spec, nil
+}
+```
+
+### Supervision Strategies
+
+- **`SupervisorTypeOneForOne`** - Restart only failed child
+- **`SupervisorTypeOneForAll`** - Restart all children if one fails
+- **`SupervisorTypeRestForOne`** - Restart failed child and those started after it
+
+### Restart Policies
+
+- **`SupervisorRestartPermanent`** - Always restart
+- **`SupervisorRestartTemporary`** - Never restart
+- **`SupervisorRestartTransient`** - Restart only on abnormal termination
+
+## Pool Pattern
+
+Use pools for worker actors that handle concurrent workloads:
+
+```go
+type WorkflowFuncPool struct {
+    act.Pool  // Embed pool type
+}
+
+func (a *WorkflowFuncPool) Init(args ...any) (act.PoolSpec, error) {
+    a.Log().Debug("starting workflow function pool %s", a.PID())
+
+    spec := act.PoolSpec {
+        Size:    10,  // Number of worker actors
+        Factory: workflowFuncFactory.Factory,
+    }
+
+    return spec, nil
+}
+
+// Worker actor implementation
+type WorkflowFunc struct {
+    act.Actor
+
+    packageRegistry packages.Registry
+}
+
+func (a *WorkflowFunc) Init(_ ...any) error {
+    a.Log().Debug("starting workflow func worker %s", a.PID())
+    return nil
+}
+
+func (a *WorkflowFunc) HandleMessage(from gen.PID, message any) error {
+    // Process work
+    return nil
+}
+```
+
+## WebWorker Pattern (HTTP Handlers)
+
+WebWorkers handle HTTP requests as actors:
+
+```go
+type HealthCheckHandler struct {
+    act.WebWorker  // Embed WebWorker type
+
+    service SomeService
+}
+
+// Implement HTTP verb handlers
+func (h *HealthCheckHandler) HandleGet(from gen.PID, w http.ResponseWriter, r *http.Request) error {
+    h.Log().Info("received health check request", "from", from, "remoteAddr", r.RemoteAddr)
+
+    // Process request
+    response := map[string]any{
+        "status": "healthy",
+        "time":   time.Now(),
+    }
+
+    // Send JSON response (helper method from base handler)
+    return h.SendJSON(w, http.StatusOK, response)
+}
+
+func (h *HealthCheckHandler) HandlePost(from gen.PID, w http.ResponseWriter, r *http.Request) error {
+    // Implementation
+    return nil
+}
+```
+
+## Logging
+
+Always use the actor's built-in logger via `a.Log()`:
+
+```go
+// Different log levels
+a.Log().Debug("processing message from %s", from)
+a.Log().Info("workflow %s completed successfully", workflowID)
+a.Log().Warn("received unexpected message type: %T", message)
+a.Log().Error("failed to execute node: %v", err)
+
+// With structured fields
+a.Log().Info("actor started", "pid", a.PID(), "type", "workflow_handler")
+a.Log().Error("execution failed", "error", err, "workflowID", wfID, "nodeID", nodeID)
+```
+
+## Message Types
+
+Define typed message structs in `internal/messaging/` for type-safe communication:
+
+```go
+package messaging
+
+// ExecuteWorkflow message
+type ExecuteWorkflow struct {
+    WorkflowID string
+    Input      map[string]any
+    Timeout    time.Duration
+}
+
+// WorkflowCompleted response message
+type WorkflowCompleted struct {
+    WorkflowID string
+    Output     map[string]any
+    Duration   time.Duration
+}
+
+// StopWorkflow message
+type StopWorkflow struct {
+    WorkflowID string
+    Reason     string
+}
+
+// GetStatus query message
+type GetStatus struct {
+    WorkflowID string
+}
+```
+
+## Actor Naming
+
+Use constants for actor names for consistency:
+
+```go
+const (
+    WorkflowSupervisorName         = "workflow_sup"
+    WorkflowHandlerName            = "workflow_handler"
+    WorkflowFuncPoolName           = "workflow_func_pool"
+    WorkflowInstanceSupervisorName = "workflow_instance_sup"
+)
+```
+
+## Sending Messages
+
+### Asynchronous Send
+
+```go
+// Send message without waiting for response
+err := a.Send(targetPID, &messaging.ExecuteWorkflow{
+    WorkflowID: "wf-123",
+    Input:      map[string]any{"key": "value"},
+})
+```
+
+### Synchronous Call
+
+```go
+// Send and wait for response
+response, err := a.Call(targetPID, &messaging.GetStatus{
+    WorkflowID: "wf-123",
+})
+
+if err != nil {
+    a.Log().Error("call failed", "error", err)
+    return err
+}
+
+// Type assert response
+if status, ok := response.(*messaging.StatusResponse); ok {
+    a.Log().Info("received status", "state", status.State)
+}
+```
+
+## Best Practices
+
+- Keep actor state isolated - no shared mutable state
+- Use message passing for all inter-actor communication
+- Let supervisors handle failures - don't try to catch everything
+- Keep Init method lightweight - heavy initialization should be async
+- Always use actor's logger (a.Log()) not global logger
+- Define clear message types - avoid using `any` in messages
+- Use typed init arguments with structs, not positional args
+- Clean up resources in actor termination if needed
+
+# Actor Model Patterns (ergo.services)
+
+**Reference:** [ergo.services documentation](https://docs.ergo.services/)
+
+## Actor Structure
+
+All actors must embed one of these base types from `ergo.services/ergo/act`:
+
+- **`act.Actor`** - Basic actor for general-purpose processing
+- **`act.Supervisor`** - Actor that supervises child processes
+- **`act.Pool`** - Pool of worker actors
+- **`act.WebWorker`** - Actor for handling HTTP requests
+
+## Factory Pattern
+
+Use the generic `ActorFactory[T]` pattern for dependency injection:
+
+```go
+// Define factory type
+type WorkflowHandlerFactory ActorFactory[*WorkflowHandler]
+
+// Create factory with dependencies injected
+func NewWorkflowHandlerFactory(
+    cfg *config.Config,
+    service WorkflowService,
+) *WorkflowHandlerFactory {
+    return &WorkflowHandlerFactory{
+        Factory: func() gen.ProcessBehavior {
+            return &WorkflowHandler{
+                config:  cfg,
+                service: service,
+            }
+        },
+    }
+}
+```
+
+## Basic Actor Implementation
+
+### Actor Structure
+
+```go
+type WorkflowHandler struct {
+    act.Actor  // Embed base actor type
+
+    // Dependencies
+    config  *config.Config
+    service WorkflowService
+
+    // Actor state
+    workflow *workflow.Workflow
+}
+```
+
+### Mandatory Methods
+
+#### Init Method
+
+Called when actor is spawned - use for initialization:
+
+```go
+func (a *WorkflowHandler) Init(args ...any) error {
+    a.Log().Debug("starting workflow handler %s", a.PID())
+
+    // Parse initialization arguments if needed
+    if len(args) > 0 {
+        if initArgs, ok := args[0].(WorkflowHandlerInitArgs); ok {
+            a.workflowID = initArgs.WorkflowID
+        }
+    }
+
+    // Initialize state
+    // Load resources
+    // Setup connections
+
+    return nil
+}
+```
+
+#### HandleMessage Method
+
+Handles incoming messages with type switching:
+
+```go
+func (a *WorkflowHandler) HandleMessage(from gen.PID, message any) error {
+    switch msg := message.(type) {
+    case *messaging.ExecuteWorkflow:
+        return a.handleExecuteWorkflow(from, msg)
+
+    case *messaging.StopWorkflow:
+        return a.handleStopWorkflow(from, msg)
+
+    case *messaging.GetStatus:
+        return a.handleGetStatus(from, msg)
+
+    default:
+        a.Log().Warn("received unknown message type: %T", message)
+        return fmt.Errorf("unknown message type: %T", message)
+    }
+}
+
+// Private handler methods
+func (a *WorkflowHandler) handleExecuteWorkflow(from gen.PID, msg *messaging.ExecuteWorkflow) error {
+    a.Log().Info("executing workflow", "workflowID", msg.WorkflowID, "from", from)
+    // Implementation
+    return nil
+}
+```
+
+## Supervisor Pattern
+
+Supervisors manage child processes with fault tolerance strategies:
+
+```go
+type WorkflowSupervisor struct {
+    act.Supervisor  // Embed supervisor type
+
+    config             *config.Config
+    childFactory       *WorkflowHandlerFactory
+    runningWorkflows   map[string]gen.PID
+}
+
+func (a *WorkflowSupervisor) Init(_ ...any) (act.SupervisorSpec, error) {
+    a.Log().Debug("starting workflow supervisor %s", a.PID())
+
+    spec := act.SupervisorSpec{
+        Type:    act.SupervisorTypeOneForOne,  // Restart strategy
+        Restart: act.SupervisorRestartTemporary, // Restart policy
+        Children: []act.SupervisorChildSpec{
+            {
+                Name:    "workflow_handler_1",
+                Factory: a.childFactory.Factory,
+                Args:    []any{},
+            },
+        },
+    }
+
+    return spec, nil
+}
+```
+
+### Supervision Strategies
+
+- **`SupervisorTypeOneForOne`** - Restart only failed child
+- **`SupervisorTypeOneForAll`** - Restart all children if one fails
+- **`SupervisorTypeRestForOne`** - Restart failed child and those started after it
+
+### Restart Policies
+
+- **`SupervisorRestartPermanent`** - Always restart
+- **`SupervisorRestartTemporary`** - Never restart
+- **`SupervisorRestartTransient`** - Restart only on abnormal termination
+
+## Pool Pattern
+
+Use pools for worker actors that handle concurrent workloads:
+
+```go
+type WorkflowFuncPool struct {
+    act.Pool  // Embed pool type
+}
+
+func (a *WorkflowFuncPool) Init(args ...any) (act.PoolSpec, error) {
+    a.Log().Debug("starting workflow function pool %s", a.PID())
+
+    spec := act.PoolSpec {
+        Size:    10,  // Number of worker actors
+        Factory: workflowFuncFactory.Factory,
+    }
+
+    return spec, nil
+}
+
+// Worker actor implementation
+type WorkflowFunc struct {
+    act.Actor
+
+    packageRegistry packages.Registry
+}
+
+func (a *WorkflowFunc) Init(_ ...any) error {
+    a.Log().Debug("starting workflow func worker %s", a.PID())
+    return nil
+}
+
+func (a *WorkflowFunc) HandleMessage(from gen.PID, message any) error {
+    // Process work
+    return nil
+}
+```
+
+## WebWorker Pattern (HTTP Handlers)
+
+WebWorkers handle HTTP requests as actors:
+
+```go
+type HealthCheckHandler struct {
+    act.WebWorker  // Embed WebWorker type
+
+    service SomeService
+}
+
+// Implement HTTP verb handlers
+func (h *HealthCheckHandler) HandleGet(from gen.PID, w http.ResponseWriter, r *http.Request) error {
+    h.Log().Info("received health check request", "from", from, "remoteAddr", r.RemoteAddr)
+
+    // Process request
+    response := map[string]any{
+        "status": "healthy",
+        "time":   time.Now(),
+    }
+
+    // Send JSON response (helper method from base handler)
+    return h.SendJSON(w, http.StatusOK, response)
+}
+
+func (h *HealthCheckHandler) HandlePost(from gen.PID, w http.ResponseWriter, r *http.Request) error {
+    // Implementation
+    return nil
+}
+```
+
+## Logging
+
+Always use the actor's built-in logger via `a.Log()`:
+
+```go
+// Different log levels
+a.Log().Debug("processing message from %s", from)
+a.Log().Info("workflow %s completed successfully", workflowID)
+a.Log().Warn("received unexpected message type: %T", message)
+a.Log().Error("failed to execute node: %v", err)
+
+// With structured fields
+a.Log().Info("actor started", "pid", a.PID(), "type", "workflow_handler")
+a.Log().Error("execution failed", "error", err, "workflowID", wfID, "nodeID", nodeID)
+```
+
+## Message Types
+
+Define typed message structs in `internal/messaging/` for type-safe communication:
+
+```go
+package messaging
+
+// ExecuteWorkflow message
+type ExecuteWorkflow struct {
+    WorkflowID string
+    Input      map[string]any
+    Timeout    time.Duration
+}
+
+// WorkflowCompleted response message
+type WorkflowCompleted struct {
+    WorkflowID string
+    Output     map[string]any
+    Duration   time.Duration
+}
+
+// StopWorkflow message
+type StopWorkflow struct {
+    WorkflowID string
+    Reason     string
+}
+
+// GetStatus query message
+type GetStatus struct {
+    WorkflowID string
+}
+```
+
+## Actor Naming
+
+Use constants for actor names for consistency:
+
+```go
+const (
+    WorkflowSupervisorName         = "workflow_sup"
+    WorkflowHandlerName            = "workflow_handler"
+    WorkflowFuncPoolName           = "workflow_func_pool"
+    WorkflowInstanceSupervisorName = "workflow_instance_sup"
+)
+```
+
+## Sending Messages
+
+### Asynchronous Send
+
+```go
+// Send message without waiting for response
+err := a.Send(targetPID, &messaging.ExecuteWorkflow{
+    WorkflowID: "wf-123",
+    Input:      map[string]any{"key": "value"},
+})
+```
+
+### Synchronous Call
+
+```go
+// Send and wait for response
+response, err := a.Call(targetPID, &messaging.GetStatus{
+    WorkflowID: "wf-123",
+})
+
+if err != nil {
+    a.Log().Error("call failed", "error", err)
+    return err
+}
+
+// Type assert response
+if status, ok := response.(*messaging.StatusResponse); ok {
+    a.Log().Info("received status", "state", status.State)
+}
+```
+
+## Best Practices
+
+- Keep actor state isolated - no shared mutable state
+- Use message passing for all inter-actor communication
+- Let supervisors handle failures - don't try to catch everything
+- Keep Init method lightweight - heavy initialization should be async
+- Always use actor's logger (a.Log()) not global logger
+- Define clear message types - avoid using `any` in messages
+- Use typed init arguments with structs, not positional args
+- Clean up resources in actor termination if needed

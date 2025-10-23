@@ -1,0 +1,695 @@
+---
+alwaysApply: true
+---
+
+# Workflow & Node Implementation Patterns
+
+## Node Schema
+
+Nodes are defined through schemas with unique IDs and function references:
+
+```go
+type NodeSchema struct {
+    ID       string      `json:"id" yaml:"id" validate:"required"`
+    Function string      `json:"function" yaml:"function" validate:"required"`
+    Config   *NodeConfig `json:"config,omitempty" yaml:"config,omitempty"`
+}
+
+// Clone creates a deep copy of the NodeSchema
+func (n *NodeSchema) Clone() *NodeSchema {
+    return &NodeSchema{
+        ID:       n.ID,
+        Function: n.Function,
+        Config:   n.Config,
+    }
+}
+```
+
+## Graph Structure
+
+### Core Components
+
+- **Graph** - Contains nodes and edges, computed from schema
+- **Trigger Node** - The root node (starting point) of the workflow
+- **Thread Management** - Nodes have thread IDs for execution ordering
+- **Edge Types** - Conditional and unconditional edges between nodes
+
+### Graph Definition
+
+```go
+type Graph struct {
+    schema  *GraphSchema           // Schema used to generate the graph
+    trigger *Node                  // Root node (starting point)
+    nodes   map[string]*Node       // Fast lookup by node ID
+    edges   map[string]*Edge       // Fast lookup by edge ID
+}
+
+// NewGraph creates a new graph from a schema
+func NewGraph(schema *GraphSchema) (*Graph, error) {
+    if err := schema.Validate(); err != nil {
+        return nil, err
+    }
+
+    graph := &Graph{
+        schema:  schema,
+        trigger: nil,
+        nodes:   make(map[string]*Node),
+        edges:   make(map[string]*Edge),
+    }
+
+    if err := graph.compute(); err != nil {
+        return nil, err
+    }
+
+    return graph, nil
+}
+```
+
+## Node Implementation
+
+### Node Structure
+
+```go
+type Node struct {
+    schema           *NodeSchema
+    functionMetadata *packages.FunctionMetadata
+    thread           uint16        // Execution order thread ID
+    parentThreads    []uint16      // Parent thread IDs
+    inputEdges       []*Edge       // Incoming connections
+    outputEdges      []*Edge       // Outgoing connections
+}
+
+// Public accessor methods
+func (n *Node) ID() string {
+    return n.schema.ID
+}
+
+func (n *Node) FullID() string {
+    return fmt.Sprintf("%s/%s", n.schema.Function, n.schema.ID)
+}
+
+func (n *Node) FunctionID() string {
+    return n.schema.Function
+}
+
+func (n *Node) Thread() uint16 {
+    return n.thread
+}
+
+func (n *Node) IsConditional() bool {
+    return n.functionMetadata.Output.ConditionalOutput
+}
+```
+
+### Node Capabilities
+
+Each node:
+
+- Operates as an ergo actor (for execution)
+- Has a unique identifier
+- Defines input/output metadata via `FunctionMetadata`
+- Executes specific logic
+- Supports both sync and async modes
+- Returns standardized results
+- Can have conditional outputs
+
+## Edge Implementation
+
+### Edge Structure
+
+```go
+type Edge struct {
+    schema    *EdgeSchema
+    from      *Node      // Source node
+    to        *Node      // Target node
+    condition string     // Optional condition expression
+}
+
+// Edge types
+const (
+    EdgeTypeUnconditional = "unconditional"
+    EdgeTypeConditional   = "conditional"
+)
+
+func (e *Edge) IsConditional() bool {
+    return e.condition != ""
+}
+```
+
+## Function Metadata & Validation
+
+### Metadata Definition
+
+Use `FunctionMetadata` to define input/output specifications:
+
+```go
+type FunctionMetadata struct {
+    ID          string          `json:"id" validate:"required"`
+    Name        string          `json:"name"`
+    Description string          `json:"description"`
+    Input       InputMetadata   `json:"input"`
+    Output      OutputMetadata  `json:"output"`
+}
+
+type InputMetadata struct {
+    Parameters []ParameterSchema `json:"parameters"`
+    Required   []string          `json:"required"`
+}
+
+type OutputMetadata struct {
+    ConditionalOutput bool                `json:"conditionalOutput"`
+    Schema            map[string]any      `json:"schema"`
+}
+
+type ParameterSchema struct {
+    Name        string `json:"name" validate:"required"`
+    Type        string `json:"type" validate:"required"`
+    Description string `json:"description"`
+    Required    bool   `json:"required"`
+    Default     any    `json:"default,omitempty"`
+}
+```
+
+### Schema Validation
+
+Use `go-playground/validator` tags on all structs requiring validation:
+
+```go
+import "github.com/go-playground/validator/v10"
+
+type GraphSchema struct {
+    ID    string         `json:"id" validate:"required,min=1,max=100"`
+    Nodes []*NodeSchema  `json:"nodes" validate:"required,min=1,dive"`
+    Edges []*EdgeSchema  `json:"edges" validate:"dive"`
+}
+
+func (s *GraphSchema) Validate() error {
+    validate := validator.New()
+    if err := validate.Struct(s); err != nil {
+        return fmt.Errorf("schema validation failed: %w", err)
+    }
+
+    // Additional business logic validation
+    if err := s.validateNodeReferences(); err != nil {
+        return err
+    }
+
+    return nil
+}
+
+func (s *GraphSchema) validateNodeReferences() error {
+    nodeIDs := make(map[string]bool)
+    for _, node := range s.Nodes {
+        nodeIDs[node.ID] = true
+    }
+
+    // Validate edge references
+    for _, edge := range s.Edges {
+        if !nodeIDs[edge.From] {
+            return fmt.Errorf("edge references non-existent node: %s", edge.From)
+        }
+        if !nodeIDs[edge.To] {
+            return fmt.Errorf("edge references non-existent node: %s", edge.To)
+        }
+    }
+
+    return nil
+}
+```
+
+## State Management
+
+### Workflow State
+
+Workflows maintain state through the actor lifecycle:
+
+```go
+type Workflow struct {
+    id          workflow.ID
+    graph       *Graph
+    state       WorkflowState
+    currentNode *Node
+    context     map[string]any  // Execution context/state
+}
+
+type WorkflowState string
+
+const (
+    WorkflowStatePending   WorkflowState = "pending"
+    WorkflowStateRunning   WorkflowState = "running"
+    WorkflowStateCompleted WorkflowState = "completed"
+    WorkflowStateFailed    WorkflowState = "failed"
+    WorkflowStateStopped   WorkflowState = "stopped"
+)
+```
+
+### State Persistence
+
+State is persisted via repositories (MongoDB or in-memory):
+
+```go
+type WorkflowRepository interface {
+    Get(id string) (*Workflow, error)
+    Save(workflow *Workflow) error
+    Exists(id string) bool
+    UpdateState(id string, state WorkflowState) error
+}
+
+// Use the workflow's actor PID to track running workflows
+type WorkflowSupervisor struct {
+    act.Supervisor
+
+    runningWorkflows map[workflow.ID]gen.PID  // Track active workflow actors
+}
+```
+
+## Thread Management
+
+Nodes have thread IDs for execution ordering:
+
+```go
+// Compute thread IDs for execution ordering
+func (g *Graph) computeThreads() error {
+    visited := make(map[string]bool)
+    threadCounter := uint16(0)
+
+    // Start from trigger node
+    if err := g.assignThreads(g.trigger, &threadCounter, visited); err != nil {
+        return err
+    }
+
+    return nil
+}
+
+func (g *Graph) assignThreads(node *Node, counter *uint16, visited map[string]bool) error {
+    if visited[node.ID()] {
+        return nil
+    }
+
+    visited[node.ID()] = true
+    node.thread = *counter
+    *counter++
+
+    // Recursively assign to child nodes
+    for _, edge := range node.outputEdges {
+        if err := g.assignThreads(edge.to, counter, visited); err != nil {
+            return err
+        }
+    }
+
+    return nil
+}
+```
+
+## Workflow Execution
+
+### Execution Flow
+
+```go
+// execute runs the workflow by traversing nodes in thread order
+func (w *Workflow) Execute(input map[string]any) (*Result, error) {
+    w.state = WorkflowStateRunning
+    w.context = input
+
+    currentNode := w.graph.Trigger()
+
+    for currentNode != nil {
+        // Execute current node
+        result, err := w.executeNode(currentNode)
+        if err != nil {
+            w.state = WorkflowStateFailed
+            return nil, fmt.Errorf("node %s failed: %w", currentNode.ID(), err)
+        }
+
+        // Store result in context
+        w.context[currentNode.ID()] = result
+
+        // Determine next node based on edges
+        currentNode, err = w.selectNextNode(currentNode, result)
+        if err != nil {
+            w.state = WorkflowStateFailed
+            return nil, err
+        }
+    }
+
+    w.state = WorkflowStateCompleted
+    return w.buildResult(), nil
+}
+```
+
+## Best Practices
+
+- Always validate schemas before creating graphs
+- Keep node logic isolated and testable
+- Use function metadata to define clear contracts
+- Implement proper error handling in node execution
+- Track workflow state for monitoring and debugging
+- Use thread IDs for deterministic execution ordering
+- Support both sync and async node execution modes
+- Persist workflow state for recovery and auditability
+
+# Workflow & Node Implementation Patterns
+
+## Node Schema
+
+Nodes are defined through schemas with unique IDs and function references:
+
+```go
+type NodeSchema struct {
+    ID       string      `json:"id" yaml:"id" validate:"required"`
+    Function string      `json:"function" yaml:"function" validate:"required"`
+    Config   *NodeConfig `json:"config,omitempty" yaml:"config,omitempty"`
+}
+
+// Clone creates a deep copy of the NodeSchema
+func (n *NodeSchema) Clone() *NodeSchema {
+    return &NodeSchema{
+        ID:       n.ID,
+        Function: n.Function,
+        Config:   n.Config,
+    }
+}
+```
+
+## Graph Structure
+
+### Core Components
+
+- **Graph** - Contains nodes and edges, computed from schema
+- **Trigger Node** - The root node (starting point) of the workflow
+- **Thread Management** - Nodes have thread IDs for execution ordering
+- **Edge Types** - Conditional and unconditional edges between nodes
+
+### Graph Definition
+
+```go
+type Graph struct {
+    schema  *GraphSchema           // Schema used to generate the graph
+    trigger *Node                  // Root node (starting point)
+    nodes   map[string]*Node       // Fast lookup by node ID
+    edges   map[string]*Edge       // Fast lookup by edge ID
+}
+
+// NewGraph creates a new graph from a schema
+func NewGraph(schema *GraphSchema) (*Graph, error) {
+    if err := schema.Validate(); err != nil {
+        return nil, err
+    }
+
+    graph := &Graph{
+        schema:  schema,
+        trigger: nil,
+        nodes:   make(map[string]*Node),
+        edges:   make(map[string]*Edge),
+    }
+
+    if err := graph.compute(); err != nil {
+        return nil, err
+    }
+
+    return graph, nil
+}
+```
+
+## Node Implementation
+
+### Node Structure
+
+```go
+type Node struct {
+    schema           *NodeSchema
+    functionMetadata *packages.FunctionMetadata
+    thread           uint16        // Execution order thread ID
+    parentThreads    []uint16      // Parent thread IDs
+    inputEdges       []*Edge       // Incoming connections
+    outputEdges      []*Edge       // Outgoing connections
+}
+
+// Public accessor methods
+func (n *Node) ID() string {
+    return n.schema.ID
+}
+
+func (n *Node) FullID() string {
+    return fmt.Sprintf("%s/%s", n.schema.Function, n.schema.ID)
+}
+
+func (n *Node) FunctionID() string {
+    return n.schema.Function
+}
+
+func (n *Node) Thread() uint16 {
+    return n.thread
+}
+
+func (n *Node) IsConditional() bool {
+    return n.functionMetadata.Output.ConditionalOutput
+}
+```
+
+### Node Capabilities
+
+Each node:
+
+- Operates as an ergo actor (for execution)
+- Has a unique identifier
+- Defines input/output metadata via `FunctionMetadata`
+- Executes specific logic
+- Supports both sync and async modes
+- Returns standardized results
+- Can have conditional outputs
+
+## Edge Implementation
+
+### Edge Structure
+
+```go
+type Edge struct {
+    schema    *EdgeSchema
+    from      *Node      // Source node
+    to        *Node      // Target node
+    condition string     // Optional condition expression
+}
+
+// Edge types
+const (
+    EdgeTypeUnconditional = "unconditional"
+    EdgeTypeConditional   = "conditional"
+)
+
+func (e *Edge) IsConditional() bool {
+    return e.condition != ""
+}
+```
+
+## Function Metadata & Validation
+
+### Metadata Definition
+
+Use `FunctionMetadata` to define input/output specifications:
+
+```go
+type FunctionMetadata struct {
+    ID          string          `json:"id" validate:"required"`
+    Name        string          `json:"name"`
+    Description string          `json:"description"`
+    Input       InputMetadata   `json:"input"`
+    Output      OutputMetadata  `json:"output"`
+}
+
+type InputMetadata struct {
+    Parameters []ParameterSchema `json:"parameters"`
+    Required   []string          `json:"required"`
+}
+
+type OutputMetadata struct {
+    ConditionalOutput bool                `json:"conditionalOutput"`
+    Schema            map[string]any      `json:"schema"`
+}
+
+type ParameterSchema struct {
+    Name        string `json:"name" validate:"required"`
+    Type        string `json:"type" validate:"required"`
+    Description string `json:"description"`
+    Required    bool   `json:"required"`
+    Default     any    `json:"default,omitempty"`
+}
+```
+
+### Schema Validation
+
+Use `go-playground/validator` tags on all structs requiring validation:
+
+```go
+import "github.com/go-playground/validator/v10"
+
+type GraphSchema struct {
+    ID    string         `json:"id" validate:"required,min=1,max=100"`
+    Nodes []*NodeSchema  `json:"nodes" validate:"required,min=1,dive"`
+    Edges []*EdgeSchema  `json:"edges" validate:"dive"`
+}
+
+func (s *GraphSchema) Validate() error {
+    validate := validator.New()
+    if err := validate.Struct(s); err != nil {
+        return fmt.Errorf("schema validation failed: %w", err)
+    }
+
+    // Additional business logic validation
+    if err := s.validateNodeReferences(); err != nil {
+        return err
+    }
+
+    return nil
+}
+
+func (s *GraphSchema) validateNodeReferences() error {
+    nodeIDs := make(map[string]bool)
+    for _, node := range s.Nodes {
+        nodeIDs[node.ID] = true
+    }
+
+    // Validate edge references
+    for _, edge := range s.Edges {
+        if !nodeIDs[edge.From] {
+            return fmt.Errorf("edge references non-existent node: %s", edge.From)
+        }
+        if !nodeIDs[edge.To] {
+            return fmt.Errorf("edge references non-existent node: %s", edge.To)
+        }
+    }
+
+    return nil
+}
+```
+
+## State Management
+
+### Workflow State
+
+Workflows maintain state through the actor lifecycle:
+
+```go
+type Workflow struct {
+    id          workflow.ID
+    graph       *Graph
+    state       WorkflowState
+    currentNode *Node
+    context     map[string]any  // Execution context/state
+}
+
+type WorkflowState string
+
+const (
+    WorkflowStatePending   WorkflowState = "pending"
+    WorkflowStateRunning   WorkflowState = "running"
+    WorkflowStateCompleted WorkflowState = "completed"
+    WorkflowStateFailed    WorkflowState = "failed"
+    WorkflowStateStopped   WorkflowState = "stopped"
+)
+```
+
+### State Persistence
+
+State is persisted via repositories (MongoDB or in-memory):
+
+```go
+type WorkflowRepository interface {
+    Get(id string) (*Workflow, error)
+    Save(workflow *Workflow) error
+    Exists(id string) bool
+    UpdateState(id string, state WorkflowState) error
+}
+
+// Use the workflow's actor PID to track running workflows
+type WorkflowSupervisor struct {
+    act.Supervisor
+
+    runningWorkflows map[workflow.ID]gen.PID  // Track active workflow actors
+}
+```
+
+## Thread Management
+
+Nodes have thread IDs for execution ordering:
+
+```go
+// Compute thread IDs for execution ordering
+func (g *Graph) computeThreads() error {
+    visited := make(map[string]bool)
+    threadCounter := uint16(0)
+
+    // Start from trigger node
+    if err := g.assignThreads(g.trigger, &threadCounter, visited); err != nil {
+        return err
+    }
+
+    return nil
+}
+
+func (g *Graph) assignThreads(node *Node, counter *uint16, visited map[string]bool) error {
+    if visited[node.ID()] {
+        return nil
+    }
+
+    visited[node.ID()] = true
+    node.thread = *counter
+    *counter++
+
+    // Recursively assign to child nodes
+    for _, edge := range node.outputEdges {
+        if err := g.assignThreads(edge.to, counter, visited); err != nil {
+            return err
+        }
+    }
+
+    return nil
+}
+```
+
+## Workflow Execution
+
+### Execution Flow
+
+```go
+// execute runs the workflow by traversing nodes in thread order
+func (w *Workflow) Execute(input map[string]any) (*Result, error) {
+    w.state = WorkflowStateRunning
+    w.context = input
+
+    currentNode := w.graph.Trigger()
+
+    for currentNode != nil {
+        // Execute current node
+        result, err := w.executeNode(currentNode)
+        if err != nil {
+            w.state = WorkflowStateFailed
+            return nil, fmt.Errorf("node %s failed: %w", currentNode.ID(), err)
+        }
+
+        // Store result in context
+        w.context[currentNode.ID()] = result
+
+        // Determine next node based on edges
+        currentNode, err = w.selectNextNode(currentNode, result)
+        if err != nil {
+            w.state = WorkflowStateFailed
+            return nil, err
+        }
+    }
+
+    w.state = WorkflowStateCompleted
+    return w.buildResult(), nil
+}
+```
+
+## Best Practices
+
+- Always validate schemas before creating graphs
+- Keep node logic isolated and testable
+- Use function metadata to define clear contracts
+- Implement proper error handling in node execution
+- Track workflow state for monitoring and debugging
+- Use thread IDs for deterministic execution ordering
+- Support both sync and async node execution modes
+- Persist workflow state for recovery and auditability

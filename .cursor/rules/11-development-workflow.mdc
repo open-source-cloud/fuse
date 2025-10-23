@@ -1,0 +1,879 @@
+---
+alwaysApply: true
+---
+
+# Development Workflow
+
+## Before Starting Work
+
+### 1. Update Local Repository
+
+```bash
+# Switch to main branch
+git checkout main
+
+# Pull latest changes
+git pull origin main
+
+# Verify clean state
+git status
+```
+
+### 2. Create Feature Branch
+
+```bash
+# Create and switch to feature branch
+git checkout -b feat/your-feature-name
+
+# Or for bug fixes
+git checkout -b fix/bug-description
+
+# Or for documentation
+git checkout -b docs/documentation-update
+```
+
+### Branch Naming Conventions
+
+- `feat/` - New features
+- `fix/` - Bug fixes
+- `docs/` - Documentation changes
+- `refactor/` - Code refactoring
+- `test/` - Test additions or modifications
+- `chore/` - Maintenance tasks
+
+## During Development
+
+### 1. Write Code and Tests Together
+
+```bash
+# Example workflow
+1. Write failing test
+2. Implement feature to make test pass
+3. Refactor if needed
+4. Run tests: make test
+```
+
+### 2. Run Linters Frequently
+
+```bash
+# Check for issues
+make lint
+
+# Auto-fix issues
+make lint-fix
+
+# Specific package
+golangci-lint run ./internal/workflow/...
+```
+
+### 3. Keep Commits Focused and Atomic
+
+```bash
+# Stage specific files
+git add internal/workflow/graph.go
+git add internal/workflow/graph_test.go
+
+# Commit with meaningful message
+git commit -m "feat: add thread computation to graph"
+
+# Or stage all changes
+git add .
+git commit -m "fix: resolve race condition in workflow repository"
+```
+
+### 4. Write Meaningful Commit Messages
+
+Follow [Conventional Commits](https://www.conventionalcommits.org/) format:
+
+```
+<type>: <description>
+
+[optional body]
+
+[optional footer]
+```
+
+**Types:**
+
+- `feat:` - New features
+- `fix:` - Bug fixes
+- `docs:` - Documentation changes
+- `style:` - Formatting changes (no code logic change)
+- `refactor:` - Code refactoring
+- `test:` - Test additions or modifications
+- `chore:` - Maintenance tasks
+- `perf:` - Performance improvements
+
+**Examples:**
+
+```bash
+# Simple commit
+git commit -m "feat: add support for conditional node execution"
+
+# With body
+git commit -m "fix: resolve race condition in workflow repository
+
+The workflow repository was not properly protecting concurrent access
+to the workflows map. Added RWMutex to ensure thread safety."
+
+# With breaking change
+git commit -m "feat!: change workflow execution API
+
+BREAKING CHANGE: Execute now requires context parameter"
+
+# Multiple scopes
+git commit -m "feat(workflow): add conditional edge support"
+git commit -m "fix(repo): resolve MongoDB connection timeout"
+git commit -m "docs(readme): update installation instructions"
+```
+
+## Before Submitting PR
+
+### 1. Run Full Test Suite
+
+```bash
+# Run all tests
+make test
+
+# With coverage
+go test -cover ./...
+
+# Generate coverage report
+go test -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out
+```
+
+### 2. Run Linters
+
+```bash
+# Ensure no linting issues
+make lint
+
+# Should show: "Everything is fine!"
+```
+
+### 3. Update Documentation
+
+- Update README.md if adding new features
+- Add/update doc comments for public APIs
+- Update examples if API changes
+- Update CONTRIBUTE.md if workflow changes
+
+### 4. Review Your Own Code
+
+```bash
+# See all changes
+git diff main
+
+# Review specific file
+git diff main -- internal/workflow/graph.go
+
+# Check commit history
+git log --oneline
+```
+
+### 5. Rebase on Latest Main (if needed)
+
+```bash
+# Fetch latest changes
+git fetch origin main
+
+# Rebase your branch
+git rebase origin/main
+
+# Resolve conflicts if any
+# Then continue
+git rebase --continue
+
+# Force push (only to your branch!)
+git push --force-with-lease
+```
+
+## Submitting Pull Request
+
+### 1. Push Your Branch
+
+```bash
+# First push
+git push -u origin feat/your-feature-name
+
+# Subsequent pushes
+git push
+```
+
+### 2. Create Pull Request
+
+On GitHub:
+
+1. Go to repository
+2. Click "Pull requests" > "New pull request"
+3. Select your branch
+4. Fill in PR template:
+
+```markdown
+## Description
+
+Brief description of changes
+
+## Changes
+
+- Added conditional edge support
+- Updated graph computation logic
+- Added tests for edge cases
+
+## Testing
+
+- [ ] Unit tests added/updated
+- [ ] Integration tests pass
+- [ ] Linters pass
+
+## Documentation
+
+- [ ] Updated code comments
+- [ ] Updated README (if needed)
+- [ ] Updated examples (if needed)
+
+## Breaking Changes
+
+None / Describe breaking changes
+
+## Related Issues
+
+Closes #123
+```
+
+### 3. Wait for CI/CD
+
+Ensure all checks pass:
+
+- ✅ Tests pass
+- ✅ Linters pass
+- ✅ Build succeeds
+- ✅ Coverage acceptable
+
+## After PR Review
+
+### 1. Address Feedback
+
+```bash
+# Make changes based on feedback
+# Stage and commit
+git add .
+git commit -m "refactor: address PR review comments"
+
+# Push updates
+git push
+```
+
+### 2. Squash Commits (if requested)
+
+```bash
+# Interactive rebase for last N commits
+git rebase -i HEAD~3
+
+# In editor, change 'pick' to 'squash' or 's' for commits to combine
+# Save and exit
+# Update commit message
+# Force push
+git push --force-with-lease
+```
+
+### 3. Merge Strategy
+
+Once approved:
+
+- **Squash and merge** - For small features (keeps history clean)
+- **Rebase and merge** - For large features with meaningful commits
+- **Merge commit** - For feature branches with sub-tasks
+
+## Code Review Checklist
+
+Before submitting:
+
+### Code Quality
+
+- [ ] Follows Go conventions and project patterns
+- [ ] No linter errors (`make lint`)
+- [ ] Proper error handling
+- [ ] Thread-safe where needed
+- [ ] No hardcoded values (use config)
+
+### Testing
+
+- [ ] Unit tests added for new functionality
+- [ ] Existing tests pass (`make test`)
+- [ ] Edge cases covered
+- [ ] Integration tests if applicable
+- [ ] Coverage is acceptable
+
+### Documentation
+
+- [ ] Doc comments on public APIs
+- [ ] Complex logic explained
+- [ ] README updated if needed
+- [ ] Examples updated if API changed
+
+### Actor Model (if applicable)
+
+- [ ] Proper factory pattern used
+- [ ] Message types defined
+- [ ] Actor logging used (`a.Log()`)
+- [ ] Supervisor strategy appropriate
+- [ ] Pool sizing considered
+
+### Repository/Service Layer
+
+- [ ] Interface-first design
+- [ ] Multiple implementations if needed
+- [ ] Thread-safe operations
+- [ ] Proper error types
+- [ ] Context passed for cancellation
+
+### HTTP Handlers
+
+- [ ] Extends base `Handler`
+- [ ] Factory pattern used
+- [ ] Proper logging with context
+- [ ] Validation implemented
+- [ ] Error responses consistent
+
+### Commit Quality
+
+- [ ] Meaningful commit messages
+- [ ] Follows conventional commits format
+- [ ] Commits are atomic and focused
+- [ ] No WIP or temp commits
+
+## Common Git Commands
+
+```bash
+# Check status
+git status
+
+# See differences
+git diff
+git diff --staged
+
+# Stash changes temporarily
+git stash
+git stash pop
+
+# Amend last commit
+git commit --amend
+
+# Reset staged changes
+git reset HEAD file.go
+
+# Discard local changes
+git checkout -- file.go
+
+# View commit history
+git log --oneline --graph
+
+# Cherry-pick specific commit
+git cherry-pick <commit-hash>
+
+# Create tag
+git tag -a v1.0.0 -m "Release version 1.0.0"
+git push origin v1.0.0
+```
+
+## Troubleshooting
+
+### Tests Failing
+
+```bash
+# Run specific test
+go test -v -run TestGraphCreation ./internal/workflow/
+
+# Run with more detail
+go test -v ./...
+
+# Clear test cache
+go clean -testcache
+```
+
+### Linter Issues
+
+```bash
+# See detailed linter output
+golangci-lint run -v
+
+# Run specific linter
+golangci-lint run --disable-all --enable=errcheck
+
+# Clear linter cache
+golangci-lint cache clean
+```
+
+### Build Issues
+
+```bash
+# Clean build cache
+go clean -cache
+
+# Update dependencies
+go mod tidy
+go mod download
+
+# Rebuild
+make clean
+make build
+```
+
+## Best Practices
+
+- **Commit often** - Small, focused commits are easier to review
+- **Test locally** - Always run tests before pushing
+- **Write good messages** - Future you will thank you
+- **Keep PRs small** - Easier to review and merge
+- **Respond to feedback** - Address all review comments
+- **Keep main clean** - Never push directly to main
+- **Use feature flags** - For incomplete features
+- **Document decisions** - Add comments for non-obvious choices
+
+## Resources
+
+- [Effective Go](https://golang.org/doc/effective_go)
+- [Conventional Commits](https://www.conventionalcommits.org/)
+- [GitHub Flow](https://guides.github.com/introduction/flow/)
+- [Code Review Best Practices](https://google.github.io/eng-practices/review/)
+- [ergo.services Documentation](https://docs.ergo.services/)
+
+# Development Workflow
+
+## Before Starting Work
+
+### 1. Update Local Repository
+
+```bash
+# Switch to main branch
+git checkout main
+
+# Pull latest changes
+git pull origin main
+
+# Verify clean state
+git status
+```
+
+### 2. Create Feature Branch
+
+```bash
+# Create and switch to feature branch
+git checkout -b feat/your-feature-name
+
+# Or for bug fixes
+git checkout -b fix/bug-description
+
+# Or for documentation
+git checkout -b docs/documentation-update
+```
+
+### Branch Naming Conventions
+
+- `feat/` - New features
+- `fix/` - Bug fixes
+- `docs/` - Documentation changes
+- `refactor/` - Code refactoring
+- `test/` - Test additions or modifications
+- `chore/` - Maintenance tasks
+
+## During Development
+
+### 1. Write Code and Tests Together
+
+```bash
+# Example workflow
+1. Write failing test
+2. Implement feature to make test pass
+3. Refactor if needed
+4. Run tests: make test
+```
+
+### 2. Run Linters Frequently
+
+```bash
+# Check for issues
+make lint
+
+# Auto-fix issues
+make lint-fix
+
+# Specific package
+golangci-lint run ./internal/workflow/...
+```
+
+### 3. Keep Commits Focused and Atomic
+
+```bash
+# Stage specific files
+git add internal/workflow/graph.go
+git add internal/workflow/graph_test.go
+
+# Commit with meaningful message
+git commit -m "feat: add thread computation to graph"
+
+# Or stage all changes
+git add .
+git commit -m "fix: resolve race condition in workflow repository"
+```
+
+### 4. Write Meaningful Commit Messages
+
+Follow [Conventional Commits](https://www.conventionalcommits.org/) format:
+
+```
+<type>: <description>
+
+[optional body]
+
+[optional footer]
+```
+
+**Types:**
+
+- `feat:` - New features
+- `fix:` - Bug fixes
+- `docs:` - Documentation changes
+- `style:` - Formatting changes (no code logic change)
+- `refactor:` - Code refactoring
+- `test:` - Test additions or modifications
+- `chore:` - Maintenance tasks
+- `perf:` - Performance improvements
+
+**Examples:**
+
+```bash
+# Simple commit
+git commit -m "feat: add support for conditional node execution"
+
+# With body
+git commit -m "fix: resolve race condition in workflow repository
+
+The workflow repository was not properly protecting concurrent access
+to the workflows map. Added RWMutex to ensure thread safety."
+
+# With breaking change
+git commit -m "feat!: change workflow execution API
+
+BREAKING CHANGE: Execute now requires context parameter"
+
+# Multiple scopes
+git commit -m "feat(workflow): add conditional edge support"
+git commit -m "fix(repo): resolve MongoDB connection timeout"
+git commit -m "docs(readme): update installation instructions"
+```
+
+## Before Submitting PR
+
+### 1. Run Full Test Suite
+
+```bash
+# Run all tests
+make test
+
+# With coverage
+go test -cover ./...
+
+# Generate coverage report
+go test -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out
+```
+
+### 2. Run Linters
+
+```bash
+# Ensure no linting issues
+make lint
+
+# Should show: "Everything is fine!"
+```
+
+### 3. Update Documentation
+
+- Update README.md if adding new features
+- Add/update doc comments for public APIs
+- Update examples if API changes
+- Update CONTRIBUTE.md if workflow changes
+
+### 4. Review Your Own Code
+
+```bash
+# See all changes
+git diff main
+
+# Review specific file
+git diff main -- internal/workflow/graph.go
+
+# Check commit history
+git log --oneline
+```
+
+### 5. Rebase on Latest Main (if needed)
+
+```bash
+# Fetch latest changes
+git fetch origin main
+
+# Rebase your branch
+git rebase origin/main
+
+# Resolve conflicts if any
+# Then continue
+git rebase --continue
+
+# Force push (only to your branch!)
+git push --force-with-lease
+```
+
+## Submitting Pull Request
+
+### 1. Push Your Branch
+
+```bash
+# First push
+git push -u origin feat/your-feature-name
+
+# Subsequent pushes
+git push
+```
+
+### 2. Create Pull Request
+
+On GitHub:
+
+1. Go to repository
+2. Click "Pull requests" > "New pull request"
+3. Select your branch
+4. Fill in PR template:
+
+```markdown
+## Description
+
+Brief description of changes
+
+## Changes
+
+- Added conditional edge support
+- Updated graph computation logic
+- Added tests for edge cases
+
+## Testing
+
+- [ ] Unit tests added/updated
+- [ ] Integration tests pass
+- [ ] Linters pass
+
+## Documentation
+
+- [ ] Updated code comments
+- [ ] Updated README (if needed)
+- [ ] Updated examples (if needed)
+
+## Breaking Changes
+
+None / Describe breaking changes
+
+## Related Issues
+
+Closes #123
+```
+
+### 3. Wait for CI/CD
+
+Ensure all checks pass:
+
+- ✅ Tests pass
+- ✅ Linters pass
+- ✅ Build succeeds
+- ✅ Coverage acceptable
+
+## After PR Review
+
+### 1. Address Feedback
+
+```bash
+# Make changes based on feedback
+# Stage and commit
+git add .
+git commit -m "refactor: address PR review comments"
+
+# Push updates
+git push
+```
+
+### 2. Squash Commits (if requested)
+
+```bash
+# Interactive rebase for last N commits
+git rebase -i HEAD~3
+
+# In editor, change 'pick' to 'squash' or 's' for commits to combine
+# Save and exit
+# Update commit message
+# Force push
+git push --force-with-lease
+```
+
+### 3. Merge Strategy
+
+Once approved:
+
+- **Squash and merge** - For small features (keeps history clean)
+- **Rebase and merge** - For large features with meaningful commits
+- **Merge commit** - For feature branches with sub-tasks
+
+## Code Review Checklist
+
+Before submitting:
+
+### Code Quality
+
+- [ ] Follows Go conventions and project patterns
+- [ ] No linter errors (`make lint`)
+- [ ] Proper error handling
+- [ ] Thread-safe where needed
+- [ ] No hardcoded values (use config)
+
+### Testing
+
+- [ ] Unit tests added for new functionality
+- [ ] Existing tests pass (`make test`)
+- [ ] Edge cases covered
+- [ ] Integration tests if applicable
+- [ ] Coverage is acceptable
+
+### Documentation
+
+- [ ] Doc comments on public APIs
+- [ ] Complex logic explained
+- [ ] README updated if needed
+- [ ] Examples updated if API changed
+
+### Actor Model (if applicable)
+
+- [ ] Proper factory pattern used
+- [ ] Message types defined
+- [ ] Actor logging used (`a.Log()`)
+- [ ] Supervisor strategy appropriate
+- [ ] Pool sizing considered
+
+### Repository/Service Layer
+
+- [ ] Interface-first design
+- [ ] Multiple implementations if needed
+- [ ] Thread-safe operations
+- [ ] Proper error types
+- [ ] Context passed for cancellation
+
+### HTTP Handlers
+
+- [ ] Extends base `Handler`
+- [ ] Factory pattern used
+- [ ] Proper logging with context
+- [ ] Validation implemented
+- [ ] Error responses consistent
+
+### Commit Quality
+
+- [ ] Meaningful commit messages
+- [ ] Follows conventional commits format
+- [ ] Commits are atomic and focused
+- [ ] No WIP or temp commits
+
+## Common Git Commands
+
+```bash
+# Check status
+git status
+
+# See differences
+git diff
+git diff --staged
+
+# Stash changes temporarily
+git stash
+git stash pop
+
+# Amend last commit
+git commit --amend
+
+# Reset staged changes
+git reset HEAD file.go
+
+# Discard local changes
+git checkout -- file.go
+
+# View commit history
+git log --oneline --graph
+
+# Cherry-pick specific commit
+git cherry-pick <commit-hash>
+
+# Create tag
+git tag -a v1.0.0 -m "Release version 1.0.0"
+git push origin v1.0.0
+```
+
+## Troubleshooting
+
+### Tests Failing
+
+```bash
+# Run specific test
+go test -v -run TestGraphCreation ./internal/workflow/
+
+# Run with more detail
+go test -v ./...
+
+# Clear test cache
+go clean -testcache
+```
+
+### Linter Issues
+
+```bash
+# See detailed linter output
+golangci-lint run -v
+
+# Run specific linter
+golangci-lint run --disable-all --enable=errcheck
+
+# Clear linter cache
+golangci-lint cache clean
+```
+
+### Build Issues
+
+```bash
+# Clean build cache
+go clean -cache
+
+# Update dependencies
+go mod tidy
+go mod download
+
+# Rebuild
+make clean
+make build
+```
+
+## Best Practices
+
+- **Commit often** - Small, focused commits are easier to review
+- **Test locally** - Always run tests before pushing
+- **Write good messages** - Future you will thank you
+- **Keep PRs small** - Easier to review and merge
+- **Respond to feedback** - Address all review comments
+- **Keep main clean** - Never push directly to main
+- **Use feature flags** - For incomplete features
+- **Document decisions** - Add comments for non-obvious choices
+
+## Resources
+
+- [Effective Go](https://golang.org/doc/effective_go)
+- [Conventional Commits](https://www.conventionalcommits.org/)
+- [GitHub Flow](https://guides.github.com/introduction/flow/)
+- [Code Review Best Practices](https://google.github.io/eng-practices/review/)
+- [ergo.services Documentation](https://docs.ergo.services/)

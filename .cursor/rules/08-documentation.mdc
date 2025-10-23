@@ -1,0 +1,783 @@
+---
+alwaysApply: true
+---
+
+# Documentation Standards
+
+Mix of standard Go doc comments and detailed documentation for complex logic.
+
+## Standard Go Documentation
+
+All exported types, functions, and methods must have doc comments.
+
+### Rules
+
+- Start with the name being documented
+- Keep concise for simple functions
+- Explain **what**, not **how** (code shows how)
+- Use complete sentences
+- Place comment directly above the declaration with no blank line
+
+### Examples
+
+#### Interfaces
+
+```go
+// WorkflowRepository defines the interface for workflow persistence.
+// All implementations must be thread-safe.
+type WorkflowRepository interface {
+    // Get retrieves a workflow by its ID.
+    // Returns ErrWorkflowNotFound if the workflow doesn't exist.
+    Get(id string) (*Workflow, error)
+
+    // Save persists a workflow to the repository.
+    // If the workflow already exists, it is updated.
+    Save(workflow *Workflow) error
+
+    // Exists checks if a workflow exists without retrieving it.
+    Exists(id string) bool
+}
+```
+
+#### Structs
+
+```go
+// WorkflowHandler is an actor that manages workflow execution lifecycle.
+// It responds to workflow control messages and coordinates with other actors
+// for task execution.
+type WorkflowHandler struct {
+    act.Actor
+
+    config  *config.Config
+    service WorkflowService
+}
+```
+
+#### Functions
+
+```go
+// NewMemoryWorkflowRepository creates a new in-memory workflow repository.
+// The repository is thread-safe and suitable for development and testing.
+func NewMemoryWorkflowRepository() WorkflowRepository {
+    return &MemoryWorkflowRepository{
+        workflows: make(map[string]*Workflow),
+    }
+}
+```
+
+#### Methods
+
+```go
+// Execute runs the workflow from the trigger node through completion.
+// It traverses nodes according to their thread IDs and follows edges
+// based on conditional logic. Returns the workflow result or an error
+// if execution fails.
+func (w *Workflow) Execute(input map[string]any) (*Result, error) {
+    // implementation
+}
+```
+
+## Detailed Documentation for Complex Logic
+
+For complex algorithms, actor flows, and non-trivial logic, provide detailed multi-line documentation.
+
+### Complex Algorithms
+
+```go
+// NewGraph creates a new workflow graph from a schema.
+// It performs the following steps:
+//  1. Validates the schema for structural correctness
+//  2. Creates node instances from node schemas
+//  3. Establishes edges between nodes based on connections
+//  4. Computes thread IDs for execution ordering
+//  5. Loads function metadata for each node
+//
+// The graph is immutable once created. Any modifications require
+// creating a new graph from an updated schema.
+//
+// Thread computation uses a depth-first traversal starting from the
+// trigger node. Nodes are assigned sequential thread IDs based on
+// their distance from the trigger.
+//
+// Returns an error if:
+//   - Schema validation fails
+//   - Node references are invalid
+//   - Circular dependencies are detected
+//   - Function metadata cannot be loaded
+func NewGraph(schema *GraphSchema) (*Graph, error) {
+    // implementation
+}
+```
+
+### Actor Message Flows
+
+```go
+// HandleMessage processes incoming messages for the WorkflowHandler.
+//
+// Supported message types:
+//   - *messaging.ExecuteWorkflow: Starts workflow execution
+//     Responds with execution ID and starts async execution
+//
+//   - *messaging.StopWorkflow: Stops a running workflow
+//     Gracefully terminates execution and cleans up resources
+//
+//   - *messaging.GetWorkflowStatus: Returns current workflow status
+//     Synchronously returns state, progress, and result if completed
+//
+// All other message types are logged as warnings and return an error.
+//
+// Message handling is synchronous but long-running operations like
+// workflow execution are delegated to worker pools to avoid blocking
+// the actor mailbox.
+func (a *WorkflowHandler) HandleMessage(from gen.PID, message any) error {
+    // implementation
+}
+```
+
+### Workflow Execution
+
+```go
+// execute runs the workflow by traversing nodes in thread order.
+// It starts from the trigger node and follows edges based on
+// conditional logic and node outputs.
+//
+// Execution flow:
+//  1. Initialize workflow context with input data
+//  2. Set workflow state to Running
+//  3. Start from trigger node (thread 0)
+//  4. Execute node and store result in context
+//  5. Evaluate conditional edges if node has conditional output
+//  6. Select next node based on edge evaluation
+//  7. Repeat until terminal node or error
+//
+// Execution continues until:
+//   - A terminal node is reached (no output edges)
+//   - An error occurs during node execution
+//   - A conditional branch leads to no matching edge
+//   - Workflow is externally stopped
+//
+// The workflow maintains state throughout execution, allowing
+// nodes to access outputs from previous nodes via the context.
+// Context keys are node IDs, and values are node output data.
+//
+// State transitions:
+//   Pending -> Running -> Completed (success)
+//   Pending -> Running -> Failed (error)
+//   Pending -> Running -> Stopped (external stop)
+func (w *Workflow) execute(input map[string]any) (*Result, error) {
+    // implementation
+}
+```
+
+### Concurrency Patterns
+
+```go
+// Save stores a workflow in the repository with thread-safe access.
+//
+// This method uses a write lock to ensure exclusive access during
+// the save operation. Multiple concurrent reads can proceed while
+// no write is in progress, but writes are serialized.
+//
+// Lock ordering:
+//  1. Acquire write lock
+//  2. Perform map write operation
+//  3. Release write lock (via defer)
+//
+// The defer statement ensures the lock is released even if a panic
+// occurs during the save operation.
+func (m *MemoryWorkflowRepository) Save(workflow *Workflow) error {
+    m.mu.Lock()
+    defer m.mu.Unlock()
+
+    m.workflows[workflow.ID().String()] = workflow
+    return nil
+}
+```
+
+## Package Documentation
+
+Add package-level documentation in `doc.go` or at the top of the main file:
+
+```go
+// Package workflow provides the core workflow engine implementation.
+//
+// It includes graph construction from schemas, node execution orchestration,
+// and workflow state management built on the ergo actor model.
+//
+// The workflow engine supports:
+//   - Conditional and unconditional node connections
+//   - Parallel execution paths via thread management
+//   - Synchronous and asynchronous node execution
+//   - State persistence and recovery
+//   - Actor-based concurrency and fault tolerance
+//
+// Basic usage:
+//   schema := &GraphSchema{
+//       ID: "my-workflow",
+//       Nodes: []*NodeSchema{...},
+//       Edges: []*EdgeSchema{...},
+//   }
+//
+//   graph, err := NewGraph(schema)
+//   if err != nil {
+//       log.Fatal(err)
+//   }
+//
+//   workflow := New(graph)
+//   result, err := workflow.Execute(input)
+package workflow
+```
+
+## Examples in Documentation
+
+For non-trivial APIs, include usage examples:
+
+```go
+// NewGraph creates a new workflow graph from a schema.
+//
+// Example - Simple linear workflow:
+//   schema := &GraphSchema{
+//       ID: "linear-workflow",
+//       Nodes: []*NodeSchema{
+//           {ID: "start", Function: "trigger"},
+//           {ID: "process", Function: "transform"},
+//           {ID: "end", Function: "output"},
+//       },
+//       Edges: []*EdgeSchema{
+//           {From: "start", To: "process"},
+//           {From: "process", To: "end"},
+//       },
+//   }
+//   graph, err := NewGraph(schema)
+//   if err != nil {
+//       log.Fatal(err)
+//   }
+//
+// Example - Conditional branching:
+//   schema := &GraphSchema{
+//       ID: "branching-workflow",
+//       Nodes: []*NodeSchema{
+//           {ID: "start", Function: "trigger"},
+//           {ID: "check", Function: "condition"},
+//           {ID: "path_a", Function: "process_a"},
+//           {ID: "path_b", Function: "process_b"},
+//       },
+//       Edges: []*EdgeSchema{
+//           {From: "start", To: "check"},
+//           {From: "check", To: "path_a", Condition: "value > 10"},
+//           {From: "check", To: "path_b", Condition: "value <= 10"},
+//       },
+//   }
+//   graph, err := NewGraph(schema)
+func NewGraph(schema *GraphSchema) (*Graph, error) {
+    // implementation
+}
+```
+
+## Error Documentation
+
+Document error conditions clearly:
+
+```go
+// Get retrieves a workflow by its ID.
+//
+// Returns:
+//   - The workflow if found
+//   - ErrWorkflowNotFound if the workflow doesn't exist
+//   - Other errors for database/connection issues
+func (r *MongoWorkflowRepository) Get(id string) (*Workflow, error) {
+    // implementation
+}
+
+// Validate checks the schema for correctness.
+//
+// Validation checks:
+//   - All required fields are present
+//   - Node IDs are unique
+//   - Edge references point to existing nodes
+//   - No circular dependencies exist
+//   - Function references are valid
+//
+// Returns an error describing the first validation failure encountered.
+func (s *GraphSchema) Validate() error {
+    // implementation
+}
+```
+
+## Inline Comments for Complex Logic
+
+Use inline comments to explain non-obvious logic:
+
+```go
+func (g *Graph) computeThreads() error {
+    visited := make(map[string]bool)
+    threadCounter := uint16(0)
+
+    // Start DFS from trigger node - thread 0 is always the entry point
+    if err := g.assignThreads(g.trigger, &threadCounter, visited); err != nil {
+        return err
+    }
+
+    // Verify all nodes were visited - catches disconnected subgraphs
+    if len(visited) != len(g.nodes) {
+        return fmt.Errorf("graph contains unreachable nodes")
+    }
+
+    return nil
+}
+```
+
+## When to Skip Documentation
+
+You can skip doc comments for:
+
+- Private functions that are self-explanatory
+- Test functions (but add comments for complex test logic)
+- Very simple getters/setters with obvious behavior
+
+```go
+// Good - needs documentation (non-obvious behavior)
+// ID returns the workflow's unique identifier as a string.
+func (w *Workflow) ID() workflow.ID {
+    return w.id
+}
+
+// OK to skip - obvious getter
+func (n *Node) schema() *NodeSchema {
+    return n.schema
+}
+```
+
+## Documentation Checklist
+
+Before committing code, verify:
+
+- [ ] All exported types have doc comments
+- [ ] All exported functions have doc comments
+- [ ] All public methods have doc comments
+- [ ] Complex algorithms have detailed explanations
+- [ ] Actor message flows are documented
+- [ ] Error conditions are documented
+- [ ] Package-level documentation exists
+- [ ] Examples are provided for non-trivial APIs
+- [ ] Inline comments explain non-obvious logic
+
+## Tools
+
+Generate documentation:
+
+```bash
+# View documentation
+go doc github.com/open-source-cloud/fuse/internal/workflow
+
+# View specific type
+go doc github.com/open-source-cloud/fuse/internal/workflow.Graph
+
+# View specific method
+go doc github.com/open-source-cloud/fuse/internal/workflow.Graph.NewGraph
+
+# Serve documentation locally
+godoc -http=:6060
+# Visit http://localhost:6060/pkg/github.com/open-source-cloud/fuse/
+```
+
+## Best Practices
+
+- Write documentation while writing code, not after
+- Keep documentation in sync with code during refactoring
+- Use examples to illustrate non-obvious usage
+- Document the "why" for complex decisions, not just the "what"
+- Link to external resources (ergo.services docs) when relevant
+- Use consistent terminology throughout documentation
+- Prefer clear code over excessive comments
+- Document public APIs thoroughly, private APIs as needed
+
+# Documentation Standards
+
+Mix of standard Go doc comments and detailed documentation for complex logic.
+
+## Standard Go Documentation
+
+All exported types, functions, and methods must have doc comments.
+
+### Rules
+
+- Start with the name being documented
+- Keep concise for simple functions
+- Explain **what**, not **how** (code shows how)
+- Use complete sentences
+- Place comment directly above the declaration with no blank line
+
+### Examples
+
+#### Interfaces
+
+```go
+// WorkflowRepository defines the interface for workflow persistence.
+// All implementations must be thread-safe.
+type WorkflowRepository interface {
+    // Get retrieves a workflow by its ID.
+    // Returns ErrWorkflowNotFound if the workflow doesn't exist.
+    Get(id string) (*Workflow, error)
+
+    // Save persists a workflow to the repository.
+    // If the workflow already exists, it is updated.
+    Save(workflow *Workflow) error
+
+    // Exists checks if a workflow exists without retrieving it.
+    Exists(id string) bool
+}
+```
+
+#### Structs
+
+```go
+// WorkflowHandler is an actor that manages workflow execution lifecycle.
+// It responds to workflow control messages and coordinates with other actors
+// for task execution.
+type WorkflowHandler struct {
+    act.Actor
+
+    config  *config.Config
+    service WorkflowService
+}
+```
+
+#### Functions
+
+```go
+// NewMemoryWorkflowRepository creates a new in-memory workflow repository.
+// The repository is thread-safe and suitable for development and testing.
+func NewMemoryWorkflowRepository() WorkflowRepository {
+    return &MemoryWorkflowRepository{
+        workflows: make(map[string]*Workflow),
+    }
+}
+```
+
+#### Methods
+
+```go
+// Execute runs the workflow from the trigger node through completion.
+// It traverses nodes according to their thread IDs and follows edges
+// based on conditional logic. Returns the workflow result or an error
+// if execution fails.
+func (w *Workflow) Execute(input map[string]any) (*Result, error) {
+    // implementation
+}
+```
+
+## Detailed Documentation for Complex Logic
+
+For complex algorithms, actor flows, and non-trivial logic, provide detailed multi-line documentation.
+
+### Complex Algorithms
+
+```go
+// NewGraph creates a new workflow graph from a schema.
+// It performs the following steps:
+//  1. Validates the schema for structural correctness
+//  2. Creates node instances from node schemas
+//  3. Establishes edges between nodes based on connections
+//  4. Computes thread IDs for execution ordering
+//  5. Loads function metadata for each node
+//
+// The graph is immutable once created. Any modifications require
+// creating a new graph from an updated schema.
+//
+// Thread computation uses a depth-first traversal starting from the
+// trigger node. Nodes are assigned sequential thread IDs based on
+// their distance from the trigger.
+//
+// Returns an error if:
+//   - Schema validation fails
+//   - Node references are invalid
+//   - Circular dependencies are detected
+//   - Function metadata cannot be loaded
+func NewGraph(schema *GraphSchema) (*Graph, error) {
+    // implementation
+}
+```
+
+### Actor Message Flows
+
+```go
+// HandleMessage processes incoming messages for the WorkflowHandler.
+//
+// Supported message types:
+//   - *messaging.ExecuteWorkflow: Starts workflow execution
+//     Responds with execution ID and starts async execution
+//
+//   - *messaging.StopWorkflow: Stops a running workflow
+//     Gracefully terminates execution and cleans up resources
+//
+//   - *messaging.GetWorkflowStatus: Returns current workflow status
+//     Synchronously returns state, progress, and result if completed
+//
+// All other message types are logged as warnings and return an error.
+//
+// Message handling is synchronous but long-running operations like
+// workflow execution are delegated to worker pools to avoid blocking
+// the actor mailbox.
+func (a *WorkflowHandler) HandleMessage(from gen.PID, message any) error {
+    // implementation
+}
+```
+
+### Workflow Execution
+
+```go
+// execute runs the workflow by traversing nodes in thread order.
+// It starts from the trigger node and follows edges based on
+// conditional logic and node outputs.
+//
+// Execution flow:
+//  1. Initialize workflow context with input data
+//  2. Set workflow state to Running
+//  3. Start from trigger node (thread 0)
+//  4. Execute node and store result in context
+//  5. Evaluate conditional edges if node has conditional output
+//  6. Select next node based on edge evaluation
+//  7. Repeat until terminal node or error
+//
+// Execution continues until:
+//   - A terminal node is reached (no output edges)
+//   - An error occurs during node execution
+//   - A conditional branch leads to no matching edge
+//   - Workflow is externally stopped
+//
+// The workflow maintains state throughout execution, allowing
+// nodes to access outputs from previous nodes via the context.
+// Context keys are node IDs, and values are node output data.
+//
+// State transitions:
+//   Pending -> Running -> Completed (success)
+//   Pending -> Running -> Failed (error)
+//   Pending -> Running -> Stopped (external stop)
+func (w *Workflow) execute(input map[string]any) (*Result, error) {
+    // implementation
+}
+```
+
+### Concurrency Patterns
+
+```go
+// Save stores a workflow in the repository with thread-safe access.
+//
+// This method uses a write lock to ensure exclusive access during
+// the save operation. Multiple concurrent reads can proceed while
+// no write is in progress, but writes are serialized.
+//
+// Lock ordering:
+//  1. Acquire write lock
+//  2. Perform map write operation
+//  3. Release write lock (via defer)
+//
+// The defer statement ensures the lock is released even if a panic
+// occurs during the save operation.
+func (m *MemoryWorkflowRepository) Save(workflow *Workflow) error {
+    m.mu.Lock()
+    defer m.mu.Unlock()
+
+    m.workflows[workflow.ID().String()] = workflow
+    return nil
+}
+```
+
+## Package Documentation
+
+Add package-level documentation in `doc.go` or at the top of the main file:
+
+```go
+// Package workflow provides the core workflow engine implementation.
+//
+// It includes graph construction from schemas, node execution orchestration,
+// and workflow state management built on the ergo actor model.
+//
+// The workflow engine supports:
+//   - Conditional and unconditional node connections
+//   - Parallel execution paths via thread management
+//   - Synchronous and asynchronous node execution
+//   - State persistence and recovery
+//   - Actor-based concurrency and fault tolerance
+//
+// Basic usage:
+//   schema := &GraphSchema{
+//       ID: "my-workflow",
+//       Nodes: []*NodeSchema{...},
+//       Edges: []*EdgeSchema{...},
+//   }
+//
+//   graph, err := NewGraph(schema)
+//   if err != nil {
+//       log.Fatal(err)
+//   }
+//
+//   workflow := New(graph)
+//   result, err := workflow.Execute(input)
+package workflow
+```
+
+## Examples in Documentation
+
+For non-trivial APIs, include usage examples:
+
+```go
+// NewGraph creates a new workflow graph from a schema.
+//
+// Example - Simple linear workflow:
+//   schema := &GraphSchema{
+//       ID: "linear-workflow",
+//       Nodes: []*NodeSchema{
+//           {ID: "start", Function: "trigger"},
+//           {ID: "process", Function: "transform"},
+//           {ID: "end", Function: "output"},
+//       },
+//       Edges: []*EdgeSchema{
+//           {From: "start", To: "process"},
+//           {From: "process", To: "end"},
+//       },
+//   }
+//   graph, err := NewGraph(schema)
+//   if err != nil {
+//       log.Fatal(err)
+//   }
+//
+// Example - Conditional branching:
+//   schema := &GraphSchema{
+//       ID: "branching-workflow",
+//       Nodes: []*NodeSchema{
+//           {ID: "start", Function: "trigger"},
+//           {ID: "check", Function: "condition"},
+//           {ID: "path_a", Function: "process_a"},
+//           {ID: "path_b", Function: "process_b"},
+//       },
+//       Edges: []*EdgeSchema{
+//           {From: "start", To: "check"},
+//           {From: "check", To: "path_a", Condition: "value > 10"},
+//           {From: "check", To: "path_b", Condition: "value <= 10"},
+//       },
+//   }
+//   graph, err := NewGraph(schema)
+func NewGraph(schema *GraphSchema) (*Graph, error) {
+    // implementation
+}
+```
+
+## Error Documentation
+
+Document error conditions clearly:
+
+```go
+// Get retrieves a workflow by its ID.
+//
+// Returns:
+//   - The workflow if found
+//   - ErrWorkflowNotFound if the workflow doesn't exist
+//   - Other errors for database/connection issues
+func (r *MongoWorkflowRepository) Get(id string) (*Workflow, error) {
+    // implementation
+}
+
+// Validate checks the schema for correctness.
+//
+// Validation checks:
+//   - All required fields are present
+//   - Node IDs are unique
+//   - Edge references point to existing nodes
+//   - No circular dependencies exist
+//   - Function references are valid
+//
+// Returns an error describing the first validation failure encountered.
+func (s *GraphSchema) Validate() error {
+    // implementation
+}
+```
+
+## Inline Comments for Complex Logic
+
+Use inline comments to explain non-obvious logic:
+
+```go
+func (g *Graph) computeThreads() error {
+    visited := make(map[string]bool)
+    threadCounter := uint16(0)
+
+    // Start DFS from trigger node - thread 0 is always the entry point
+    if err := g.assignThreads(g.trigger, &threadCounter, visited); err != nil {
+        return err
+    }
+
+    // Verify all nodes were visited - catches disconnected subgraphs
+    if len(visited) != len(g.nodes) {
+        return fmt.Errorf("graph contains unreachable nodes")
+    }
+
+    return nil
+}
+```
+
+## When to Skip Documentation
+
+You can skip doc comments for:
+
+- Private functions that are self-explanatory
+- Test functions (but add comments for complex test logic)
+- Very simple getters/setters with obvious behavior
+
+```go
+// Good - needs documentation (non-obvious behavior)
+// ID returns the workflow's unique identifier as a string.
+func (w *Workflow) ID() workflow.ID {
+    return w.id
+}
+
+// OK to skip - obvious getter
+func (n *Node) schema() *NodeSchema {
+    return n.schema
+}
+```
+
+## Documentation Checklist
+
+Before committing code, verify:
+
+- [ ] All exported types have doc comments
+- [ ] All exported functions have doc comments
+- [ ] All public methods have doc comments
+- [ ] Complex algorithms have detailed explanations
+- [ ] Actor message flows are documented
+- [ ] Error conditions are documented
+- [ ] Package-level documentation exists
+- [ ] Examples are provided for non-trivial APIs
+- [ ] Inline comments explain non-obvious logic
+
+## Tools
+
+Generate documentation:
+
+```bash
+# View documentation
+go doc github.com/open-source-cloud/fuse/internal/workflow
+
+# View specific type
+go doc github.com/open-source-cloud/fuse/internal/workflow.Graph
+
+# View specific method
+go doc github.com/open-source-cloud/fuse/internal/workflow.Graph.NewGraph
+
+# Serve documentation locally
+godoc -http=:6060
+# Visit http://localhost:6060/pkg/github.com/open-source-cloud/fuse/
+```
+
+## Best Practices
+
+- Write documentation while writing code, not after
+- Keep documentation in sync with code during refactoring
+- Use examples to illustrate non-obvious usage
+- Document the "why" for complex decisions, not just the "what"
+- Link to external resources (ergo.services docs) when relevant
+- Use consistent terminology throughout documentation
+- Prefer clear code over excessive comments
+- Document public APIs thoroughly, private APIs as needed

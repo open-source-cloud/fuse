@@ -1,0 +1,775 @@
+---
+alwaysApply: true
+---
+
+# HTTP Handler Conventions
+
+## Base Handler Structure
+
+All HTTP handlers embed `Handler` which embeds `act.WebWorker`:
+
+```go
+package handlers
+
+import (
+    "ergo.services/ergo/act"
+    "ergo.services/ergo/gen"
+)
+
+// Base Handler (already provided in internal/handlers/handler.go)
+type Handler struct {
+    act.WebWorker
+}
+
+// Your handler embeds Handler
+type HealthCheckHandler struct {
+    Handler
+
+    // Optional dependencies
+    service SomeService
+}
+```
+
+## Handler Factory Pattern
+
+Use the generic `HandlerFactory[T]` for dependency injection:
+
+```go
+// Define factory type
+type HealthCheckHandlerFactory HandlerFactory[*HealthCheckHandler]
+
+// Create factory with dependencies
+func NewHealthCheckHandler(service SomeService) *HealthCheckHandlerFactory {
+    return &HealthCheckHandlerFactory{
+        Factory: func() gen.ProcessBehavior {
+            return &HealthCheckHandler{
+                service: service,
+            }
+        },
+    }
+}
+```
+
+## Handler Method Signatures
+
+Implement HTTP verb methods with these exact signatures:
+
+```go
+func (h *Handler) HandleGet(from gen.PID, w http.ResponseWriter, r *http.Request) error
+func (h *Handler) HandlePost(from gen.PID, w http.ResponseWriter, r *http.Request) error
+func (h *Handler) HandlePut(from gen.PID, w http.ResponseWriter, r *http.Request) error
+func (h *Handler) HandleDelete(from gen.PID, w http.ResponseWriter, r *http.Request) error
+```
+
+### Complete Handler Example
+
+```go
+package handlers
+
+import (
+    "net/http"
+
+    "ergo.services/ergo/gen"
+    "github.com/open-source-cloud/fuse/internal/services"
+)
+
+const (
+    PackagesHandlerName     = "packages_handler"
+    PackagesHandlerPoolName = "packages_handler_pool"
+)
+
+type PackagesHandlerFactory HandlerFactory[*PackagesHandler]
+
+type PackagesHandler struct {
+    Handler
+    packageService services.PackageService
+}
+
+func NewPackagesHandler(packageService services.PackageService) *PackagesHandlerFactory {
+    return &PackagesHandlerFactory{
+        Factory: func() gen.ProcessBehavior {
+            return &PackagesHandler{
+                packageService: packageService,
+            }
+        },
+    }
+}
+
+// HandleGet handles the GET request for listing packages
+func (h *PackagesHandler) HandleGet(from gen.PID, w http.ResponseWriter, r *http.Request) error {
+    h.Log().Info("received list packages request", "from", from, "remoteAddr", r.RemoteAddr)
+
+    packages, err := h.packageService.FindAll()
+    if err != nil {
+        h.Log().Error("failed to list packages", "error", err, "from", from)
+        return h.SendInternalError(w, err)
+    }
+
+    return h.SendJSON(w, http.StatusOK, Response{
+        "metadata": PaginationMetadata{
+            Total: len(packages),
+            Page:  0,
+            Size:  len(packages),
+        },
+        "items": packages,
+    })
+}
+```
+
+## Response Handling
+
+### Response Type
+
+Use the `Response` type for JSON responses:
+
+```go
+type Response = map[string]any
+
+func (h *Handler) HandleGet(from gen.PID, w http.ResponseWriter, r *http.Request) error {
+    return h.SendJSON(w, http.StatusOK, Response{
+        "message": "OK",
+        "data":    someData,
+    })
+}
+```
+
+### Pagination Response
+
+Use `PaginationMetadata` for list responses:
+
+```go
+return h.SendJSON(w, http.StatusOK, Response{
+    "metadata": PaginationMetadata{
+        Total: len(items),
+        Page:  0,
+        Size:  len(items),
+    },
+    "items": items,
+})
+```
+
+## Helper Methods
+
+### Built-in Helper Methods
+
+- **`h.BindJSON(w, r, &target)`** - Bind JSON request body to struct
+- **`h.SendJSON(w, status, data)`** - Send JSON response with CORS headers
+- **`h.GetPathParam(r, "paramName")`** - Extract path parameters (from gorilla/mux)
+- **`h.GetQueryParam(r, "paramName")`** - Extract query parameters
+- **`h.SendInternalError(w, err)`** - Send 500 error response
+- **`h.SendBadRequest(w, err, fields)`** - Send 400 error response
+
+### Usage Examples
+
+```go
+// Bind JSON from request body
+var req CreateWorkflowRequest
+if err := h.BindJSON(w, r, &req); err != nil {
+    return h.SendBadRequest(w, err, []string{"body"})
+}
+
+// Get path parameter
+workflowID, err := h.GetPathParam(r, "workflowID")
+if err != nil {
+    return h.SendBadRequest(w, err, []string{"workflowID"})
+}
+
+// Get query parameter
+page, err := h.GetQueryParam(r, "page")
+if err != nil {
+    page = "0"  // Default value
+}
+
+// Send successful JSON response
+return h.SendJSON(w, http.StatusOK, Response{
+    "data": result,
+})
+
+// Send error responses
+return h.SendInternalError(w, err)
+return h.SendBadRequest(w, err, []string{"field1", "field2"})
+```
+
+## Error Response Pattern
+
+### Standard Pattern
+
+```go
+func (h *Handler) HandlePost(from gen.PID, w http.ResponseWriter, r *http.Request) error {
+    // Parse and validate request
+    var req SomeRequest
+    if err := h.BindJSON(w, r, &req); err != nil {
+        return h.SendBadRequest(w, err, []string{"body"})
+    }
+
+    // Validate with go-playground/validator
+    validate := validator.New()
+    if err := validate.Struct(req); err != nil {
+        h.Log().Warn("validation failed", "error", err, "from", from)
+        return h.SendBadRequest(w, err, []string{"body"})
+    }
+
+    // Process request
+    result, err := h.service.DoSomething(req)
+    if err != nil {
+        h.Log().Error("failed to process request", "error", err, "from", from)
+        return h.SendInternalError(w, err)
+    }
+
+    // Return success response
+    h.Log().Info("request processed successfully", "from", from)
+    return h.SendJSON(w, http.StatusOK, Response{
+        "data": result,
+    })
+}
+```
+
+### Request/Response Structs
+
+```go
+type CreateWorkflowRequest struct {
+    SchemaID string         `json:"schemaID" validate:"required"`
+    Input    map[string]any `json:"input,omitempty"`
+}
+
+type WorkflowResponse struct {
+    ID       string         `json:"id"`
+    Status   string         `json:"status"`
+    Created  time.Time      `json:"created"`
+}
+```
+
+## Standard Error Codes
+
+Use consistent error codes:
+
+```go
+const (
+    BadRequest          = "BAD_REQUEST"
+    InternalServerError = "INTERNAL_SERVER_ERROR"
+    EntityNotFound      = "ENTITY_NOT_FOUND"
+)
+
+// Use in error responses
+return h.SendJSON(w, http.StatusNotFound, Response{
+    "message": "Workflow not found",
+    "code":    EntityNotFound,
+    "fields":  []string{"workflowID"},
+})
+```
+
+## Logging in Handlers
+
+Always log requests and responses with context:
+
+```go
+// Log incoming requests
+h.Log().Info("received request",
+    "from", from,
+    "remoteAddr", r.RemoteAddr,
+    "method", r.Method,
+    "path", r.URL.Path)
+
+// Log processing
+h.Log().Debug("processing workflow",
+    "workflowID", workflowID,
+    "from", from)
+
+// Log errors
+h.Log().Error("failed to process",
+    "error", err,
+    "from", from,
+    "remoteAddr", r.RemoteAddr,
+    "workflowID", workflowID)
+
+// Log successful completion
+h.Log().Info("request completed successfully",
+    "from", from,
+    "duration", duration,
+    "status", http.StatusOK)
+```
+
+## Handler Constants
+
+Define handler name and pool name constants:
+
+```go
+const (
+    // Handler name (for registration)
+    HealthCheckHandlerName     = "health_check_handler"
+
+    // Pool name (for worker pool)
+    HealthCheckHandlerPoolName = "health_check_handler_pool"
+)
+```
+
+## Handler Registration
+
+Register handlers with the worker pool in DI:
+
+```go
+// In internal/app/di/actors.go
+fx.Invoke(func(
+    workers *actors.Workers,
+    healthHandler *handlers.HealthCheckHandlerFactory,
+    workflowHandler *handlers.TriggerWorkflowHandlerFactory,
+) {
+    workers.AddFactory(handlers.HealthCheckHandlerName, healthHandler.Factory)
+    workers.AddFactory(handlers.TriggerWorkflowHandlerName, workflowHandler.Factory)
+}),
+```
+
+## Route Configuration
+
+Define routes in `internal/actors/mux_worker.go`:
+
+```go
+type WebWorker struct {
+    Name       gen.Atom      // Handler name
+    Pattern    string        // URL pattern
+    Methods    []string      // HTTP methods
+    Timeout    time.Duration // Request timeout
+    PoolConfig WorkerPoolConfig
+}
+
+// Example configuration
+workers := []WebWorker{
+    {
+        Name:    handlers.HealthCheckHandlerName,
+        Pattern: "/health",
+        Methods: []string{"GET"},
+        Timeout: 10 * time.Second,
+        PoolConfig: WorkerPoolConfig{
+            Name:     handlers.HealthCheckHandlerPoolName,
+            PoolSize: 3,
+        },
+    },
+    {
+        Name:    handlers.TriggerWorkflowHandlerName,
+        Pattern: "/v1/workflows/trigger",
+        Methods: []string{"POST"},
+        Timeout: 30 * time.Second,
+        PoolConfig: WorkerPoolConfig{
+            Name:     handlers.TriggerWorkflowHandlerPoolName,
+            PoolSize: 10,
+        },
+    },
+}
+```
+
+## CORS Handling
+
+CORS headers are automatically set in `SendJSON`:
+
+```go
+func (h *Handler) SendJSON(w http.ResponseWriter, status int, v interface{}) error {
+    // CORS headers (already in base handler)
+    w.Header().Set("Access-Control-Allow-Origin", "*")
+    w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+    w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+    w.Header().Set("Content-Type", "application/json")
+
+    // ... marshal and write response
+}
+```
+
+## Best Practices
+
+- Always embed `Handler` struct
+- Use factory pattern for dependency injection
+- Log all requests with `from` PID and `remoteAddr`
+- Use helper methods (`BindJSON`, `SendJSON`, etc.)
+- Validate requests with `go-playground/validator`
+- Return consistent error responses
+- Define handler name constants
+- Configure proper timeouts and pool sizes
+- Use `Response` type for JSON responses
+- Include pagination metadata for list endpoints
+- Handle path and query parameters explicitly
+- Always check and handle errors from service calls
+
+# HTTP Handler Conventions
+
+## Base Handler Structure
+
+All HTTP handlers embed `Handler` which embeds `act.WebWorker`:
+
+```go
+package handlers
+
+import (
+    "ergo.services/ergo/act"
+    "ergo.services/ergo/gen"
+)
+
+// Base Handler (already provided in internal/handlers/handler.go)
+type Handler struct {
+    act.WebWorker
+}
+
+// Your handler embeds Handler
+type HealthCheckHandler struct {
+    Handler
+
+    // Optional dependencies
+    service SomeService
+}
+```
+
+## Handler Factory Pattern
+
+Use the generic `HandlerFactory[T]` for dependency injection:
+
+```go
+// Define factory type
+type HealthCheckHandlerFactory HandlerFactory[*HealthCheckHandler]
+
+// Create factory with dependencies
+func NewHealthCheckHandler(service SomeService) *HealthCheckHandlerFactory {
+    return &HealthCheckHandlerFactory{
+        Factory: func() gen.ProcessBehavior {
+            return &HealthCheckHandler{
+                service: service,
+            }
+        },
+    }
+}
+```
+
+## Handler Method Signatures
+
+Implement HTTP verb methods with these exact signatures:
+
+```go
+func (h *Handler) HandleGet(from gen.PID, w http.ResponseWriter, r *http.Request) error
+func (h *Handler) HandlePost(from gen.PID, w http.ResponseWriter, r *http.Request) error
+func (h *Handler) HandlePut(from gen.PID, w http.ResponseWriter, r *http.Request) error
+func (h *Handler) HandleDelete(from gen.PID, w http.ResponseWriter, r *http.Request) error
+```
+
+### Complete Handler Example
+
+```go
+package handlers
+
+import (
+    "net/http"
+
+    "ergo.services/ergo/gen"
+    "github.com/open-source-cloud/fuse/internal/services"
+)
+
+const (
+    PackagesHandlerName     = "packages_handler"
+    PackagesHandlerPoolName = "packages_handler_pool"
+)
+
+type PackagesHandlerFactory HandlerFactory[*PackagesHandler]
+
+type PackagesHandler struct {
+    Handler
+    packageService services.PackageService
+}
+
+func NewPackagesHandler(packageService services.PackageService) *PackagesHandlerFactory {
+    return &PackagesHandlerFactory{
+        Factory: func() gen.ProcessBehavior {
+            return &PackagesHandler{
+                packageService: packageService,
+            }
+        },
+    }
+}
+
+// HandleGet handles the GET request for listing packages
+func (h *PackagesHandler) HandleGet(from gen.PID, w http.ResponseWriter, r *http.Request) error {
+    h.Log().Info("received list packages request", "from", from, "remoteAddr", r.RemoteAddr)
+
+    packages, err := h.packageService.FindAll()
+    if err != nil {
+        h.Log().Error("failed to list packages", "error", err, "from", from)
+        return h.SendInternalError(w, err)
+    }
+
+    return h.SendJSON(w, http.StatusOK, Response{
+        "metadata": PaginationMetadata{
+            Total: len(packages),
+            Page:  0,
+            Size:  len(packages),
+        },
+        "items": packages,
+    })
+}
+```
+
+## Response Handling
+
+### Response Type
+
+Use the `Response` type for JSON responses:
+
+```go
+type Response = map[string]any
+
+func (h *Handler) HandleGet(from gen.PID, w http.ResponseWriter, r *http.Request) error {
+    return h.SendJSON(w, http.StatusOK, Response{
+        "message": "OK",
+        "data":    someData,
+    })
+}
+```
+
+### Pagination Response
+
+Use `PaginationMetadata` for list responses:
+
+```go
+return h.SendJSON(w, http.StatusOK, Response{
+    "metadata": PaginationMetadata{
+        Total: len(items),
+        Page:  0,
+        Size:  len(items),
+    },
+    "items": items,
+})
+```
+
+## Helper Methods
+
+### Built-in Helper Methods
+
+- **`h.BindJSON(w, r, &target)`** - Bind JSON request body to struct
+- **`h.SendJSON(w, status, data)`** - Send JSON response with CORS headers
+- **`h.GetPathParam(r, "paramName")`** - Extract path parameters (from gorilla/mux)
+- **`h.GetQueryParam(r, "paramName")`** - Extract query parameters
+- **`h.SendInternalError(w, err)`** - Send 500 error response
+- **`h.SendBadRequest(w, err, fields)`** - Send 400 error response
+
+### Usage Examples
+
+```go
+// Bind JSON from request body
+var req CreateWorkflowRequest
+if err := h.BindJSON(w, r, &req); err != nil {
+    return h.SendBadRequest(w, err, []string{"body"})
+}
+
+// Get path parameter
+workflowID, err := h.GetPathParam(r, "workflowID")
+if err != nil {
+    return h.SendBadRequest(w, err, []string{"workflowID"})
+}
+
+// Get query parameter
+page, err := h.GetQueryParam(r, "page")
+if err != nil {
+    page = "0"  // Default value
+}
+
+// Send successful JSON response
+return h.SendJSON(w, http.StatusOK, Response{
+    "data": result,
+})
+
+// Send error responses
+return h.SendInternalError(w, err)
+return h.SendBadRequest(w, err, []string{"field1", "field2"})
+```
+
+## Error Response Pattern
+
+### Standard Pattern
+
+```go
+func (h *Handler) HandlePost(from gen.PID, w http.ResponseWriter, r *http.Request) error {
+    // Parse and validate request
+    var req SomeRequest
+    if err := h.BindJSON(w, r, &req); err != nil {
+        return h.SendBadRequest(w, err, []string{"body"})
+    }
+
+    // Validate with go-playground/validator
+    validate := validator.New()
+    if err := validate.Struct(req); err != nil {
+        h.Log().Warn("validation failed", "error", err, "from", from)
+        return h.SendBadRequest(w, err, []string{"body"})
+    }
+
+    // Process request
+    result, err := h.service.DoSomething(req)
+    if err != nil {
+        h.Log().Error("failed to process request", "error", err, "from", from)
+        return h.SendInternalError(w, err)
+    }
+
+    // Return success response
+    h.Log().Info("request processed successfully", "from", from)
+    return h.SendJSON(w, http.StatusOK, Response{
+        "data": result,
+    })
+}
+```
+
+### Request/Response Structs
+
+```go
+type CreateWorkflowRequest struct {
+    SchemaID string         `json:"schemaID" validate:"required"`
+    Input    map[string]any `json:"input,omitempty"`
+}
+
+type WorkflowResponse struct {
+    ID       string         `json:"id"`
+    Status   string         `json:"status"`
+    Created  time.Time      `json:"created"`
+}
+```
+
+## Standard Error Codes
+
+Use consistent error codes:
+
+```go
+const (
+    BadRequest          = "BAD_REQUEST"
+    InternalServerError = "INTERNAL_SERVER_ERROR"
+    EntityNotFound      = "ENTITY_NOT_FOUND"
+)
+
+// Use in error responses
+return h.SendJSON(w, http.StatusNotFound, Response{
+    "message": "Workflow not found",
+    "code":    EntityNotFound,
+    "fields":  []string{"workflowID"},
+})
+```
+
+## Logging in Handlers
+
+Always log requests and responses with context:
+
+```go
+// Log incoming requests
+h.Log().Info("received request",
+    "from", from,
+    "remoteAddr", r.RemoteAddr,
+    "method", r.Method,
+    "path", r.URL.Path)
+
+// Log processing
+h.Log().Debug("processing workflow",
+    "workflowID", workflowID,
+    "from", from)
+
+// Log errors
+h.Log().Error("failed to process",
+    "error", err,
+    "from", from,
+    "remoteAddr", r.RemoteAddr,
+    "workflowID", workflowID)
+
+// Log successful completion
+h.Log().Info("request completed successfully",
+    "from", from,
+    "duration", duration,
+    "status", http.StatusOK)
+```
+
+## Handler Constants
+
+Define handler name and pool name constants:
+
+```go
+const (
+    // Handler name (for registration)
+    HealthCheckHandlerName     = "health_check_handler"
+
+    // Pool name (for worker pool)
+    HealthCheckHandlerPoolName = "health_check_handler_pool"
+)
+```
+
+## Handler Registration
+
+Register handlers with the worker pool in DI:
+
+```go
+// In internal/app/di/actors.go
+fx.Invoke(func(
+    workers *actors.Workers,
+    healthHandler *handlers.HealthCheckHandlerFactory,
+    workflowHandler *handlers.TriggerWorkflowHandlerFactory,
+) {
+    workers.AddFactory(handlers.HealthCheckHandlerName, healthHandler.Factory)
+    workers.AddFactory(handlers.TriggerWorkflowHandlerName, workflowHandler.Factory)
+}),
+```
+
+## Route Configuration
+
+Define routes in `internal/actors/mux_worker.go`:
+
+```go
+type WebWorker struct {
+    Name       gen.Atom      // Handler name
+    Pattern    string        // URL pattern
+    Methods    []string      // HTTP methods
+    Timeout    time.Duration // Request timeout
+    PoolConfig WorkerPoolConfig
+}
+
+// Example configuration
+workers := []WebWorker{
+    {
+        Name:    handlers.HealthCheckHandlerName,
+        Pattern: "/health",
+        Methods: []string{"GET"},
+        Timeout: 10 * time.Second,
+        PoolConfig: WorkerPoolConfig{
+            Name:     handlers.HealthCheckHandlerPoolName,
+            PoolSize: 3,
+        },
+    },
+    {
+        Name:    handlers.TriggerWorkflowHandlerName,
+        Pattern: "/v1/workflows/trigger",
+        Methods: []string{"POST"},
+        Timeout: 30 * time.Second,
+        PoolConfig: WorkerPoolConfig{
+            Name:     handlers.TriggerWorkflowHandlerPoolName,
+            PoolSize: 10,
+        },
+    },
+}
+```
+
+## CORS Handling
+
+CORS headers are automatically set in `SendJSON`:
+
+```go
+func (h *Handler) SendJSON(w http.ResponseWriter, status int, v interface{}) error {
+    // CORS headers (already in base handler)
+    w.Header().Set("Access-Control-Allow-Origin", "*")
+    w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+    w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+    w.Header().Set("Content-Type", "application/json")
+
+    // ... marshal and write response
+}
+```
+
+## Best Practices
+
+- Always embed `Handler` struct
+- Use factory pattern for dependency injection
+- Log all requests with `from` PID and `remoteAddr`
+- Use helper methods (`BindJSON`, `SendJSON`, etc.)
+- Validate requests with `go-playground/validator`
+- Return consistent error responses
+- Define handler name constants
+- Configure proper timeouts and pool sizes
+- Use `Response` type for JSON responses
+- Include pagination metadata for list endpoints
+- Handle path and query parameters explicitly
+- Always check and handle errors from service calls
