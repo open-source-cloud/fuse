@@ -5,7 +5,7 @@ import (
 
 	"github.com/open-source-cloud/fuse/internal/app/config"
 	"github.com/open-source-cloud/fuse/internal/workflow"
-	"github.com/open-source-cloud/fuse/pkg/utils"
+	"github.com/open-source-cloud/fuse/pkg/strutil"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
