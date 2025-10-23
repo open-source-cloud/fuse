@@ -18,3 +18,8 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+
+# Swagger generated files
+docs/docs.go
+docs/swagger.json
+docs/swagger.yaml

@@ -1,12 +1,16 @@
 package actors
 
 import (
+	"net/http"
 	"strconv"
 
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
 	"ergo.services/ergo/meta"
 	"github.com/gorilla/mux"
+	httpSwagger "github.com/swaggo/http-swagger"
+
+	_ "github.com/open-source-cloud/fuse/docs" // Import generated docs
 	"github.com/open-source-cloud/fuse/internal/app/config"
 )
 
@@ -45,6 +49,13 @@ func (m *muxServer) Init(_ ...any) error {
 			return err
 		}
 	}
+
+	// Add Swagger endpoint with redirect from /docs to /docs/index.html
+	muxRouter.HandleFunc("/docs", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/docs/index.html", http.StatusMovedPermanently)
+	})
+	muxRouter.PathPrefix("/docs/").Handler(httpSwagger.WrapHandler)
+	m.Log().Info("swagger documentation available at /docs or /docs/index.html")
 
 	// create and spawn a web server meta-process
 	// nolint:gosec // port is validated by the config

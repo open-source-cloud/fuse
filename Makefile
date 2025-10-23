@@ -1,4 +1,4 @@
-.PHONY: run test test-report testdox clean lint lint-fix
+.PHONY: run test test-report testdox clean lint lint-fix swagger
 
 GOTESTSUM := $(shell go env GOPATH)/bin/gotestsum
 GOLANGCI_LINT := $(shell go env GOPATH)/bin/golangci-lint
@@ -30,6 +30,10 @@ lint: install-lint
 # Run linter with auto-fix
 lint-fix: install-lint
 	$(GOLANGCI_LINT) run ./... --fix --timeout=5m
+
+# Generate Swagger documentation
+swagger:
+	swag init -g cmd/fuse/main.go -o docs/
 
 dkb:
 	docker build -t fuse-app:dev .

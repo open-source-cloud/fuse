@@ -12,6 +12,8 @@ import (
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
 	"github.com/gorilla/mux"
+
+	"github.com/open-source-cloud/fuse/internal/dtos"
 )
 
 var (
@@ -44,15 +46,6 @@ type (
 	// It provides a base implementation for all handlers that need to interact with the HTTP server
 	Handler struct {
 		act.WebWorker
-	}
-	// Response is the type for all responses
-	Response = map[string]any
-
-	// PaginationMetadata is the type for pagination metadata
-	PaginationMetadata struct {
-		Total int `json:"total"`
-		Page  int `json:"page"`
-		Size  int `json:"size"`
 	}
 )
 
@@ -112,30 +105,30 @@ func (h *Handler) GetPathParam(r *http.Request, key string) (string, error) {
 // SendInternalError sends 500 status code to client
 func (h *Handler) SendInternalError(w http.ResponseWriter, err error) error {
 	h.Log().Error("sending internal error to client", "error", err)
-	return h.SendJSON(w, http.StatusInternalServerError, Response{
-		"message": "Internal server error",
-		"code":    InternalServerError,
-		"fields":  []string{},
+	return h.SendJSON(w, http.StatusInternalServerError, dtos.ErrorResponse{
+		Message: "Internal server error",
+		Code:    InternalServerError,
+		Fields:  EmptyFields,
 	})
 }
 
 // SendBadRequest sends 400 status code to client
 func (h *Handler) SendBadRequest(w http.ResponseWriter, err error, fields []string) error {
 	h.Log().Error("sending bad request to client", "error", err)
-	return h.SendJSON(w, http.StatusBadRequest, Response{
-		"message": fmt.Sprintf("failed to read request: %s", err),
-		"code":    BadRequest,
-		"fields":  fields,
+	return h.SendJSON(w, http.StatusBadRequest, dtos.BadRequestError{
+		Message: fmt.Sprintf("failed to read request: %s", err),
+		Code:    BadRequest,
+		Fields:  fields,
 	})
 }
 
 // SendNotFound sends 404 status code to client
 func (h *Handler) SendNotFound(w http.ResponseWriter, msg string, fields []string) error {
 	h.Log().Error("sending not found to client", "message", msg)
-	return h.SendJSON(w, http.StatusNotFound, Response{
-		"message": msg,
-		"code":    EntityNotFound,
-		"fields":  fields,
+	return h.SendJSON(w, http.StatusNotFound, dtos.NotFoundError{
+		Message: msg,
+		Code:    EntityNotFound,
+		Fields:  fields,
 	})
 }
 
@@ -143,10 +136,10 @@ func (h *Handler) SendNotFound(w http.ResponseWriter, msg string, fields []strin
 func (h *Handler) SendValidationErr(w http.ResponseWriter, err error) error {
 	h.Log().Error("sending validation to client", "error", err)
 	fields := h.mapErrorToFields(err)
-	return h.SendJSON(w, http.StatusBadRequest, Response{
-		"message": "validation failed, please check the sent request and the schema",
-		"code":    BadRequest,
-		"fields":  fields,
+	return h.SendJSON(w, http.StatusBadRequest, dtos.ValidationErrorResponse{
+		Message: "validation failed, please check the sent request and the schema",
+		Code:    BadRequest,
+		Fields:  fields,
 	})
 }
 

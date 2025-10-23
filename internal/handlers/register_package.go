@@ -6,9 +6,9 @@ import (
 	"net/http"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/open-source-cloud/fuse/internal/dtos"
 	"github.com/open-source-cloud/fuse/internal/repositories"
 	"github.com/open-source-cloud/fuse/internal/services"
-	"github.com/open-source-cloud/fuse/pkg/workflow"
 
 	"ergo.services/ergo/gen"
 )
@@ -43,6 +43,18 @@ func NewRegisterPackageHandler(packageService services.PackageService) *Register
 }
 
 // HandlePut handles the PUT request for the register package endpoint (PUT /packages/:packageID)
+// @Summary Register or update package
+// @Description Register a new package or update existing one
+// @Tags packages
+// @Accept json
+// @Produce json
+// @Param packageID path string true "Package ID"
+// @Param package body dtos.PackageDTO true "Package Data"
+// @Success 200 {object} dtos.RegisterPackageResponse
+// @Failure 400 {object} dtos.BadRequestError
+// @Failure 404 {object} dtos.NotFoundError
+// @Failure 500 {object} dtos.InternalServerErrorResponse
+// @Router /v1/packages/{packageID} [put]
 func (h *RegisterPackageHandler) HandlePut(from gen.PID, w http.ResponseWriter, r *http.Request) error {
 	h.Log().Info("received register package request from: %v remoteAddr: %s", from, r.RemoteAddr)
 
@@ -51,13 +63,13 @@ func (h *RegisterPackageHandler) HandlePut(from gen.PID, w http.ResponseWriter, 
 		return h.SendBadRequest(w, err, []string{"packageID is required"})
 	}
 
-	var pkg *workflow.Package
-	if err := h.BindJSON(w, r, &pkg); err != nil {
-		return h.SendJSON(w, http.StatusBadRequest, Response{
-			"message": fmt.Sprintf("invalid request: %s", err),
-			"code":    BadRequest,
-		})
+	var pkgDTO dtos.PackageDTO
+	if err := h.BindJSON(w, r, &pkgDTO); err != nil {
+		return h.SendBadRequest(w, err, []string{"body"})
 	}
+
+	// Convert DTO to domain model
+	pkg := dtos.FromPackageDTO(pkgDTO)
 
 	pkg, err = h.packageService.Save(pkg)
 	if err != nil {
@@ -66,24 +78,29 @@ func (h *RegisterPackageHandler) HandlePut(from gen.PID, w http.ResponseWriter, 
 			return h.SendValidationErr(w, err)
 		}
 		if errors.Is(err, repositories.ErrPackageNotFound) {
-			return h.SendJSON(w, http.StatusNotFound, Response{
-				"message": fmt.Sprintf("package %s not found", packageID),
-				"code":    "NOT_FOUND",
-			})
+			return h.SendNotFound(w, fmt.Sprintf("package %s not found", packageID), []string{"packageID"})
 		}
-		return h.SendJSON(w, http.StatusInternalServerError, Response{
-			"message": fmt.Sprintf("failed to save package: %s", err),
-			"code":    InternalServerError,
-		})
+		return h.SendInternalError(w, err)
 	}
 
-	return h.SendJSON(w, http.StatusOK, Response{
-		"message":   "Package registered successfully",
-		"packageId": pkg.ID,
+	return h.SendJSON(w, http.StatusOK, dtos.RegisterPackageResponse{
+		Message:   "Package registered successfully",
+		PackageID: pkg.ID,
 	})
 }
 
 // HandleGet handles the GET request for the package endpoint (GET /packages/:packageID)
+// @Summary Get package by ID
+// @Description Retrieve a specific package by ID
+// @Tags packages
+// @Accept json
+// @Produce json
+// @Param packageID path string true "Package ID"
+// @Success 200 {object} dtos.PackageDTO
+// @Failure 400 {object} dtos.BadRequestError
+// @Failure 404 {object} dtos.NotFoundError
+// @Failure 500 {object} dtos.InternalServerErrorResponse
+// @Router /v1/packages/{packageID} [get]
 func (h *RegisterPackageHandler) HandleGet(from gen.PID, w http.ResponseWriter, r *http.Request) error {
 	h.Log().Info("received get package request from: %v remoteAddr: %s", from, r.RemoteAddr)
 
@@ -100,18 +117,14 @@ func (h *RegisterPackageHandler) HandleGet(from gen.PID, w http.ResponseWriter, 
 	if err != nil {
 		h.Log().Error("failed to get package", "error", err, "packageID", packageID)
 		if errors.Is(err, repositories.ErrPackageNotFound) {
-			return h.SendJSON(w, http.StatusNotFound, Response{
-				"message": fmt.Sprintf("package %s not found", packageID),
-				"code":    "NOT_FOUND",
-			})
+			return h.SendNotFound(w, fmt.Sprintf("package %s not found", packageID), []string{"packageID"})
 		}
-		return h.SendJSON(w, http.StatusInternalServerError, Response{
-			"message": fmt.Sprintf("failed to get package: %s", err),
-			"code":    InternalServerError,
-		})
+		return h.SendInternalError(w, err)
 	}
 
 	h.Log().Info("package fetched", "packageID", packageID)
 
-	return h.SendJSON(w, http.StatusOK, pkg)
+	// Convert to DTO
+	pkgDTO := dtos.ToPackageDTO(pkg)
+	return h.SendJSON(w, http.StatusOK, pkgDTO)
 }

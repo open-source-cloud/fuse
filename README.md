@@ -118,6 +118,68 @@ make test
 make lint
 ```
 
+## API Documentation
+
+FUSE provides a comprehensive REST API for managing workflows, schemas, and packages. Interactive API documentation is available via Swagger UI.
+
+### Viewing API Documentation
+
+After starting the server, visit:
+
+```
+http://localhost:9090/docs
+```
+
+Or the full path:
+
+```
+http://localhost:9090/docs/index.html
+```
+
+The Swagger UI provides:
+
+- Interactive API exploration
+- Request/response examples
+- Schema definitions
+- Try-it-out functionality for testing endpoints
+
+### Generating API Documentation
+
+To regenerate the API documentation after making changes:
+
+```bash
+make swagger
+```
+
+### Available Endpoints
+
+- **Health Check**: `GET /health` - Service health status
+- **Workflows**: `POST /v1/workflows/trigger` - Trigger workflow execution
+- **Schemas**: `PUT /v1/schemas/{schemaID}` - Create/update workflow schemas
+- **Schemas**: `GET /v1/schemas/{schemaID}` - Retrieve workflow schema
+- **Packages**: `GET /v1/packages` - List all packages
+- **Packages**: `PUT /v1/packages/{packageID}` - Register/update package
+- **Packages**: `GET /v1/packages/{packageID}` - Get package details
+- **Async Results**: `POST /v1/workflows/{workflowID}/execs/{execID}` - Submit async function results
+
+### Example API Usage
+
+Trigger a workflow:
+
+```bash
+curl -X POST http://localhost:9090/v1/workflows/trigger \
+  -H "Content-Type: application/json" \
+  -d '{"schemaID": "my-workflow-schema"}'
+```
+
+Get workflow schema:
+
+```bash
+curl http://localhost:9090/v1/schemas/my-workflow-schema
+```
+
+For more details, see the [API Documentation](docs/README.md).
+
 ## Contributing
 
 Please see [./docs/CONTRIBUTE.md](docs/CONTRIBUTE.md) for detailed information about:

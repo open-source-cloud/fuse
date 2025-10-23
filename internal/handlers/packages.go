@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"ergo.services/ergo/gen"
+	"github.com/open-source-cloud/fuse/internal/dtos"
 	"github.com/open-source-cloud/fuse/internal/services"
 )
 
@@ -37,6 +38,14 @@ func NewPackagesHandler(packageService services.PackageService) *PackagesHandler
 }
 
 // HandleGet handles the GET request for the packages' endpoint (GET /packages)
+// @Summary List all packages
+// @Description Retrieve all registered packages
+// @Tags packages
+// @Accept json
+// @Produce json
+// @Success 200 {object} dtos.PackageListResponse
+// @Failure 500 {object} dtos.InternalServerErrorResponse
+// @Router /v1/packages [get]
 func (h *PackagesHandler) HandleGet(from gen.PID, w http.ResponseWriter, r *http.Request) error {
 	h.Log().Info("received list packages request from: %v remoteAddr: %s", from, r.RemoteAddr)
 
@@ -45,20 +54,23 @@ func (h *PackagesHandler) HandleGet(from gen.PID, w http.ResponseWriter, r *http
 	})
 	if err != nil {
 		h.Log().Error("failed to list packages", "error", err, "from", from, "remoteAddr", r.RemoteAddr)
-		return h.SendJSON(w, http.StatusInternalServerError, Response{
-			"message": "Failed to list packages",
-			"code":    InternalServerError,
-		})
+		return h.SendInternalError(w, err)
 	}
 
 	h.Log().Info("packages listed", "from", from, "remoteAddr", r.RemoteAddr, "packages", len(packages))
 
-	return h.SendJSON(w, http.StatusOK, Response{
-		"metadata": PaginationMetadata{
+	// Convert packages to DTOs
+	items := make([]dtos.PackageDTO, len(packages))
+	for i, pkg := range packages {
+		items[i] = dtos.ToPackageDTO(pkg)
+	}
+
+	return h.SendJSON(w, http.StatusOK, dtos.PackageListResponse{
+		Metadata: dtos.PaginationMetadata{
 			Total: len(packages),
 			Page:  0,
-			Size:  0,
+			Size:  len(packages),
 		},
-		"items": packages,
+		Items: items,
 	})
 }

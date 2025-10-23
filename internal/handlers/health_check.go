@@ -4,6 +4,8 @@ import (
 	"net/http"
 
 	"ergo.services/ergo/gen"
+
+	"github.com/open-source-cloud/fuse/internal/dtos"
 )
 
 const (
@@ -31,10 +33,17 @@ func NewHealthCheckHandler() *HealthCheckHandlerFactory {
 }
 
 // HandleGet handles the GET request for the health check endpoint (GET /health)
+// @Summary Health check endpoint
+// @Description Returns service health status
+// @Tags health
+// @Accept json
+// @Produce json
+// @Success 200 {object} dtos.HealthCheckResponse
+// @Router /health [get]
 func (h *HealthCheckHandler) HandleGet(from gen.PID, w http.ResponseWriter, r *http.Request) error {
 	h.Log().Info("received health check request from: %v remoteAddr: %s", from, r.RemoteAddr)
 
-	return h.SendJSON(w, http.StatusOK, Response{
-		"message": "OK",
+	return h.SendJSON(w, http.StatusOK, dtos.HealthCheckResponse{
+		Message: "OK",
 	})
 }
