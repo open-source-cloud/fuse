@@ -55,3 +55,22 @@ func (s *StringsTestSuite) TestReplaceTokens() {
 		})
 	}
 }
+
+func (s *StringsTestSuite) TestAfterFirstDot() {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{name: "simple string without dot", input: "hello world", expected: "hello world"},
+		{name: "string with dot tow consecutive dots", input: "hello..world.test", expected: ".world.test"},
+		{name: "string with dot and space", input: "hello world test.", expected: ""},
+		{name: "string with dot and multiple dots", input: "hello.world.test.test.test", expected: "world.test.test.test"},
+	}
+
+	for _, test := range tests {
+		s.Run(test.name, func() {
+			s.Equal(test.expected, strutil.AfterFirstDot(test.input))
+		})
+	}
+}
