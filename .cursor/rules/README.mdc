@@ -128,6 +128,54 @@ This directory contains modular cursor rules for the FUSE Workflow Engine projec
 - Code review checklist
 - PR submission process
 - Common Git commands
+- Quality gates enforcement
+
+### [12-quality-gates.mdc](12-quality-gates.mdc)
+
+**Mandatory quality gates for code changes**
+
+- Test-first development enforcement
+- Lint → Build → Test workflow
+- Pre-commit hook integration
+- Coverage threshold requirements
+- CI/CD pipeline gates
+- No-exception policy
+
+### [13-go-concurrency.mdc](13-go-concurrency.mdc)
+
+**Go concurrency patterns and best practices**
+
+- Concurrency vs parallelism
+- Goroutines and channels
+- Select statement patterns
+- Context for cancellation
+- Worker pools
+- Mutexes and RWMutexes
+- Race condition detection
+- Deadlock prevention
+
+## Cursor Skills
+
+Comprehensive Go senior developer skills are available in `.cursor/skills/`:
+
+- **go-senior-developer/** - Go best practices, SOLID principles, clean code
+- **microservices-architecture/** - Microservices patterns and practices
+- **ddd-patterns/** - Domain-Driven Design patterns
+- **clean-hexagonal-architecture/** - Clean and hexagonal architecture
+- **cqrs-event-driven/** - CQRS and event-driven architecture
+- **go-concurrency/** - Go concurrency patterns and best practices
+- **actor-model-patterns/** - Actor model patterns with ergo.services
+
+## Spec-Kit Integration
+
+The project uses spec-kit for spec-driven development:
+
+- `.specify/memory/constitution.md` - Project constitution and governing principles
+- `.specify/templates/` - Spec-kit templates (spec, plan, tasks)
+- `.specify/scripts/` - Spec-kit automation scripts
+- `.cursor/commands/speckit.*` - Spec-kit slash commands
+
+Use `/speckit.constitution`, `/speckit.specify`, `/speckit.plan`, `/speckit.tasks`, and `/speckit.implement` commands for structured development.
 
 ## Using These Rules
 
@@ -307,6 +355,54 @@ This directory contains modular cursor rules for the FUSE Workflow Engine projec
 - Code review checklist
 - PR submission process
 - Common Git commands
+- Quality gates enforcement
+
+### [12-quality-gates.mdc](12-quality-gates.mdc)
+
+**Mandatory quality gates for code changes**
+
+- Test-first development enforcement
+- Lint → Build → Test workflow
+- Pre-commit hook integration
+- Coverage threshold requirements
+- CI/CD pipeline gates
+- No-exception policy
+
+### [13-go-concurrency.mdc](13-go-concurrency.mdc)
+
+**Go concurrency patterns and best practices**
+
+- Concurrency vs parallelism
+- Goroutines and channels
+- Select statement patterns
+- Context for cancellation
+- Worker pools
+- Mutexes and RWMutexes
+- Race condition detection
+- Deadlock prevention
+
+## Cursor Skills
+
+Comprehensive Go senior developer skills are available in `.cursor/skills/`:
+
+- **go-senior-developer/** - Go best practices, SOLID principles, clean code
+- **microservices-architecture/** - Microservices patterns and practices
+- **ddd-patterns/** - Domain-Driven Design patterns
+- **clean-hexagonal-architecture/** - Clean and hexagonal architecture
+- **cqrs-event-driven/** - CQRS and event-driven architecture
+- **go-concurrency/** - Go concurrency patterns and best practices
+- **actor-model-patterns/** - Actor model patterns with ergo.services
+
+## Spec-Kit Integration
+
+The project uses spec-kit for spec-driven development:
+
+- `.specify/memory/constitution.md` - Project constitution and governing principles
+- `.specify/templates/` - Spec-kit templates (spec, plan, tasks)
+- `.specify/scripts/` - Spec-kit automation scripts
+- `.cursor/commands/speckit.*` - Spec-kit slash commands
+
+Use `/speckit.constitution`, `/speckit.specify`, `/speckit.plan`, `/speckit.tasks`, and `/speckit.implement` commands for structured development.
 
 ## Using These Rules
 

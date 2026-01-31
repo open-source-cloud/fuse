@@ -1,0 +1,417 @@
+---
+alwaysApply: true
+---
+
+# Go Concurrency Guidelines
+
+Guidelines for proper use of Go concurrency primitives, including goroutines, channels, context, mutexes, and race condition prevention.
+
+## Concurrency vs Parallelism
+
+### Understanding the Difference
+
+- **Concurrency**: Dealing with multiple things at once (structure/design)
+- **Parallelism**: Doing multiple things at once (execution)
+
+Go provides concurrency primitives that can run in parallel on multiple CPU cores.
+
+### When to Use Concurrency
+
+- I/O-bound operations (network, file system)
+- Independent tasks that can run simultaneously
+- Background processing
+- Event handling
+- Worker pools
+
+### When NOT to Use Concurrency
+
+- CPU-bound tasks (unless you have multiple cores)
+- Simple sequential operations
+- Operations with tight coupling
+- When overhead exceeds benefit
+
+## Goroutines
+
+### Best Practices
+
+- Always use `defer` for cleanup
+- Don't leak goroutines (ensure they complete)
+- Use context for cancellation
+- Be aware of goroutine lifecycle
+- Limit goroutine creation (use pools for many tasks)
+
+```go
+// Good: Proper cleanup and cancellation
+go func() {
+    defer cleanup()
+    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+    defer cancel()
+    
+    processWorkflow(ctx, workflow)
+}()
+
+// Bad: Goroutine leak (no way to stop)
+go func() {
+    for {
+        processWorkflow(workflow)
+        time.Sleep(1 * time.Second)
+    }
+}()
+```
+
+### Waiting for Completion
+
+```go
+// Use sync.WaitGroup for multiple goroutines
+var wg sync.WaitGroup
+
+for _, workflow := range workflows {
+    wg.Add(1)
+    go func(w *Workflow) {
+        defer wg.Done()
+        processWorkflow(w)
+    }(workflow)
+}
+
+wg.Wait()  // Wait for all to complete
+```
+
+## Channels
+
+### Channel Types
+
+- **Unbuffered**: Synchronous, blocks until receiver ready
+- **Buffered**: Asynchronous up to buffer size
+- **Send-only**: `chan<- Type`
+- **Receive-only**: `<-chan Type`
+
+### Channel Patterns
+
+#### Fan-Out (Distribute Work)
+
+```go
+func fanOut(input <-chan Workflow, workers int) []<-chan Workflow {
+    outputs := make([]<-chan Workflow, workers)
+    for i := 0; i < workers; i++ {
+        output := make(chan Workflow)
+        outputs[i] = output
+        go func(out chan<- Workflow) {
+            defer close(out)
+            for w := range input {
+                out <- processWorkflow(w)
+            }
+        }(output)
+    }
+    return outputs
+}
+```
+
+#### Fan-In (Collect Results)
+
+```go
+func fanIn(inputs ...<-chan Workflow) <-chan Workflow {
+    output := make(chan Workflow)
+    var wg sync.WaitGroup
+    wg.Add(len(inputs))
+    
+    for _, input := range inputs {
+        go func(in <-chan Workflow) {
+            defer wg.Done()
+            for w := range in {
+                output <- w
+            }
+        }(input)
+    }
+    
+    go func() {
+        wg.Wait()
+        close(output)
+    }()
+    
+    return output
+}
+```
+
+### Channel Best Practices
+
+- Close channels from sender (only sender should close)
+- Use `range` to receive until channel closed
+- Check `ok` when receiving to detect closed channel
+- Don't send on closed channel (panic)
+- Use buffered channels to prevent blocking
+
+## Select Statement
+
+### Basic Patterns
+
+```go
+// Select with timeout
+select {
+case result := <-resultCh:
+    // Process result
+case <-time.After(5 * time.Second):
+    return fmt.Errorf("timeout")
+}
+
+// Select with context cancellation
+select {
+case result := <-resultCh:
+    // Process result
+case <-ctx.Done():
+    return ctx.Err()
+}
+
+// Non-blocking select
+select {
+case msg := <-ch:
+    // Process message
+default:
+    // No message available, continue
+}
+```
+
+## Context for Cancellation
+
+### Context Usage
+
+- Always pass `context.Context` to functions that can be cancelled
+- Use context for timeouts and cancellation
+- Check `ctx.Err()` before long operations
+- Use `context.WithTimeout` for operation timeouts
+- Use `context.WithCancel` for manual cancellation
+
+```go
+// Good: Context-aware function
+func processWorkflow(ctx context.Context, workflow *Workflow) error {
+    if err := ctx.Err(); err != nil {
+        return err
+    }
+    
+    result, err := executeNode(ctx, workflow.TriggerNode())
+    if err != nil {
+        return err
+    }
+    
+    select {
+    case <-ctx.Done():
+        return ctx.Err()
+    case result := <-resultCh:
+        return processResult(result)
+    }
+}
+
+// Usage with timeout
+ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+defer cancel()
+
+err := processWorkflow(ctx, workflow)
+```
+
+## Mutexes and RWMutexes
+
+### Mutex (Mutual Exclusion)
+
+Use for exclusive access to shared data:
+
+```go
+type SafeCounter struct {
+    mu    sync.Mutex
+    value int
+}
+
+func (c *SafeCounter) Increment() {
+    c.mu.Lock()
+    defer c.mu.Unlock()
+    c.value++
+}
+```
+
+### RWMutex (Read-Write Mutex)
+
+Use for read-heavy workloads:
+
+```go
+type SafeMap struct {
+    mu   sync.RWMutex
+    data map[string]interface{}
+}
+
+// Read operation (multiple readers allowed)
+func (m *SafeMap) Get(key string) (interface{}, bool) {
+    m.mu.RLock()
+    defer m.mu.RUnlock()
+    return m.data[key], true
+}
+
+// Write operation (exclusive access)
+func (m *SafeMap) Set(key string, value interface{}) {
+    m.mu.Lock()
+    defer m.mu.Unlock()
+    m.data[key] = value
+}
+```
+
+### Mutex Best Practices
+
+- Always use `defer` to unlock (even on panic)
+- Keep critical sections small
+- Use RWMutex for read-heavy workloads
+- Don't hold locks during I/O operations
+- Avoid nested locks (deadlock risk)
+- Use consistent lock ordering
+
+```go
+// Good: Small critical section
+func (r *Repository) Get(id string) (*Entity, error) {
+    r.mu.RLock()
+    entity, ok := r.entities[id]
+    r.mu.RUnlock()  // Unlock before I/O
+    
+    if !ok {
+        return nil, ErrNotFound
+    }
+    
+    return entity.LoadDetails()  // I/O outside lock
+}
+
+// Bad: Hold lock during I/O
+func (r *Repository) Get(id string) (*Entity, error) {
+    r.mu.RLock()
+    defer r.mu.RUnlock()
+    
+    entity, ok := r.entities[id]
+    if !ok {
+        return nil, ErrNotFound
+    }
+    
+    return entity.LoadDetails()  // I/O while holding lock - blocks readers
+}
+```
+
+## Worker Pools
+
+### Basic Worker Pool
+
+```go
+type WorkerPool struct {
+    workers    int
+    jobQueue   chan Job
+    resultQueue chan Result
+}
+
+func (p *WorkerPool) Start(ctx context.Context) {
+    for i := 0; i < p.workers; i++ {
+        go p.worker(ctx, i)
+    }
+}
+
+func (p *WorkerPool) worker(ctx context.Context, id int) {
+    for {
+        select {
+        case <-ctx.Done():
+            return
+        case job := <-p.jobQueue:
+            result := processJob(job)
+            select {
+            case p.resultQueue <- result:
+            case <-ctx.Done():
+                return
+            }
+        }
+    }
+}
+```
+
+## Race Condition Detection
+
+### Using Race Detector
+
+Always test with race detector:
+
+```bash
+# Run tests with race detector
+go test -race ./...
+
+# Build with race detector
+go build -race ./cmd/fuse
+```
+
+### Common Race Conditions
+
+```go
+// Race condition: Unsafe concurrent access
+var counter int
+
+func increment() {
+    counter++  // Race condition!
+}
+
+// Fix: Use mutex
+var counter int
+var mu sync.Mutex
+
+func increment() {
+    mu.Lock()
+    defer mu.Unlock()
+    counter++
+}
+
+// Or use atomic
+var counter int64
+
+func increment() {
+    atomic.AddInt64(&counter, 1)
+}
+```
+
+## Deadlock Prevention
+
+### Common Deadlock Scenarios
+
+- Lock ordering: Always lock in same order
+- Nested locks: Avoid if possible
+- Circular dependencies: Break cycles
+- Missing unlocks: Always use defer
+
+```go
+// Deadlock: Inconsistent lock ordering
+func transfer(from, to *Account, amount int) {
+    from.mu.Lock()
+    to.mu.Lock()  // Deadlock if another goroutine locks in reverse order
+    // ...
+}
+
+// Fix: Consistent lock ordering
+func transfer(from, to *Account, amount int) {
+    first, second := from, to
+    if from.id > to.id {
+        first, second = to, from
+    }
+    
+    first.mu.Lock()
+    defer first.mu.Unlock()
+    second.mu.Lock()
+    defer second.mu.Unlock()
+    
+    // Transfer logic
+}
+```
+
+## Best Practices Summary
+
+1. **Share by communicating** - Use channels, not shared state
+2. **Avoid shared mutable state** - Use channels or mutexes
+3. **Use context for cancellation** - Proper cleanup
+4. **Don't leak goroutines** - Ensure they complete
+5. **Use RWMutex for read-heavy** - Better performance
+6. **Keep critical sections small** - Minimize lock time
+7. **Use defer to unlock** - Always unlock, even on panic
+8. **Detect races** - Use `-race` flag in tests
+9. **Avoid deadlocks** - Consistent lock ordering
+10. **Profile before optimizing** - Measure, don't guess
+
+## References
+
+- See `.cursor/skills/go-concurrency/SKILL.md` for detailed patterns
+- [Go Concurrency Patterns](https://go.dev/blog/pipelines)
+- [Effective Go - Concurrency](https://go.dev/doc/effective_go#concurrency)

@@ -127,6 +127,74 @@ git commit -m "fix(repo): resolve MongoDB connection timeout"
 git commit -m "docs(readme): update installation instructions"
 ```
 
+## Quality Gates Enforcement
+
+### Pre-Commit Checklist
+
+Before every commit, verify:
+
+- [ ] Tests written first (TDD cycle followed)
+- [ ] `make lint` passes
+- [ ] `make build` succeeds
+- [ ] `make test` passes
+- [ ] Coverage thresholds met (if applicable)
+- [ ] No linting warnings
+- [ ] No build errors
+- [ ] No test failures
+
+### Mandatory Quality Gate Workflow
+
+The mandatory workflow for every code change is:
+
+```
+Write Code → Lint → Build → Test → Commit
+     ↑                                    ↓
+     └────────── Fix Issues ─────────────┘
+```
+
+**No exceptions** - All gates must pass before committing.
+
+### Automated Quality Gates
+
+Use the pre-commit hook to enforce quality gates:
+
+```bash
+# Install pre-commit hook
+ln -s ../../scripts/pre-commit-gates.sh .git/hooks/pre-commit
+chmod +x .git/hooks/pre-commit
+
+# Or run manually before commit
+./scripts/pre-commit-gates.sh
+```
+
+The script enforces: **Lint → Build → Test**
+
+### Quality Gate Execution
+
+Before every commit, run these commands in order:
+
+```bash
+# 1. Lint
+make lint
+
+# 2. Build
+make build
+
+# 3. Test
+make test
+
+# 4. Check coverage (recommended)
+./scripts/check-coverage.sh
+```
+
+If any gate fails:
+1. **Stop** - Do not commit
+2. **Fix** - Address the issue
+3. **Re-run** - Verify the gate passes
+4. **Proceed** - Only after all gates pass
+
+See `.cursor/rules/12-quality-gates.mdc` for detailed quality gate requirements.
+
 ## Before Submitting PR
 
 ### 1. Run Full Test Suite
@@ -564,6 +632,74 @@ git commit -m "feat(workflow): add conditional edge support"
 git commit -m "fix(repo): resolve MongoDB connection timeout"
 git commit -m "docs(readme): update installation instructions"
 ```
+
+## Quality Gates Enforcement
+
+### Pre-Commit Checklist
+
+Before every commit, verify:
+
+- [ ] Tests written first (TDD cycle followed)
+- [ ] `make lint` passes
+- [ ] `make build` succeeds
+- [ ] `make test` passes
+- [ ] Coverage thresholds met (if applicable)
+- [ ] No linting warnings
+- [ ] No build errors
+- [ ] No test failures
+
+### Mandatory Quality Gate Workflow
+
+The mandatory workflow for every code change is:
+
+```
+Write Code → Lint → Build → Test → Commit
+     ↑                                    ↓
+     └────────── Fix Issues ─────────────┘
+```
+
+**No exceptions** - All gates must pass before committing.
+
+### Automated Quality Gates
+
+Use the pre-commit hook to enforce quality gates:
+
+```bash
+# Install pre-commit hook
+ln -s ../../scripts/pre-commit-gates.sh .git/hooks/pre-commit
+chmod +x .git/hooks/pre-commit
+
+# Or run manually before commit
+./scripts/pre-commit-gates.sh
+```
+
+The script enforces: **Lint → Build → Test**
+
+### Quality Gate Execution
+
+Before every commit, run these commands in order:
+
+```bash
+# 1. Lint
+make lint
+
+# 2. Build
+make build
+
+# 3. Test
+make test
+
+# 4. Check coverage (recommended)
+./scripts/check-coverage.sh
+```
+
+If any gate fails:
+1. **Stop** - Do not commit
+2. **Fix** - Address the issue
+3. **Re-run** - Verify the gate passes
+4. **Proceed** - Only after all gates pass
+
+See `.cursor/rules/12-quality-gates.mdc` for detailed quality gate requirements.
 
 ## Before Submitting PR
 

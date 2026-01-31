@@ -6,6 +6,50 @@ alwaysApply: true
 
 Focus on solid unit tests with coverage for integration and actor-specific patterns.
 
+## Test-First Development (NON-NEGOTIABLE)
+
+### Mandatory TDD Cycle
+
+Every feature MUST follow the Test-Driven Development (TDD) cycle:
+
+1. **Write Tests First** - Define test cases before implementation
+2. **Tests Fail** - Verify tests fail (red phase)
+3. **Implement** - Write minimal code to make tests pass
+4. **Tests Pass** - Verify all tests pass (green phase)
+5. **Refactor** - Improve code while keeping tests green
+
+### Pre-Implementation Requirements
+
+Before writing any implementation code:
+
+- [ ] Write unit tests for the feature
+- [ ] Tests must fail initially (verify they test the right thing)
+- [ ] Tests must be comprehensive (happy path, error cases, edge cases)
+- [ ] Tests must be independent and isolated
+
+### Enforcement
+
+- **No implementation without tests** - Tests written first, always
+- **No merge without tests** - All features must have tests
+- **Tests must pass** - All tests must pass before commit
+- **Coverage requirements** - Must meet coverage thresholds
+
+### Coverage Requirements
+
+- **Critical business logic**: 90%+ coverage
+- **Repository implementations**: 80%+ coverage
+- **HTTP handlers**: 70%+ coverage
+- **Actor message handling**: 80%+ coverage
+
+Use `scripts/check-coverage.sh` to verify coverage thresholds.
+
+### Test Execution Before Commit
+
+- Run `make test` before every commit
+- All tests must pass
+- No test failures allowed
+- Fix failing tests immediately
+
 ## Unit Tests
 
 ### File Naming and Structure

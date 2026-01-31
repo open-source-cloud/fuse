@@ -1,0 +1,219 @@
+---
+alwaysApply: true
+---
+
+# Quality Gates
+
+Mandatory quality gates that MUST pass before every commit and merge. These gates enforce test-first development, code quality, and build success.
+
+## Mandatory Workflow
+
+The mandatory workflow for every code change is:
+
+```
+Lint → Build → Test
+```
+
+**No exceptions.** All gates must pass before:
+- Committing code
+- Creating pull requests
+- Merging code
+
+## Quality Gate 1: Linting
+
+### Requirement
+
+All code MUST pass `make lint` before commit.
+
+### Execution
+
+```bash
+make lint
+```
+
+### What It Checks
+
+- Code style and formatting
+- Potential bugs and errors
+- Code complexity
+- Best practices
+- Security issues
+
+### Failure Handling
+
+- Fix all linting issues before proceeding
+- Use `make lint-fix` to auto-fix issues where possible
+- Manual fixes required for complex issues
+- No code merges with linting errors
+
+### Configuration
+
+Linting rules are defined in `.golangci.yml`. Key rules:
+- Cyclomatic complexity < 15
+- No shadowed variables
+- Error checking required
+- Unused code detection
+- Security checks (gosec)
+
+## Quality Gate 2: Build
+
+### Requirement
+
+Build MUST succeed (`make build`) before merge.
+
+### Execution
+
+```bash
+make build
+```
+
+### What It Checks
+
+- Code compiles successfully
+- All dependencies resolved
+- No compilation errors
+- Binary builds correctly
+
+### Failure Handling
+
+- Fix compilation errors immediately
+- Resolve dependency issues
+- Ensure all imports are correct
+- No code merges with build failures
+
+## Quality Gate 3: Testing
+
+### Requirement
+
+All tests MUST pass (`make test`) before merge.
+
+### Execution
+
+```bash
+make test
+```
+
+### What It Checks
+
+- All unit tests pass
+- All integration tests pass (unless skipped)
+- No test failures
+- No test panics
+
+### Failure Handling
+
+- Fix failing tests before proceeding
+- Update tests if behavior changed intentionally
+- Ensure test data is correct
+- No code merges with test failures
+
+### Test Coverage Requirements
+
+Coverage thresholds MUST be met:
+
+- **Critical business logic**: 90%+ coverage
+- **Repository implementations**: 80%+ coverage
+- **HTTP handlers**: 70%+ coverage
+- **Actor message handling**: 80%+ coverage
+
+Use `scripts/check-coverage.sh` to verify coverage thresholds.
+
+## Pre-Commit Enforcement
+
+### Pre-Commit Hook
+
+Use `scripts/pre-commit-gates.sh` to enforce quality gates:
+
+```bash
+# Install pre-commit hook
+ln -s ../../scripts/pre-commit-gates.sh .git/hooks/pre-commit
+chmod +x .git/hooks/pre-commit
+```
+
+### Manual Execution
+
+Run quality gates manually before committing:
+
+```bash
+./scripts/pre-commit-gates.sh
+```
+
+### CI/CD Integration
+
+CI/CD pipeline MUST run all quality gates:
+
+```yaml
+# .github/workflows/ci.yml
+- name: Lint
+  run: make lint
+
+- name: Build
+  run: make build
+
+- name: Test
+  run: make test
+
+- name: Check Coverage
+  run: ./scripts/check-coverage.sh
+```
+
+## Quality Gate Checklist
+
+Before every commit, verify:
+
+- [ ] `make lint` passes
+- [ ] `make build` succeeds
+- [ ] `make test` passes
+- [ ] Coverage thresholds met
+- [ ] No linting warnings
+- [ ] No build errors
+- [ ] No test failures
+
+## Exceptions
+
+**There are no exceptions.** All quality gates must pass. If a gate fails:
+
+1. **Stop** - Do not commit or merge
+2. **Fix** - Address the issue
+3. **Verify** - Re-run the gate to confirm fix
+4. **Proceed** - Only after all gates pass
+
+## Best Practices
+
+1. **Run gates frequently** - Don't wait until commit time
+2. **Fix issues immediately** - Don't accumulate technical debt
+3. **Use auto-fix** - `make lint-fix` for automatic fixes
+4. **Check coverage** - Ensure tests cover new code
+5. **Run locally first** - Don't rely only on CI/CD
+6. **Keep gates fast** - Optimize for quick feedback
+7. **Document exceptions** - If truly needed, document why
+
+## Integration with Development Workflow
+
+Quality gates integrate with the test-first development workflow:
+
+1. **Write tests first** (TDD)
+2. **Run tests** - Verify they fail (red)
+3. **Implement** - Write minimal code
+4. **Run tests** - Verify they pass (green)
+5. **Run lint** - Fix any issues
+6. **Run build** - Verify compilation
+7. **Run tests again** - Final verification
+8. **Commit** - All gates passed
+
+## Monitoring and Metrics
+
+Track quality gate metrics:
+
+- **Lint pass rate**: Percentage of commits passing lint
+- **Build success rate**: Percentage of builds succeeding
+- **Test pass rate**: Percentage of test runs passing
+- **Coverage trend**: Track coverage over time
+- **Gate execution time**: Monitor performance
+
+## References
+
+- See `.cursor/rules/07-testing.mdc` for testing standards
+- See `.cursor/rules/11-development-workflow.mdc` for workflow integration
+- See `.golangci.yml` for linting configuration
+- See `Makefile` for build and test commands
