@@ -11,8 +11,9 @@ func NewExecutionInfo(workflowID ID, execID ExecID, input *FunctionInput) *Execu
 
 // ExecutionInfo contains the execution context info for a workflow when executing a Function
 type ExecutionInfo struct {
-	WorkflowID ID
-	ExecID     ExecID
-	Input      *FunctionInput
-	Finish     func(FunctionOutput)
+	WorkflowID    ID
+	ExecID        ExecID
+	Input         *FunctionInput
+	Finish        func(FunctionOutput)
+	StreamCallback StreamCallback // Optional callback for streaming chunks
 }

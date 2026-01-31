@@ -14,6 +14,8 @@ const (
 	FunctionResult      MessageType = "function:result"
 	// AsyncFunctionResult message type
 	AsyncFunctionResult MessageType = "function:async:result"
+	// StreamWorkflow message type
+	StreamWorkflow MessageType = "workflow:stream"
 )
 
 // Message defines the basic Message

@@ -10,7 +10,6 @@ import (
 	"github.com/gorilla/mux"
 	httpSwagger "github.com/swaggo/http-swagger"
 
-	_ "github.com/open-source-cloud/fuse/docs" // Import generated docs
 	"github.com/open-source-cloud/fuse/internal/app/config"
 )
 

@@ -94,6 +94,16 @@ func NewWorkers() *Workers {
 					PoolSize: 3,
 				},
 			},
+			{
+				Name:    handlers.StreamWorkflowHandlerName,
+				Pattern: "/v1/workflows/{workflowID}/stream",
+				Methods: []string{"GET"},
+				Timeout: 0, // No timeout for streaming connections
+				PoolConfig: WorkerPoolConfig{
+					Name:     handlers.StreamWorkflowHandlerPoolName,
+					PoolSize: 10,
+				},
+			},
 		},
 		factories: make(map[string]gen.ProcessFactory),
 	}

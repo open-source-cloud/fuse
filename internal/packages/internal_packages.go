@@ -1,6 +1,7 @@
 package packages
 
 import (
+	"github.com/open-source-cloud/fuse/internal/packages/functions/ai"
 	"github.com/open-source-cloud/fuse/internal/packages/functions/debug"
 	"github.com/open-source-cloud/fuse/internal/packages/functions/http"
 	"github.com/open-source-cloud/fuse/internal/packages/functions/logic"
@@ -28,5 +29,6 @@ func (p *DefaultInternalPackages) List() []*workflow.Package {
 		debug.New(),
 		logic.New(),
 		http.New(),
+		ai.New(),
 	}
 }
