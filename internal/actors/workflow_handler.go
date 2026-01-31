@@ -45,7 +45,8 @@ type (
 		graphService       services.GraphService
 		workflowRepository repositories.WorkflowRepository
 
-		workflow *internalworkflow.Workflow
+		workflow        *internalworkflow.Workflow
+		streamCallbacks []workflow.StreamCallback
 	}
 
 	// WorkflowHandlerInitArgs defines the typed arguments for the WorkflowHandler Actor Init message
@@ -93,6 +94,8 @@ func (a *WorkflowHandler) HandleMessage(from gen.PID, message any) error {
 		return a.handleMsgFunctionResult(msg)
 	case messaging.AsyncFunctionResult:
 		return a.handleMsgAsyncFunctionResult(msg)
+	case messaging.StreamWorkflow:
+		return a.handleMsgStreamWorkflow(msg)
 	}
 
 	return nil
@@ -137,6 +140,11 @@ func (a *WorkflowHandler) handleMsgActorInit(msg messaging.Message) error {
 	a.Log().Debug("created new workflow with id %s", initArgs.workflowID)
 
 	action := a.workflow.Trigger()
+	a.emitStreamEvent(internalworkflow.StreamEvent{
+		Type:       internalworkflow.StreamEventWorkflowStarted,
+		WorkflowID: a.workflow.ID(),
+		State:      a.workflow.State(),
+	})
 	a.handleWorkflowAction(action)
 	return nil
 }
@@ -148,6 +156,19 @@ func (a *WorkflowHandler) handleMsgFunctionResult(msg messaging.Message) error {
 	}
 
 	a.workflow.SetResultFor(fnResultMsg.ExecID, &fnResultMsg.Result)
+
+	// Emit node result event
+	currentAuditEntry, _ := a.workflow.AuditLog().Get(fnResultMsg.ExecID.String())
+	if currentAuditEntry != nil {
+		a.emitStreamEvent(internalworkflow.StreamEvent{
+			Type:       internalworkflow.StreamEventNodeResult,
+			WorkflowID: fnResultMsg.WorkflowID,
+			NodeID:     currentAuditEntry.FunctionNodeID,
+			ThreadID:   fnResultMsg.ThreadID,
+			ExecID:     fnResultMsg.ExecID,
+			Data:       fnResultMsg.Result.Output.Data,
+		})
+	}
 
 	if fnResultMsg.Result.Async {
 		a.Log().Debug("got async function result for workflow %s, execID %s", fnResultMsg.WorkflowID, fnResultMsg.ExecID)
@@ -162,6 +183,12 @@ func (a *WorkflowHandler) handleMsgFunctionResult(msg messaging.Message) error {
 			fnResultMsg.Result.Output.Status,
 		)
 		a.workflow.SetState(internalworkflow.StateError)
+		a.emitStreamEvent(internalworkflow.StreamEvent{
+			Type:       internalworkflow.StreamEventWorkflowError,
+			WorkflowID: fnResultMsg.WorkflowID,
+			State:      internalworkflow.StateError,
+			Error:      fmt.Sprintf("function failed with status %s", fnResultMsg.Result.Output.Status),
+		})
 		// TODO handle function failure
 		return nil
 	}
@@ -186,6 +213,20 @@ func (a *WorkflowHandler) handleMsgAsyncFunctionResult(msg messaging.Message) er
 		Async:  true,
 		Output: fnResultMsg.Output,
 	})
+
+	// Emit node result event
+	currentAuditEntry, _ := a.workflow.AuditLog().Get(fnResultMsg.ExecID.String())
+	if currentAuditEntry != nil {
+		a.emitStreamEvent(internalworkflow.StreamEvent{
+			Type:      internalworkflow.StreamEventNodeResult,
+			WorkflowID: fnResultMsg.WorkflowID,
+			NodeID:    currentAuditEntry.FunctionNodeID,
+			ThreadID:  fnResultMsg.ExecID.Thread(),
+			ExecID:    fnResultMsg.ExecID,
+			Data:      fnResultMsg.Output.Data,
+		})
+	}
+
 	if fnResultMsg.Output.Status != workflow.FunctionSuccess {
 		a.Log().Error(
 			"async function result for workflow %s, execID %s failed with status %s",
@@ -194,6 +235,12 @@ func (a *WorkflowHandler) handleMsgAsyncFunctionResult(msg messaging.Message) er
 			fnResultMsg.Output.Status,
 		)
 		a.workflow.SetState(internalworkflow.StateError)
+		a.emitStreamEvent(internalworkflow.StreamEvent{
+			Type:      internalworkflow.StreamEventWorkflowError,
+			WorkflowID: fnResultMsg.WorkflowID,
+			State:     internalworkflow.StateError,
+			Error:     fmt.Sprintf("function failed with status %s", fnResultMsg.Output.Status),
+		})
 		// TODO handle function failure
 		return nil
 	}
@@ -201,6 +248,14 @@ func (a *WorkflowHandler) handleMsgAsyncFunctionResult(msg messaging.Message) er
 	action := a.workflow.Next(fnResultMsg.ExecID.Thread())
 	if action.Type() == workflowactions.ActionNoop {
 		a.Log().Warning("got noop action from workflow")
+		// Check if workflow is finished
+		if a.workflow.State() == internalworkflow.StateFinished {
+			a.emitStreamEvent(internalworkflow.StreamEvent{
+				Type:      internalworkflow.StreamEventWorkflowCompleted,
+				WorkflowID: fnResultMsg.WorkflowID,
+				State:     internalworkflow.StateFinished,
+			})
+		}
 		return nil
 	}
 	a.handleWorkflowAction(action)
@@ -223,6 +278,18 @@ func (a *WorkflowHandler) handleWorkflowRunFunctionAction(action workflowactions
 	workflowPool := WorkflowFuncPoolName(a.workflow.ID())
 	execAction := action.(*workflowactions.RunFunctionAction)
 
+	// Emit node executing event
+	currentAuditEntry, _ := a.workflow.AuditLog().Get(execAction.FunctionExecID.String())
+	if currentAuditEntry != nil {
+		a.emitStreamEvent(internalworkflow.StreamEvent{
+			Type:      internalworkflow.StreamEventNodeExecuting,
+			WorkflowID: a.workflow.ID(),
+			NodeID:    currentAuditEntry.FunctionNodeID,
+			ThreadID:  execAction.ThreadID,
+			ExecID:    execAction.FunctionExecID,
+		})
+	}
+
 	execFnMsg := messaging.NewExecuteFunctionMessage(a.workflow.ID(), execAction)
 	err := a.Send(workflowPool, execFnMsg)
 	if err != nil {
@@ -230,4 +297,63 @@ func (a *WorkflowHandler) handleWorkflowRunFunctionAction(action workflowactions
 		return
 	}
 	a.workflow.SetState(internalworkflow.StateRunning)
+	a.emitStreamEvent(internalworkflow.StreamEvent{
+		Type:       internalworkflow.StreamEventWorkflowStateChanged,
+		WorkflowID: a.workflow.ID(),
+		State:      a.workflow.State(),
+	})
+}
+
+func (a *WorkflowHandler) handleMsgStreamWorkflow(msg messaging.Message) error {
+	streamMsg, err := msg.StreamWorkflowMessage()
+	if err != nil {
+		a.Log().Error("failed to get stream workflow message from %s: %s", msg, err)
+		return nil
+	}
+
+	if streamMsg.Callback == nil {
+		// Unregister callback
+		callbacks := make([]workflow.StreamCallback, 0)
+		for _, cb := range a.streamCallbacks {
+			// Compare function pointers - this is a simple approach
+			// In production, you might want a more sophisticated callback management
+			if cb != nil {
+				callbacks = append(callbacks, cb)
+			}
+		}
+		a.streamCallbacks = callbacks
+		a.Log().Debug("unregistered stream callback for workflow %s", streamMsg.WorkflowID)
+	} else {
+		// Register callback
+		a.streamCallbacks = append(a.streamCallbacks, streamMsg.Callback)
+		a.Log().Debug("registered stream callback for workflow %s", streamMsg.WorkflowID)
+	}
+
+	return nil
+}
+
+func (a *WorkflowHandler) emitStreamEvent(event internalworkflow.StreamEvent) {
+	if a.workflow == nil {
+		return
+	}
+
+	event.WorkflowID = a.workflow.ID()
+	for _, callback := range a.streamCallbacks {
+		chunk := workflow.StreamChunk{
+			Type: workflow.StreamChunkData,
+			Data: map[string]any{
+				"event_type":  string(event.Type),
+				"workflow_id": event.WorkflowID.String(),
+				"node_id":     event.NodeID,
+				"thread_id":   event.ThreadID,
+				"exec_id":     event.ExecID.String(),
+				"state":       string(event.State),
+				"data":        event.Data,
+				"error":       event.Error,
+			},
+		}
+		if err := callback(chunk); err != nil {
+			a.Log().Error("failed to emit stream event: %s", err)
+		}
+	}
 }
