@@ -83,6 +83,5 @@ func (e *streamEmitter) Emit(event StreamEvent) error {
 // EmitError emits an error event
 func (e *streamEmitter) EmitError(event StreamEvent, err error) error {
 	event.Error = err.Error()
-	chunk := workflow.NewStreamChunkError(err)
 	return e.Emit(event)
 }
