@@ -363,7 +363,7 @@ func (a *WorkflowHandler) startExecutionTimeout(execID workflow.ExecID, node *in
 	if node.Schema().Timeout == nil || node.Schema().Timeout.Execution == 0 {
 		return
 	}
-	a.executionTimer.Start(a, a.PID(), execID.String(), node.Schema().Timeout.Execution)
+	a.executionTimer.Start(a, a.PID(), execID.String(), node.Schema().Timeout.Execution.Duration())
 }
 
 func (a *WorkflowHandler) cancelExecutionTimeout(execID workflow.ExecID) {
@@ -376,7 +376,7 @@ func (a *WorkflowHandler) startWorkflowTimeout() {
 		return
 	}
 	timeoutMsg := messaging.NewWorkflowTimeoutMessage(a.workflow.ID())
-	if _, err := a.SendAfter(a.PID(), timeoutMsg, schema.Timeout.Total); err != nil {
+	if _, err := a.SendAfter(a.PID(), timeoutMsg, schema.Timeout.Total.Duration()); err != nil {
 		a.Log().Error("failed to set workflow timeout: %s", err)
 	}
 }

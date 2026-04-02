@@ -30,9 +30,9 @@ type BackoffConfig struct {
 	// Type of backoff: fixed, exponential, linear
 	Type BackoffType `json:"type" validate:"oneof=fixed exponential linear"`
 	// InitialInterval is the base delay between retries
-	InitialInterval time.Duration `json:"initialInterval"`
+	InitialInterval FlexibleDuration `json:"initialInterval"`
 	// MaxInterval caps the delay for exponential/linear backoff
-	MaxInterval time.Duration `json:"maxInterval"`
+	MaxInterval FlexibleDuration `json:"maxInterval"`
 	// Multiplier for exponential backoff (default: 2.0)
 	Multiplier float64 `json:"multiplier,omitempty"`
 }
@@ -43,8 +43,8 @@ func DefaultRetryPolicy() RetryPolicy {
 		MaxAttempts: 3,
 		Backoff: BackoffConfig{
 			Type:            BackoffExponential,
-			InitialInterval: 1 * time.Second,
-			MaxInterval:     30 * time.Second,
+			InitialInterval: FlexibleDuration(1 * time.Second),
+			MaxInterval:     FlexibleDuration(30 * time.Second),
 			Multiplier:      2.0,
 		},
 	}
@@ -52,20 +52,22 @@ func DefaultRetryPolicy() RetryPolicy {
 
 // DelayFor calculates the delay for a given attempt number (0-indexed)
 func (p RetryPolicy) DelayFor(attempt int) time.Duration {
+	initial := time.Duration(p.Backoff.InitialInterval)
+	maxInt := time.Duration(p.Backoff.MaxInterval)
 	switch p.Backoff.Type {
 	case BackoffExponential:
-		delay := float64(p.Backoff.InitialInterval) * math.Pow(p.Backoff.Multiplier, float64(attempt))
-		if time.Duration(delay) > p.Backoff.MaxInterval {
-			return p.Backoff.MaxInterval
+		delay := float64(initial) * math.Pow(p.Backoff.Multiplier, float64(attempt))
+		if time.Duration(delay) > maxInt {
+			return maxInt
 		}
 		return time.Duration(delay)
 	case BackoffLinear:
-		delay := p.Backoff.InitialInterval * time.Duration(attempt+1)
-		if delay > p.Backoff.MaxInterval {
-			return p.Backoff.MaxInterval
+		delay := initial * time.Duration(attempt+1)
+		if delay > maxInt {
+			return maxInt
 		}
 		return delay
 	default: // fixed
-		return p.Backoff.InitialInterval
+		return initial
 	}
 }

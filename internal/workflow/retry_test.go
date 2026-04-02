@@ -12,7 +12,7 @@ func TestRetryPolicy_DelayFor_Fixed(t *testing.T) {
 		MaxAttempts: 3,
 		Backoff: BackoffConfig{
 			Type:            BackoffFixed,
-			InitialInterval: 500 * time.Millisecond,
+			InitialInterval: FlexibleDuration(500 * time.Millisecond),
 		},
 	}
 
@@ -26,8 +26,8 @@ func TestRetryPolicy_DelayFor_Exponential(t *testing.T) {
 		MaxAttempts: 5,
 		Backoff: BackoffConfig{
 			Type:            BackoffExponential,
-			InitialInterval: 1 * time.Second,
-			MaxInterval:     30 * time.Second,
+			InitialInterval: FlexibleDuration(1 * time.Second),
+			MaxInterval:     FlexibleDuration(30 * time.Second),
 			Multiplier:      2.0,
 		},
 	}
@@ -45,8 +45,8 @@ func TestRetryPolicy_DelayFor_Linear(t *testing.T) {
 		MaxAttempts: 5,
 		Backoff: BackoffConfig{
 			Type:            BackoffLinear,
-			InitialInterval: 1 * time.Second,
-			MaxInterval:     5 * time.Second,
+			InitialInterval: FlexibleDuration(1 * time.Second),
+			MaxInterval:     FlexibleDuration(5 * time.Second),
 		},
 	}
 
@@ -61,8 +61,8 @@ func TestRetryPolicy_DelayFor_ExponentialRespectsMaxInterval(t *testing.T) {
 		MaxAttempts: 10,
 		Backoff: BackoffConfig{
 			Type:            BackoffExponential,
-			InitialInterval: 100 * time.Millisecond,
-			MaxInterval:     1 * time.Second,
+			InitialInterval: FlexibleDuration(100 * time.Millisecond),
+			MaxInterval:     FlexibleDuration(1 * time.Second),
 			Multiplier:      3.0,
 		},
 	}
@@ -100,7 +100,7 @@ func TestDefaultRetryPolicy(t *testing.T) {
 
 	assert.Equal(t, 3, policy.MaxAttempts)
 	assert.Equal(t, BackoffExponential, policy.Backoff.Type)
-	assert.Equal(t, 1*time.Second, policy.Backoff.InitialInterval)
-	assert.Equal(t, 30*time.Second, policy.Backoff.MaxInterval)
+	assert.Equal(t, FlexibleDuration(1*time.Second), policy.Backoff.InitialInterval)
+	assert.Equal(t, FlexibleDuration(30*time.Second), policy.Backoff.MaxInterval)
 	assert.Equal(t, 2.0, policy.Backoff.Multiplier)
 }
