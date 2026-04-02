@@ -1,0 +1,65 @@
+name: E2E
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+
+      - name: Build Docker image
+        run: docker build -t fuse-app:test .
+
+      - name: Install k3d
+        run: |
+          curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
+
+      - name: Create k3d cluster
+        run: |
+          k3d cluster create fuse-test --wait
+          k3d image import fuse-app:test -c fuse-test
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Deploy FUSE (standalone)
+        run: |
+          helm dependency update deploy/helm/fuse/
+          helm install fuse deploy/helm/fuse/ \
+            --set image.repository=fuse-app \
+            --set image.tag=test \
+            --set image.pullPolicy=Never \
+            --set mongodb.auth.rootPassword=fuse-dev \
+            --set env.LOG_LEVEL=debug \
+            --wait --timeout 120s
+
+      - name: Wait for pods
+        run: kubectl rollout status deployment/fuse --timeout=120s
+
+      - name: Port forward
+        run: |
+          kubectl port-forward svc/fuse 9090:9090 &
+          sleep 3
+
+      - name: Health check
+        run: curl -sf http://localhost:9090/health
+
+      - name: Run E2E workflow tests
+        run: |
+          chmod +x tests/e2e/run_workflows.sh
+          tests/e2e/run_workflows.sh
+
+      - name: Cleanup
+        if: always()
+        run: k3d cluster delete fuse-test

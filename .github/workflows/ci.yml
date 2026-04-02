@@ -9,6 +9,19 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        env:
+          MONGO_INITDB_ROOT_USERNAME: admin
+          MONGO_INITDB_ROOT_PASSWORD: password
+        options: >-
+          --health-cmd "mongosh --eval 'db.runCommand({ping:1})'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
 
@@ -51,3 +64,20 @@ jobs:
 
       - name: Build
         run: make build
+
+      - name: Integration Tests
+        env:
+          DB_DRIVER: mongodb
+          DB_URL: mongodb://admin:password@localhost:27017
+          DB_NAME: fuse_test
+          DB_TEST_CONNECTION: "true"
+        run: go test -tags integration -v -count=1 ./internal/repositories/...
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Helm lint
+        run: helm lint deploy/helm/fuse/
+
+      - name: Helm template validation
+        run: helm template fuse deploy/helm/fuse/ --values deploy/helm/fuse/values.yaml > /dev/null
