@@ -1,0 +1,90 @@
+{
+  "id": "full-foundation-test",
+  "name": "Full Foundation Test",
+  "timeout": {
+    "total": "30s"
+  },
+  "nodes": [
+    {
+      "id": "trigger",
+      "function": "fuse/pkg/debug/nil"
+    },
+    {
+      "id": "branch-rand",
+      "function": "fuse/pkg/logic/rand"
+    },
+    {
+      "id": "branch-retry",
+      "function": "fuse/pkg/debug/fail",
+      "retry": {
+        "maxAttempts": 2,
+        "backoff": {
+          "type": "exponential",
+          "initialInterval": "100ms",
+          "maxInterval": "1s",
+          "multiplier": 2.0
+        }
+      }
+    },
+    {
+      "id": "recovery",
+      "function": "fuse/pkg/debug/print"
+    },
+    {
+      "id": "join",
+      "function": "fuse/pkg/debug/print"
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1-trigger-to-rand",
+      "from": "trigger",
+      "to": "branch-rand",
+      "input": [
+        {
+          "source": "schema",
+          "value": 10,
+          "mapTo": "min"
+        },
+        {
+          "source": "schema",
+          "value": 100,
+          "mapTo": "max"
+        }
+      ]
+    },
+    {
+      "id": "e2-trigger-to-retry",
+      "from": "trigger",
+      "to": "branch-retry",
+      "input": [
+        {
+          "source": "schema",
+          "value": 1,
+          "mapTo": "failCount"
+        },
+        {
+          "source": "schema",
+          "value": "foundation test retry",
+          "mapTo": "message"
+        }
+      ]
+    },
+    {
+      "id": "e3-retry-to-join",
+      "from": "branch-retry",
+      "to": "join"
+    },
+    {
+      "id": "e4-retry-error-to-recovery",
+      "from": "branch-retry",
+      "to": "recovery",
+      "onError": true
+    },
+    {
+      "id": "e5-rand-to-join",
+      "from": "branch-rand",
+      "to": "join"
+    }
+  ]
+}

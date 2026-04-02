@@ -1,0 +1,50 @@
+{
+  "id": "timeout-test",
+  "name": "Timeout Test",
+  "nodes": [
+    {
+      "id": "trigger",
+      "function": "fuse/pkg/debug/nil"
+    },
+    {
+      "id": "slow-node",
+      "function": "fuse/pkg/logic/timer",
+      "timeout": {
+        "execution": "1s"
+      }
+    },
+    {
+      "id": "normal-path",
+      "function": "fuse/pkg/debug/print"
+    },
+    {
+      "id": "recovery",
+      "function": "fuse/pkg/debug/print"
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1-trigger-to-slow",
+      "from": "trigger",
+      "to": "slow-node",
+      "input": [
+        {
+          "source": "schema",
+          "value": 5000,
+          "mapTo": "timer"
+        }
+      ]
+    },
+    {
+      "id": "e2-slow-to-normal",
+      "from": "slow-node",
+      "to": "normal-path"
+    },
+    {
+      "id": "e3-slow-to-recovery",
+      "from": "slow-node",
+      "to": "recovery",
+      "onError": true
+    }
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "id": "parallel-retry-test",
+  "name": "Parallel Retry Test",
+  "nodes": [
+    {
+      "id": "trigger",
+      "function": "fuse/pkg/debug/nil"
+    },
+    {
+      "id": "branch-a",
+      "function": "fuse/pkg/logic/rand"
+    },
+    {
+      "id": "branch-b",
+      "function": "fuse/pkg/debug/fail",
+      "retry": {
+        "maxAttempts": 2,
+        "backoff": {
+          "type": "fixed",
+          "initialInterval": "100ms"
+        }
+      }
+    },
+    {
+      "id": "join",
+      "function": "fuse/pkg/debug/print"
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1-trigger-to-branch-a",
+      "from": "trigger",
+      "to": "branch-a",
+      "input": [
+        {
+          "source": "schema",
+          "value": 1,
+          "mapTo": "min"
+        },
+        {
+          "source": "schema",
+          "value": 100,
+          "mapTo": "max"
+        }
+      ]
+    },
+    {
+      "id": "e2-trigger-to-branch-b",
+      "from": "trigger",
+      "to": "branch-b",
+      "input": [
+        {
+          "source": "schema",
+          "value": 1,
+          "mapTo": "failCount"
+        }
+      ]
+    },
+    {
+      "id": "e3-branch-a-to-join",
+      "from": "branch-a",
+      "to": "join"
+    },
+    {
+      "id": "e4-branch-b-to-join",
+      "from": "branch-b",
+      "to": "join"
+    }
+  ]
+}

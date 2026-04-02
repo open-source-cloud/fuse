@@ -1,0 +1,75 @@
+{
+  "id": "durable-test",
+  "name": "Durable Execution Test",
+  "nodes": [
+    {
+      "id": "trigger",
+      "function": "fuse/pkg/debug/nil"
+    },
+    {
+      "id": "step1",
+      "function": "fuse/pkg/logic/rand"
+    },
+    {
+      "id": "step2",
+      "function": "fuse/pkg/logic/rand"
+    },
+    {
+      "id": "final",
+      "function": "fuse/pkg/logic/sum"
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1-trigger-to-step1",
+      "from": "trigger",
+      "to": "step1",
+      "input": [
+        {
+          "source": "schema",
+          "value": 1,
+          "mapTo": "min"
+        },
+        {
+          "source": "schema",
+          "value": 100,
+          "mapTo": "max"
+        }
+      ]
+    },
+    {
+      "id": "e2-step1-to-step2",
+      "from": "step1",
+      "to": "step2",
+      "input": [
+        {
+          "source": "schema",
+          "value": 1,
+          "mapTo": "min"
+        },
+        {
+          "source": "schema",
+          "value": 100,
+          "mapTo": "max"
+        }
+      ]
+    },
+    {
+      "id": "e3-step2-to-final",
+      "from": "step2",
+      "to": "final",
+      "input": [
+        {
+          "source": "flow",
+          "variable": "step1.rand",
+          "mapTo": "values"
+        },
+        {
+          "source": "flow",
+          "variable": "step2.rand",
+          "mapTo": "values"
+        }
+      ]
+    }
+  ]
+}
