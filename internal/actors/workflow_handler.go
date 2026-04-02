@@ -3,14 +3,17 @@ package actors
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/open-source-cloud/fuse/internal/actors/actornames"
+	"github.com/open-source-cloud/fuse/internal/packages/functions/system"
 	"github.com/open-source-cloud/fuse/internal/services"
 	internalworkflow "github.com/open-source-cloud/fuse/internal/workflow"
 	"github.com/open-source-cloud/fuse/internal/workflow/workflowactions"
 
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
+	"github.com/google/uuid"
 	"github.com/open-source-cloud/fuse/internal/app/config"
 	"github.com/open-source-cloud/fuse/internal/messaging"
 	"github.com/open-source-cloud/fuse/internal/repositories"
@@ -26,6 +29,7 @@ func NewWorkflowHandlerFactory(
 	graphService services.GraphService,
 	workflowRepository repositories.WorkflowRepository,
 	journalRepository repositories.JournalRepository,
+	awakeableRepository repositories.AwakeableRepository,
 ) *WorkflowHandlerFactory {
 	return &WorkflowHandlerFactory{
 		Factory: func() gen.ProcessBehavior {
@@ -34,6 +38,7 @@ func NewWorkflowHandlerFactory(
 				graphService:       graphService,
 				workflowRepository: workflowRepository,
 				journalRepo:        journalRepository,
+				awakeableRepo:      awakeableRepository,
 			}
 		},
 	}
@@ -48,6 +53,7 @@ type (
 		graphService       services.GraphService
 		workflowRepository repositories.WorkflowRepository
 		journalRepo        repositories.JournalRepository
+		awakeableRepo      repositories.AwakeableRepository
 
 		workflow       *internalworkflow.Workflow
 		executionTimer *ExecutionTimer
@@ -137,6 +143,14 @@ func (a *WorkflowHandler) HandleMessage(from gen.PID, message any) error {
 		return a.handleMsgTimeout(msg)
 	case messaging.WorkflowTimeout:
 		return a.handleMsgWorkflowTimeout()
+	case messaging.CancelWorkflow:
+		return a.handleMsgCancelWorkflow(msg)
+	case messaging.SleepWakeUp:
+		return a.handleMsgSleepWakeUp(msg)
+	case messaging.AwakeableResolvedMsg:
+		return a.handleMsgAwakeableResolved(msg)
+	case messaging.SubWorkflowCompleted:
+		return a.handleMsgSubWorkflowCompleted(msg)
 	}
 
 	return nil
@@ -151,6 +165,11 @@ func (a *WorkflowHandler) handleMsgFunctionResult(msg messaging.Message) error {
 	fnResultMsg, ok := msg.Args.(messaging.FunctionResultMessage)
 	if !ok {
 		a.Log().Error("failed to get function result from %s", msg)
+	}
+
+	if a.workflow.State() == internalworkflow.StateCancelled {
+		a.Log().Warning("ignoring function result for cancelled workflow %s", a.workflow.ID())
+		return nil
 	}
 
 	a.cancelExecutionTimeout(fnResultMsg.ExecID)
@@ -194,6 +213,11 @@ func (a *WorkflowHandler) handleMsgAsyncFunctionResult(msg messaging.Message) er
 	fnResultMsg, ok := msg.Args.(messaging.AsyncFunctionResultMessage)
 	if !ok {
 		a.Log().Error("failed to get async function result from %s", msg)
+	}
+
+	if a.workflow.State() == internalworkflow.StateCancelled {
+		a.Log().Warning("ignoring async function result for cancelled workflow %s", a.workflow.ID())
+		return nil
 	}
 
 	a.cancelExecutionTimeout(fnResultMsg.ExecID)
@@ -255,6 +279,9 @@ func (a *WorkflowHandler) checkWorkflowCompletion() {
 	if err := a.Send(gen.Atom(supName), completedMsg); err != nil {
 		a.Log().Error("failed to send workflow completed message: %s", err)
 	}
+
+	// If this is a child workflow, notify the parent
+	a.notifyParentIfSubWorkflow()
 }
 
 func (a *WorkflowHandler) handleMsgTimeout(msg messaging.Message) error {
@@ -283,6 +310,44 @@ func (a *WorkflowHandler) handleMsgTimeout(msg messaging.Message) error {
 	}
 	a.persistJournal()
 	a.handleWorkflowAction(action)
+	return nil
+}
+
+func (a *WorkflowHandler) handleMsgCancelWorkflow(msg messaging.Message) error {
+	cancelMsg, ok := msg.Args.(messaging.CancelWorkflowMessage)
+	if !ok {
+		return nil
+	}
+
+	currentState := a.workflow.State()
+	if currentState == internalworkflow.StateFinished ||
+		currentState == internalworkflow.StateError ||
+		currentState == internalworkflow.StateCancelled {
+		a.Log().Warning("cannot cancel workflow %s in state %s", cancelMsg.WorkflowID, currentState)
+		return nil
+	}
+
+	a.workflow.SetState(internalworkflow.StateCancelled)
+	a.executionTimer.CancelAll()
+	a.persistJournal()
+
+	// Cascade cancel to active sub-workflows
+	children, _ := a.workflowRepository.FindActiveSubWorkflows(a.workflow.ID().String())
+	for _, child := range children {
+		childCancelMsg := messaging.NewCancelWorkflowMessage(child.ChildWorkflowID, "parent cancelled")
+		if err := a.Send(gen.Atom(actornames.WorkflowSupervisorName), childCancelMsg); err != nil {
+			a.Log().Error("failed to cascade cancel to sub-workflow %s: %s", child.ChildWorkflowID, err)
+		}
+	}
+
+	supName := actornames.WorkflowInstanceSupervisorName(a.workflow.ID())
+	completedMsg := messaging.NewWorkflowCompletedMessage(a.workflow.ID(), internalworkflow.StateCancelled.String())
+	if err := a.Send(gen.Atom(supName), completedMsg); err != nil {
+		a.Log().Error("failed to send cancellation completed message: %s", err)
+	}
+
+	// Notify parent if this is a child workflow
+	a.notifyParentIfSubWorkflow()
 	return nil
 }
 
@@ -324,6 +389,12 @@ func (a *WorkflowHandler) handleWorkflowAction(action workflowactions.Action) {
 		for _, runFuncAction := range action.(*workflowactions.RunParallelFunctionsAction).Actions {
 			a.handleWorkflowRunFunctionAction(runFuncAction)
 		}
+	case workflowactions.ActionRunSubWorkflow:
+		a.handleSubWorkflowAction(action.(*workflowactions.RunSubWorkflowAction))
+	case workflowactions.ActionSleep:
+		a.handleSleepAction(action.(*workflowactions.SleepAction))
+	case workflowactions.ActionWaitForEvent:
+		a.handleWaitForEventAction(action.(*workflowactions.WaitForEventAction))
 	case workflowactions.ActionRetryFunction:
 		retryAction := action.(*workflowactions.RetryFunctionAction)
 		a.Log().Info("scheduling retry attempt %d for exec %s in %s",
@@ -338,8 +409,22 @@ func (a *WorkflowHandler) handleWorkflowAction(action workflowactions.Action) {
 }
 
 func (a *WorkflowHandler) handleWorkflowRunFunctionAction(action workflowactions.Action) {
-	workflowPool := WorkflowFuncPoolName(a.workflow.ID())
 	execAction := action.(*workflowactions.RunFunctionAction)
+
+	// Intercept system functions — they are handled directly, not dispatched to the pool
+	switch execAction.FunctionID {
+	case system.SleepFullFunctionID:
+		a.handleSystemSleep(execAction)
+		return
+	case system.WaitFullFunctionID:
+		a.handleSystemWait(execAction)
+		return
+	case system.SubWorkflowFullFunctionID:
+		a.handleSystemSubWorkflow(execAction)
+		return
+	}
+
+	workflowPool := WorkflowFuncPoolName(a.workflow.ID())
 
 	// Start execution timeout if configured for this node
 	if entry, exists := a.workflow.AuditLog().Get(execAction.FunctionExecID.String()); exists {
@@ -355,4 +440,299 @@ func (a *WorkflowHandler) handleWorkflowRunFunctionAction(action workflowactions
 		return
 	}
 	a.workflow.SetState(internalworkflow.StateRunning)
+}
+
+// --- Sleep / Wait ---
+
+func (a *WorkflowHandler) handleSystemSleep(action *workflowactions.RunFunctionAction) {
+	durationStr, _ := action.Args["duration"].(string)
+	duration, err := time.ParseDuration(durationStr)
+	if err != nil {
+		a.Log().Error("invalid sleep duration %q: %s", durationStr, err)
+		return
+	}
+	reason, _ := action.Args["reason"].(string)
+
+	a.handleSleepAction(&workflowactions.SleepAction{
+		ThreadID: action.ThreadID,
+		ExecID:   action.FunctionExecID,
+		Duration: duration,
+		Reason:   reason,
+	})
+}
+
+func (a *WorkflowHandler) handleSystemWait(action *workflowactions.RunFunctionAction) {
+	awakeableID := uuid.New().String()
+	var timeout time.Duration
+	if timeoutStr, ok := action.Args["timeout"].(string); ok && timeoutStr != "" {
+		parsed, err := time.ParseDuration(timeoutStr)
+		if err != nil {
+			a.Log().Error("invalid wait timeout %q: %s", timeoutStr, err)
+		} else {
+			timeout = parsed
+		}
+	}
+	filter, _ := action.Args["filter"].(string)
+
+	a.handleWaitForEventAction(&workflowactions.WaitForEventAction{
+		ThreadID:    action.ThreadID,
+		ExecID:      action.FunctionExecID,
+		AwakeableID: awakeableID,
+		Timeout:     timeout,
+		Filter:      filter,
+	})
+}
+
+func (a *WorkflowHandler) handleSleepAction(action *workflowactions.SleepAction) {
+	a.workflow.SetState(internalworkflow.StateSleeping)
+	a.workflow.Journal().Append(internalworkflow.JournalEntry{
+		Type:     internalworkflow.JournalSleepStarted,
+		ThreadID: action.ThreadID,
+		ExecID:   action.ExecID.String(),
+		Data:     map[string]any{"duration": action.Duration.String(), "reason": action.Reason},
+	})
+	a.persistJournal()
+
+	msg := messaging.NewSleepWakeUpMessage(a.workflow.ID(), action.ExecID, action.ThreadID)
+	if _, err := a.SendAfter(a.PID(), msg, action.Duration); err != nil {
+		a.Log().Error("failed to schedule sleep wake-up: %s", err)
+	}
+}
+
+func (a *WorkflowHandler) handleWaitForEventAction(action *workflowactions.WaitForEventAction) {
+	a.workflow.SetState(internalworkflow.StateSleeping)
+	now := time.Now()
+	awakeable := &internalworkflow.Awakeable{
+		ID:         action.AwakeableID,
+		WorkflowID: a.workflow.ID(),
+		ExecID:     action.ExecID,
+		ThreadID:   action.ThreadID,
+		CreatedAt:  now,
+		Timeout:    action.Timeout,
+		DeadlineAt: now.Add(action.Timeout),
+		Status:     internalworkflow.AwakeablePending,
+	}
+	if err := a.awakeableRepo.Save(awakeable); err != nil {
+		a.Log().Error("failed to save awakeable: %s", err)
+	}
+	a.workflow.Journal().Append(internalworkflow.JournalEntry{
+		Type:     internalworkflow.JournalAwakeableCreated,
+		ThreadID: action.ThreadID,
+		ExecID:   action.ExecID.String(),
+		Data:     map[string]any{"awakeableId": action.AwakeableID, "timeout": action.Timeout.String()},
+	})
+	a.persistJournal()
+
+	if action.Timeout > 0 {
+		timeoutMsg := messaging.NewTimeoutMessage(action.ExecID.String())
+		if _, err := a.SendAfter(a.PID(), timeoutMsg, action.Timeout); err != nil {
+			a.Log().Error("failed to schedule awakeable timeout: %s", err)
+		}
+	}
+}
+
+func (a *WorkflowHandler) handleMsgSleepWakeUp(msg messaging.Message) error {
+	wakeUpMsg, ok := msg.Args.(messaging.SleepWakeUpMessage)
+	if !ok {
+		return nil
+	}
+
+	if a.workflow.State() == internalworkflow.StateCancelled {
+		a.Log().Warning("ignoring sleep wake-up for cancelled workflow %s", a.workflow.ID())
+		return nil
+	}
+
+	a.workflow.SetState(internalworkflow.StateRunning)
+	a.workflow.SetResultFor(wakeUpMsg.ExecID, &workflow.FunctionResult{
+		Output: workflow.NewFunctionSuccessOutput(map[string]any{
+			"sleptFor": "completed",
+		}),
+	})
+	a.workflow.Journal().Append(internalworkflow.JournalEntry{
+		Type:     internalworkflow.JournalSleepCompleted,
+		ThreadID: wakeUpMsg.ThreadID,
+		ExecID:   wakeUpMsg.ExecID.String(),
+	})
+	a.persistJournal()
+
+	action := a.workflow.Next(wakeUpMsg.ThreadID)
+	if action.Type() == workflowactions.ActionNoop {
+		a.checkWorkflowCompletion()
+		return nil
+	}
+	a.handleWorkflowAction(action)
+	return nil
+}
+
+func (a *WorkflowHandler) handleMsgAwakeableResolved(msg messaging.Message) error {
+	resolvedMsg, ok := msg.Args.(messaging.AwakeableResolvedMessage)
+	if !ok {
+		return nil
+	}
+
+	if a.workflow.State() == internalworkflow.StateCancelled {
+		a.Log().Warning("ignoring awakeable resolved for cancelled workflow %s", a.workflow.ID())
+		return nil
+	}
+
+	a.workflow.SetState(internalworkflow.StateRunning)
+	a.workflow.SetResultFor(resolvedMsg.ExecID, &workflow.FunctionResult{
+		Output: workflow.NewFunctionSuccessOutput(map[string]any{
+			"data":     resolvedMsg.Data,
+			"timedOut": false,
+		}),
+	})
+	a.workflow.Journal().Append(internalworkflow.JournalEntry{
+		Type:     internalworkflow.JournalAwakeableResolved,
+		ThreadID: resolvedMsg.ThreadID,
+		ExecID:   resolvedMsg.ExecID.String(),
+		Data:     map[string]any{"awakeableId": resolvedMsg.AwakeableID},
+	})
+	a.persistJournal()
+
+	action := a.workflow.Next(resolvedMsg.ThreadID)
+	if action.Type() == workflowactions.ActionNoop {
+		a.checkWorkflowCompletion()
+		return nil
+	}
+	a.handleWorkflowAction(action)
+	return nil
+}
+
+func (a *WorkflowHandler) notifyParentIfSubWorkflow() {
+	ref, err := a.workflowRepository.FindSubWorkflowRef(a.workflow.ID().String())
+	if err != nil || ref == nil || ref.Async {
+		return
+	}
+	parentHandlerName := actornames.WorkflowHandlerName(ref.ParentWorkflowID)
+	subCompletedMsg := messaging.NewSubWorkflowCompletedMessage(
+		ref.ParentWorkflowID,
+		ref.ParentThreadID,
+		ref.ParentExecID,
+		a.workflow.ID(),
+		a.workflow.State().String(),
+		nil, // TODO: collect final output from audit log
+	)
+	if err := a.Send(gen.Atom(parentHandlerName), subCompletedMsg); err != nil {
+		a.Log().Error("failed to notify parent workflow %s: %s", ref.ParentWorkflowID, err)
+	}
+}
+
+// --- Sub-workflows ---
+
+func (a *WorkflowHandler) handleSystemSubWorkflow(action *workflowactions.RunFunctionAction) {
+	schemaID, _ := action.Args["schemaId"].(string)
+	input, _ := action.Args["input"].(map[string]any)
+	async, _ := action.Args["async"].(bool)
+
+	a.handleSubWorkflowAction(&workflowactions.RunSubWorkflowAction{
+		ParentWorkflowID: a.workflow.ID(),
+		ParentThreadID:   action.ThreadID,
+		ParentExecID:     action.FunctionExecID,
+		SchemaID:         schemaID,
+		Input:            input,
+		Async:            async,
+	})
+}
+
+func (a *WorkflowHandler) handleSubWorkflowAction(action *workflowactions.RunSubWorkflowAction) {
+	childWorkflowID := workflow.NewID()
+
+	ref := &internalworkflow.SubWorkflowRef{
+		ParentWorkflowID: action.ParentWorkflowID,
+		ParentThreadID:   action.ParentThreadID,
+		ParentExecID:     action.ParentExecID,
+		ChildWorkflowID:  childWorkflowID,
+		ChildSchemaID:    action.SchemaID,
+		Async:            action.Async,
+	}
+	if err := a.workflowRepository.SaveSubWorkflowRef(ref); err != nil {
+		a.Log().Error("failed to save sub-workflow ref: %s", err)
+		return
+	}
+
+	a.workflow.Journal().Append(internalworkflow.JournalEntry{
+		Type:     internalworkflow.JournalSubWorkflowStarted,
+		ThreadID: action.ParentThreadID,
+		ExecID:   action.ParentExecID.String(),
+		Data: map[string]any{
+			"childWorkflowId": childWorkflowID.String(),
+			"childSchemaId":   action.SchemaID,
+			"async":           action.Async,
+		},
+	})
+
+	triggerMsg := messaging.NewTriggerWorkflowMessage(action.SchemaID, childWorkflowID)
+	if err := a.Send(gen.Atom(actornames.WorkflowSupervisorName), triggerMsg); err != nil {
+		a.Log().Error("failed to trigger sub-workflow: %s", err)
+		return
+	}
+
+	if action.Async {
+		a.workflow.SetResultFor(action.ParentExecID, &workflow.FunctionResult{
+			Output: workflow.NewFunctionSuccessOutput(map[string]any{
+				"workflowId": childWorkflowID.String(),
+				"status":     "triggered",
+				"output":     nil,
+			}),
+		})
+		a.persistJournal()
+		nextAction := a.workflow.Next(action.ParentThreadID)
+		if nextAction.Type() == workflowactions.ActionNoop {
+			a.checkWorkflowCompletion()
+			return
+		}
+		a.handleWorkflowAction(nextAction)
+	} else {
+		a.workflow.SetState(internalworkflow.StateSleeping)
+		a.persistJournal()
+	}
+}
+
+func (a *WorkflowHandler) handleMsgSubWorkflowCompleted(msg messaging.Message) error {
+	completedMsg, ok := msg.Args.(messaging.SubWorkflowCompletedMessage)
+	if !ok {
+		return nil
+	}
+
+	if a.workflow.State() == internalworkflow.StateCancelled {
+		a.Log().Warning("ignoring sub-workflow completed for cancelled workflow %s", a.workflow.ID())
+		return nil
+	}
+
+	a.workflow.SetState(internalworkflow.StateRunning)
+
+	outputStatus := workflow.FunctionSuccess
+	if completedMsg.ChildFinalState != internalworkflow.StateFinished.String() {
+		outputStatus = workflow.FunctionError
+	}
+
+	a.workflow.SetResultFor(completedMsg.ParentExecID, &workflow.FunctionResult{
+		Output: workflow.FunctionOutput{
+			Status: outputStatus,
+			Data: map[string]any{
+				"workflowId": completedMsg.ChildWorkflowID.String(),
+				"status":     completedMsg.ChildFinalState,
+				"output":     completedMsg.ChildOutput,
+			},
+		},
+	})
+	a.workflow.Journal().Append(internalworkflow.JournalEntry{
+		Type:     internalworkflow.JournalSubWorkflowCompleted,
+		ThreadID: completedMsg.ParentThreadID,
+		ExecID:   completedMsg.ParentExecID.String(),
+		Data: map[string]any{
+			"childWorkflowId": completedMsg.ChildWorkflowID.String(),
+			"childFinalState": completedMsg.ChildFinalState,
+		},
+	})
+	a.persistJournal()
+
+	action := a.workflow.Next(completedMsg.ParentThreadID)
+	if action.Type() == workflowactions.ActionNoop {
+		a.checkWorkflowCompletion()
+		return nil
+	}
+	a.handleWorkflowAction(action)
+	return nil
 }

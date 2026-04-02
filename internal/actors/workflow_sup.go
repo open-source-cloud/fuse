@@ -96,6 +96,16 @@ func (a *WorkflowSupervisor) HandleMessage(from gen.PID, message any) error {
 		}
 	case messaging.RecoverWorkflows:
 		a.recoverWorkflows()
+	case messaging.CancelWorkflow:
+		cancelMsg, err := msg.CancelWorkflowMessage()
+		if err != nil {
+			a.Log().Error("failed to get cancel workflow message: %s", err)
+			return nil
+		}
+		handlerName := actornames.WorkflowHandlerName(cancelMsg.WorkflowID)
+		if sendErr := a.Send(gen.Atom(handlerName), message); sendErr != nil {
+			a.Log().Warning("cancel requested for unknown/finished workflow %s: %s", cancelMsg.WorkflowID, sendErr)
+		}
 	}
 
 	return nil

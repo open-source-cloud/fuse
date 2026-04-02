@@ -25,20 +25,33 @@ const (
 	JournalThreadDone JournalEntryType = "thread:finished"
 	// JournalStateChanged the workflow state changed
 	JournalStateChanged JournalEntryType = "state:changed"
+	// JournalSleepStarted a sleep action has started
+	JournalSleepStarted JournalEntryType = "sleep:started"
+	// JournalSleepCompleted a sleep action completed
+	JournalSleepCompleted JournalEntryType = "sleep:completed"
+	// JournalAwakeableCreated an awakeable was created (waiting for external event)
+	JournalAwakeableCreated JournalEntryType = "awakeable:created"
+	// JournalAwakeableResolved an awakeable was resolved by an external system
+	JournalAwakeableResolved JournalEntryType = "awakeable:resolved"
+	// JournalSubWorkflowStarted a sub-workflow was started
+	JournalSubWorkflowStarted JournalEntryType = "subworkflow:started"
+	// JournalSubWorkflowCompleted a sub-workflow completed
+	JournalSubWorkflowCompleted JournalEntryType = "subworkflow:completed"
 )
 
 // JournalEntry is a single recorded event in the execution journal
 type JournalEntry struct {
-	Sequence       uint64                   `json:"sequence" bson:"sequence"`
-	Timestamp      time.Time                `json:"timestamp" bson:"timestamp"`
-	Type           JournalEntryType         `json:"type" bson:"type"`
-	ThreadID       uint16                   `json:"threadId" bson:"threadId"`
-	FunctionNodeID string                   `json:"functionNodeId,omitempty" bson:"functionNodeId,omitempty"`
-	ExecID         string                   `json:"execId,omitempty" bson:"execId,omitempty"`
-	Input          map[string]any           `json:"input,omitempty" bson:"input,omitempty"`
-	Result         *workflow.FunctionResult `json:"result,omitempty" bson:"result,omitempty"`
-	State          State                    `json:"state,omitempty" bson:"state,omitempty"`
-	ParentThreads  []uint16                 `json:"parentThreads,omitempty" bson:"parentThreads,omitempty"`
+	Sequence       uint64                   `json:"sequence"`
+	Timestamp      time.Time                `json:"timestamp"`
+	Type           JournalEntryType         `json:"type"`
+	ThreadID       uint16                   `json:"threadId"`
+	FunctionNodeID string                   `json:"functionNodeId,omitempty"`
+	ExecID         string                   `json:"execId,omitempty"`
+	Input          map[string]any           `json:"input,omitempty"`
+	Result         *workflow.FunctionResult `json:"result,omitempty"`
+	State          State                    `json:"state,omitempty"`
+	ParentThreads  []uint16                 `json:"parentThreads,omitempty"`
+	Data           map[string]any           `json:"data,omitempty"`
 }
 
 // Journal is an append-only execution log that enables replay

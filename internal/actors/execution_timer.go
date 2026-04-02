@@ -42,3 +42,13 @@ func (et *ExecutionTimer) Cancel(execID string) {
 		delete(et.timers, execID)
 	}
 }
+
+// CancelAll stops all pending timeouts (called on workflow cancellation)
+func (et *ExecutionTimer) CancelAll() {
+	et.mu.Lock()
+	defer et.mu.Unlock()
+	for execID, cancel := range et.timers {
+		cancel()
+		delete(et.timers, execID)
+	}
+}

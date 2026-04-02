@@ -21,6 +21,14 @@ const (
 	Timeout MessageType = "execution:timeout"
 	// WorkflowTimeout message type - total workflow execution timeout
 	WorkflowTimeout MessageType = "workflow:timeout"
+	// CancelWorkflow message type - cancel a running workflow
+	CancelWorkflow MessageType = "workflow:cancel"
+	// SleepWakeUp message type - wake up a sleeping workflow
+	SleepWakeUp MessageType = "workflow:sleep:wakeup"
+	// AwakeableResolvedMsg message type - an awakeable has been resolved
+	AwakeableResolvedMsg MessageType = "workflow:awakeable:resolved"
+	// SubWorkflowCompleted message type - a sub-workflow has completed
+	SubWorkflowCompleted MessageType = "workflow:subworkflow:completed"
 )
 
 // Message defines the basic Message

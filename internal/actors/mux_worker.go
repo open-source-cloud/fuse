@@ -57,7 +57,7 @@ func NewWorkers() *Workers {
 			{
 				Name:    handlers.AsyncFunctionResultHandlerName,
 				Pattern: "/v1/workflows/{workflowID}/execs/{execID}",
-				Methods: []string{"GET"},
+				Methods: []string{"POST"},
 				Timeout: 10 * time.Second,
 				PoolConfig: WorkerPoolConfig{
 					Name:     handlers.AsyncFunctionResultHandlerPoolName,
@@ -91,6 +91,26 @@ func NewWorkers() *Workers {
 				Timeout: 10 * time.Second,
 				PoolConfig: WorkerPoolConfig{
 					Name:     handlers.RegisterPackageHandlerPoolName,
+					PoolSize: 3,
+				},
+			},
+			{
+				Name:    handlers.CancelWorkflowHandlerName,
+				Pattern: "/v1/workflows/{workflowID}/cancel",
+				Methods: []string{"POST"},
+				Timeout: 10 * time.Second,
+				PoolConfig: WorkerPoolConfig{
+					Name:     handlers.CancelWorkflowHandlerPoolName,
+					PoolSize: 3,
+				},
+			},
+			{
+				Name:    handlers.ResolveAwakeableHandlerName,
+				Pattern: "/v1/awakeables/{awakeableID}/resolve",
+				Methods: []string{"POST"},
+				Timeout: 10 * time.Second,
+				PoolConfig: WorkerPoolConfig{
+					Name:     handlers.ResolveAwakeableHandlerPoolName,
 					PoolSize: 3,
 				},
 			},

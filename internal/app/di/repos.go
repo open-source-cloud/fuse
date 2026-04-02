@@ -15,6 +15,7 @@ var RepoModule = fx.Module(
 		provideWorkflowRepository,
 		providePackageRepository,
 		provideJournalRepository,
+		provideAwakeableRepository,
 	),
 )
 
@@ -36,4 +37,9 @@ func provideJournalRepository() repositories.JournalRepository {
 func providePackageRepository() repositories.PackageRepository {
 	log.Debug().Msg("using memory package repository")
 	return repositories.NewMemoryPackageRepository()
+}
+
+func provideAwakeableRepository() repositories.AwakeableRepository {
+	log.Debug().Msg("using memory awakeable repository")
+	return repositories.NewMemoryAwakeableRepository()
 }

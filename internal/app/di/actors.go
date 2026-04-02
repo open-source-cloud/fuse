@@ -16,6 +16,8 @@ var WorkerModule = fx.Module(
 		handlers.NewHealthCheckHandler,
 		handlers.NewPackagesHandler,
 		handlers.NewRegisterPackageHandler,
+		handlers.NewCancelWorkflowHandlerFactory,
+		handlers.NewResolveAwakeableHandlerFactory,
 		actors.NewWorkers,
 	),
 	fx.Invoke(func(
@@ -26,6 +28,8 @@ var WorkerModule = fx.Module(
 		triggerWorkflowHandlerFactory *handlers.TriggerWorkflowHandlerFactory,
 		packagesHandlerFactory *handlers.PackagesHandlerFactory,
 		registerPackageHandlerFactory *handlers.RegisterPackageHandlerFactory,
+		cancelWorkflowHandlerFactory *handlers.CancelWorkflowHandlerFactory,
+		resolveAwakeableHandlerFactory *handlers.ResolveAwakeableHandlerFactory,
 	) {
 		workers.AddFactory(handlers.HealthCheckHandlerName, healthCheckHandlerFactory.Factory)
 		workers.AddFactory(handlers.AsyncFunctionResultHandlerName, asyncFunctionResultHandlerFactory.Factory)
@@ -33,6 +37,8 @@ var WorkerModule = fx.Module(
 		workers.AddFactory(handlers.TriggerWorkflowHandlerName, triggerWorkflowHandlerFactory.Factory)
 		workers.AddFactory(handlers.PackagesHandlerName, packagesHandlerFactory.Factory)
 		workers.AddFactory(handlers.RegisterPackageHandlerName, registerPackageHandlerFactory.Factory)
+		workers.AddFactory(handlers.CancelWorkflowHandlerName, cancelWorkflowHandlerFactory.Factory)
+		workers.AddFactory(handlers.ResolveAwakeableHandlerName, resolveAwakeableHandlerFactory.Factory)
 	}),
 )
 

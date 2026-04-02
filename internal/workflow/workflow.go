@@ -2,7 +2,6 @@
 package workflow
 
 import (
-	"fmt"
 	"reflect"
 	"strings"
 
@@ -37,6 +36,8 @@ const (
 	StateFinished State = "finished"
 	// StateError Workflow error state (finished with error)
 	StateError State = "error"
+	// StateCancelled Workflow cancelled state (terminated by user/system)
+	StateCancelled State = "cancelled"
 )
 
 // New creates a new Workflow from an already generated ID and a provided WorkflowGraph
@@ -299,24 +300,38 @@ func (w *Workflow) filterOutputEdgesByConditionals(currentNode *Node) []*Edge {
 	if !currentNode.IsConditional() {
 		return currentNode.OutputEdges()
 	}
-	conditionalEdges := currentNode.FunctionMetadata().Output.Edges
-	conditionalSource := currentNode.FunctionMetadata().Output.ConditionalOutputField
-	conditionalValue := w.aggregatedOutput.Get(fmt.Sprintf("%s.%s", currentNode.ID(), conditionalSource))
 
-	edges := make([]*Edge, 0, len(currentNode.OutputEdges()))
+	var matchedEdges []*Edge
+	var defaultEdge *Edge
+
 	for _, edge := range currentNode.OutputEdges() {
-		edgeCondition := edge.Condition()
-		if edgeCondition.Value == conditionalValue {
-			_, exists := conditionalEdges[edgeCondition.Name]
-			if !exists {
-				log.Error().Str("edge", edge.ID()).Str("condition", edgeCondition.Name).
-					Msg("Conditional edge not found")
-				continue
-			}
-			edges = append(edges, edge)
+		condition := edge.Condition()
+		if condition == nil {
+			matchedEdges = append(matchedEdges, edge)
+			continue
+		}
+
+		if condition.Type == ConditionDefault {
+			defaultEdge = edge
+			continue
+		}
+
+		matches, err := EvaluateCondition(condition, w.aggregatedOutput, currentNode)
+		if err != nil {
+			log.Error().Err(err).Str("edge", edge.ID()).Msg("condition evaluation failed")
+			continue
+		}
+		if matches {
+			matchedEdges = append(matchedEdges, edge)
 		}
 	}
-	return edges
+
+	// If no conditions matched and there's a default edge, use it
+	if len(matchedEdges) == 0 && defaultEdge != nil {
+		matchedEdges = append(matchedEdges, defaultEdge)
+	}
+
+	return matchedEdges
 }
 
 // SetResultFor sets the result of a function execution in the workflow's AuditLog
@@ -404,7 +419,7 @@ func (w *Workflow) newRunFunctionAction(currentThread *thread, edge *Edge) *work
 	execID := workflow.NewExecID(node.thread)
 
 	newOrCurrentThread := currentThread
-	var mappings []InputMapping
+	var args map[string]any
 	if currentThread.ID() != node.thread {
 		newOrCurrentThread = w.threads.New(node.thread, execID)
 		w.journal.Append(JournalEntry{
@@ -413,16 +428,11 @@ func (w *Workflow) newRunFunctionAction(currentThread *thread, edge *Edge) *work
 			ExecID:        execID.String(),
 			ParentThreads: node.parentThreads,
 		})
-		for _, inputEdge := range node.InputEdges() {
-			if inputEdge.To() == node {
-				mappings = append(mappings, inputEdge.Input()...)
-			}
-		}
+		args = w.resolveJoinInputs(node)
 	} else {
 		currentThread.SetCurrentExecID(execID)
-		mappings = edge.Input()
+		args = w.inputMapping(edge, edge.Input())
 	}
-	args := w.inputMapping(edge, mappings)
 
 	w.auditLog.NewEntry(newOrCurrentThread.ID(), edge.To().ID(), execID.String(), args)
 	w.journal.Append(JournalEntry{
@@ -438,6 +448,28 @@ func (w *Workflow) newRunFunctionAction(currentThread *thread, edge *Edge) *work
 		FunctionExecID: execID,
 		Args:           args,
 	}
+}
+
+func (w *Workflow) resolveJoinInputs(node *Node) map[string]any {
+	// Collect branch inputs from all input edges
+	var branchInputs []BranchInput
+	for _, inputEdge := range node.InputEdges() {
+		if inputEdge.To() == node {
+			branchData := w.inputMapping(inputEdge, inputEdge.Input())
+			branchInputs = append(branchInputs, BranchInput{
+				EdgeID:   inputEdge.ID(),
+				ThreadID: inputEdge.From().Thread(),
+				Data:     branchData,
+			})
+		}
+	}
+
+	// Apply merge strategy
+	mergeConfig := DefaultMergeConfig()
+	if node.Schema().Merge != nil {
+		mergeConfig = *node.Schema().Merge
+	}
+	return ApplyMergeStrategy(mergeConfig, branchInputs)
 }
 
 func (w *Workflow) inputMapping(edge *Edge, mappings []InputMapping) map[string]any {

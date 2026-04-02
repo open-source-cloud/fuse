@@ -8,6 +8,7 @@ type (
 		Config   *NodeConfig    `json:"config,omitempty" yaml:"config,omitempty"`
 		Retry    *RetryPolicy   `json:"retry,omitempty" yaml:"retry,omitempty"`
 		Timeout  *TimeoutConfig `json:"timeout,omitempty" yaml:"timeout,omitempty"`
+		Merge    *MergeConfig   `json:"merge,omitempty" yaml:"merge,omitempty"`
 	}
 	// NodeConfig represents the configuration schema for a node. TODO
 	NodeConfig struct{}
@@ -27,6 +28,10 @@ func (n *NodeSchema) Clone() *NodeSchema {
 	if n.Timeout != nil {
 		t := *n.Timeout
 		clone.Timeout = &t
+	}
+	if n.Merge != nil {
+		m := *n.Merge
+		clone.Merge = &m
 	}
 	return clone
 }

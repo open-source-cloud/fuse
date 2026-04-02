@@ -4,6 +4,7 @@ import (
 	"github.com/open-source-cloud/fuse/internal/packages/functions/debug"
 	"github.com/open-source-cloud/fuse/internal/packages/functions/http"
 	"github.com/open-source-cloud/fuse/internal/packages/functions/logic"
+	"github.com/open-source-cloud/fuse/internal/packages/functions/system"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 )
 
@@ -28,5 +29,6 @@ func (p *DefaultInternalPackages) List() []*workflow.Package {
 		debug.New(),
 		logic.New(),
 		http.New(),
+		system.New(),
 	}
 }
