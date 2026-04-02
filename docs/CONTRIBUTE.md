@@ -72,7 +72,7 @@ make lint-fix
 - `pkg/`: Public libraries that can be imported by external projects
 - `internal/`: Private application code
 - `deploy/helm/fuse/`: Kubernetes Helm chart
-- `tests/`: E2E or auxiliary scripts (e.g. `tests/e2e/`)
+- `tests/`: E2E tests (`go test -tags=e2e ./tests/e2e` against a live API; env `E2E_API_URL`, default `http://localhost:9090`; optional `-args -workflows=dir` or `E2E_WORKFLOWS_DIR`). One `workflow_*_e2e_test.go` per `examples/workflows/*.json`, REST smoke tests in `apis_e2e_test.go`. Helper tests: `go test ./tests/e2e`
 - `bin/`: Build artifacts (not committed to git)
 - `docs/`: Documentation (including `docs/roadmap/` specs)
 - `examples/`: Example usage and configurations

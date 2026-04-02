@@ -56,9 +56,7 @@ jobs:
         run: curl -sf http://localhost:9090/health
 
       - name: Run E2E workflow tests
-        run: |
-          chmod +x tests/e2e/run_workflows.sh
-          tests/e2e/run_workflows.sh
+        run: go test -tags=e2e ./tests/e2e -v -count=1
 
       - name: Cleanup
         if: always()

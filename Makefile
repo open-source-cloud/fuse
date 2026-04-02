@@ -1,4 +1,4 @@
-.PHONY: run run-debug install-gotestsum test test-report testdox clean install-lint lint lint-fix swagger build build-debug dockerfile-lint sonar-local
+.PHONY: run run-debug install-gotestsum test test-report testdox clean install-lint lint lint-fix swagger build build-debug dockerfile-lint sonar-local e2e-workflows
 
 GOTESTSUM := $(shell go env GOPATH)/bin/gotestsum
 GOLANGCI_LINT := $(shell go env GOPATH)/bin/golangci-lint
@@ -12,10 +12,15 @@ install-gotestsum:
 	go install gotest.tools/gotestsum@latest
 
 test: install-gotestsum
-	$(GOTESTSUM) --junitfile test-report.xml --format testdox -- ./pkg/... ./internal/...
+	$(GOTESTSUM) --junitfile test-report.xml --format testdox -- ./pkg/... ./internal/... ./tests/e2e
 
 test-benchmark:
 	go test -bench=. -benchmem ./...
+
+# Run workflow E2E against a running API (requires -tags=e2e; default http://localhost:9090 via E2E_API_URL).
+# Unit tests for helpers: go test ./tests/e2e
+e2e-workflows:
+	go test -tags=e2e ./tests/e2e -v -count=1
 
 build:
 	go build -o bin/fuse cmd/fuse/main.go

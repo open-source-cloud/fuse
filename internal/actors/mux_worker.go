@@ -86,7 +86,8 @@ func NewWorkers() *Workers {
 			},
 			{
 				Name:    handlers.RegisterPackageHandlerName,
-				Pattern: "/v1/packages/{packageID}",
+				// packageID may contain slashes (e.g. fuse/pkg/logic); default {var} is single-segment only.
+				Pattern: "/v1/packages/{packageID:.+}",
 				Methods: []string{"GET", "PUT"},
 				Timeout: 10 * time.Second,
 				PoolConfig: WorkerPoolConfig{
