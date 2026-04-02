@@ -3,6 +3,7 @@ package store
 
 import (
 	"fmt"
+	"maps"
 	"sync"
 
 	"github.com/stretchr/objx"
@@ -37,6 +38,13 @@ func NewWith(rawData map[string]any) (*KV, error) {
 // Raw returns the underlying map[string]any representing all key-value pairs in the store without any modifications.
 func (k *KV) Raw() map[string]any {
 	return k.data
+}
+
+// Snapshot returns a shallow copy of all top-level keys. Safe to retain after concurrent updates to the store.
+func (k *KV) Snapshot() map[string]any {
+	k.mu.RLock()
+	defer k.mu.RUnlock()
+	return maps.Clone(map[string]any(k.data))
 }
 
 // MergeWith merges provided data into the current Map

@@ -29,9 +29,13 @@ run-debug: build-debug
 clean:
 	rm -rf bin/
 
-# Install golangci-lint (built with the active Go toolchain; required when go.mod > golangci-lint's embed Go)
+# golangci-lint must be built with Go >= the "go" line in go.mod (golangci-lint refuses older toolchains).
+# GOTOOLCHAIN makes `go install` use that SDK even when the host `go` is older (e.g. gvm go1.24 + go.mod 1.26).
+GOMOD_GOVER := $(shell sed -n 's/^go //p' go.mod | head -1 | tr -d ' \t\r')
+
+# Install golangci-lint into GOPATH/bin (same path as GOLANGCI_LINT)
 install-lint:
-	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.5.0
+	GOTOOLCHAIN=go$(GOMOD_GOVER).0 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.5.0
 
 # Run linter
 lint: install-lint

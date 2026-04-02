@@ -10,6 +10,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	testBranchA = "branch-a"
+	testBranchB = "branch-b"
+)
+
 func newTestNodeWithConditionalOutput(id, conditionalField string) *Node {
 	node := &Node{
 		schema: &NodeSchema{ID: id, Function: "test/func"},
@@ -18,8 +23,8 @@ func newTestNodeWithConditionalOutput(id, conditionalField string) *Node {
 				ConditionalOutput:      true,
 				ConditionalOutputField: conditionalField,
 				Edges: map[string]packages.FunctionOutputEdgeMetadata{
-					"branch-a": {Name: "branch-a", ConditionalEdge: workflow.ConditionalEdgeMetadata{Value: "a"}},
-					"branch-b": {Name: "branch-b", ConditionalEdge: workflow.ConditionalEdgeMetadata{Value: "b"}},
+					testBranchA: {Name: testBranchA, ConditionalEdge: workflow.ConditionalEdgeMetadata{Value: "a"}},
+					testBranchB: {Name: testBranchB, ConditionalEdge: workflow.ConditionalEdgeMetadata{Value: "b"}},
 				},
 			},
 		},
@@ -32,7 +37,7 @@ func TestEvaluateCondition_ExactMatch(t *testing.T) {
 	output := store.New()
 	output.Set("node1", map[string]any{"result": "a"})
 
-	condition := &EdgeCondition{Name: "branch-a", Type: ConditionExact, Value: "a"}
+	condition := &EdgeCondition{Name: testBranchA, Type: ConditionExact, Value: "a"}
 	result, err := EvaluateCondition(condition, output, node)
 
 	require.NoError(t, err)
@@ -44,7 +49,7 @@ func TestEvaluateCondition_ExactMatch_NoMatch(t *testing.T) {
 	output := store.New()
 	output.Set("node1", map[string]any{"result": "a"})
 
-	condition := &EdgeCondition{Name: "branch-b", Type: ConditionExact, Value: "b"}
+	condition := &EdgeCondition{Name: testBranchB, Type: ConditionExact, Value: "b"}
 	result, err := EvaluateCondition(condition, output, node)
 
 	require.NoError(t, err)

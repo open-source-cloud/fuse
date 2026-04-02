@@ -6,6 +6,31 @@ import (
 	"go.uber.org/fx"
 )
 
+type workerHandlerRegistrationParams struct {
+	fx.In
+
+	Workers                           *actors.Workers
+	HealthCheckHandlerFactory         *handlers.HealthCheckHandlerFactory
+	AsyncFunctionResultHandlerFactory *handlers.AsyncFunctionResultHandlerFactory
+	WorkflowSchemaHandlerFactory      *handlers.WorkflowSchemaHandlerFactory
+	TriggerWorkflowHandlerFactory     *handlers.TriggerWorkflowHandlerFactory
+	PackagesHandlerFactory            *handlers.PackagesHandlerFactory
+	RegisterPackageHandlerFactory     *handlers.RegisterPackageHandlerFactory
+	CancelWorkflowHandlerFactory      *handlers.CancelWorkflowHandlerFactory
+	ResolveAwakeableHandlerFactory    *handlers.ResolveAwakeableHandlerFactory
+}
+
+func registerWorkerHandlers(p workerHandlerRegistrationParams) {
+	p.Workers.AddFactory(handlers.HealthCheckHandlerName, p.HealthCheckHandlerFactory.Factory)
+	p.Workers.AddFactory(handlers.AsyncFunctionResultHandlerName, p.AsyncFunctionResultHandlerFactory.Factory)
+	p.Workers.AddFactory(handlers.WorkflowSchemaHandlerName, p.WorkflowSchemaHandlerFactory.Factory)
+	p.Workers.AddFactory(handlers.TriggerWorkflowHandlerName, p.TriggerWorkflowHandlerFactory.Factory)
+	p.Workers.AddFactory(handlers.PackagesHandlerName, p.PackagesHandlerFactory.Factory)
+	p.Workers.AddFactory(handlers.RegisterPackageHandlerName, p.RegisterPackageHandlerFactory.Factory)
+	p.Workers.AddFactory(handlers.CancelWorkflowHandlerName, p.CancelWorkflowHandlerFactory.Factory)
+	p.Workers.AddFactory(handlers.ResolveAwakeableHandlerName, p.ResolveAwakeableHandlerFactory.Factory)
+}
+
 // WorkerModule FX module with the worker providers
 var WorkerModule = fx.Module(
 	"worker",
@@ -20,26 +45,7 @@ var WorkerModule = fx.Module(
 		handlers.NewResolveAwakeableHandlerFactory,
 		actors.NewWorkers,
 	),
-	fx.Invoke(func(
-		workers *actors.Workers,
-		healthCheckHandlerFactory *handlers.HealthCheckHandlerFactory,
-		asyncFunctionResultHandlerFactory *handlers.AsyncFunctionResultHandlerFactory,
-		workflowSchemaHandlerFactory *handlers.WorkflowSchemaHandlerFactory,
-		triggerWorkflowHandlerFactory *handlers.TriggerWorkflowHandlerFactory,
-		packagesHandlerFactory *handlers.PackagesHandlerFactory,
-		registerPackageHandlerFactory *handlers.RegisterPackageHandlerFactory,
-		cancelWorkflowHandlerFactory *handlers.CancelWorkflowHandlerFactory,
-		resolveAwakeableHandlerFactory *handlers.ResolveAwakeableHandlerFactory,
-	) {
-		workers.AddFactory(handlers.HealthCheckHandlerName, healthCheckHandlerFactory.Factory)
-		workers.AddFactory(handlers.AsyncFunctionResultHandlerName, asyncFunctionResultHandlerFactory.Factory)
-		workers.AddFactory(handlers.WorkflowSchemaHandlerName, workflowSchemaHandlerFactory.Factory)
-		workers.AddFactory(handlers.TriggerWorkflowHandlerName, triggerWorkflowHandlerFactory.Factory)
-		workers.AddFactory(handlers.PackagesHandlerName, packagesHandlerFactory.Factory)
-		workers.AddFactory(handlers.RegisterPackageHandlerName, registerPackageHandlerFactory.Factory)
-		workers.AddFactory(handlers.CancelWorkflowHandlerName, cancelWorkflowHandlerFactory.Factory)
-		workers.AddFactory(handlers.ResolveAwakeableHandlerName, resolveAwakeableHandlerFactory.Factory)
-	}),
+	fx.Invoke(registerWorkerHandlers),
 )
 
 // ActorModule FX module with the actor providers

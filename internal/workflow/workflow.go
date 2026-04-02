@@ -356,6 +356,11 @@ func (w *Workflow) SetResultFor(functionExecID workflow.ExecID, result *workflow
 	})
 }
 
+// AggregatedOutputSnapshot returns a shallow copy of per-node outputs accumulated during execution.
+func (w *Workflow) AggregatedOutputSnapshot() map[string]any {
+	return w.aggregatedOutput.Snapshot()
+}
+
 // ID Workflow ID
 func (w *Workflow) ID() workflow.ID {
 	return w.id

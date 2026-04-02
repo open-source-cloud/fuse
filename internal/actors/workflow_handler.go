@@ -611,7 +611,7 @@ func (a *WorkflowHandler) notifyParentIfSubWorkflow() {
 		ref.ParentExecID,
 		a.workflow.ID(),
 		a.workflow.State().String(),
-		nil, // TODO: collect final output from audit log
+		a.workflow.AggregatedOutputSnapshot(),
 	)
 	if err := a.Send(gen.Atom(parentHandlerName), subCompletedMsg); err != nil {
 		a.Log().Error("failed to notify parent workflow %s: %s", ref.ParentWorkflowID, err)
