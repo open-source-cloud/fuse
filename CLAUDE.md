@@ -79,7 +79,7 @@ pkg/                       → Public importable libraries (workflow metadata, t
 
 ## Tech Stack
 
-- **Go 1.25**, **ergo.services** (actor model), **uber-go/fx** (DI), **cobra** (CLI)
+- **Go 1.26**, **ergo.services** (actor model), **uber-go/fx** (DI), **cobra** (CLI)
 - **MongoDB** (production) / **memory** (dev/test) for storage
 - **zerolog** (structured logging), **go-playground/validator** (validation)
 - **gorilla/mux** (routing), **swag** (Swagger generation)

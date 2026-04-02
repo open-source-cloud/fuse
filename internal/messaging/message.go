@@ -1,3 +1,4 @@
+// Package messaging defines typed messages exchanged between workflow actors.
 package messaging
 
 // MessageType defines the MessageType type
