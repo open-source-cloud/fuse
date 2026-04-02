@@ -1,30 +1,22 @@
-# FUSE Workflow Engine API Documentation
+# FUSE Workflow Engine API
 
-## Overview
+REST API for managing workflow schemas, packages, and executions. All endpoints use JSON unless noted.
 
-The FUSE Workflow Engine API provides RESTful endpoints for managing workflows, schemas, and packages. All endpoints accept and return JSON-formatted data.
+**Base URL (local):** `http://localhost:9090` — replace host/port in production.
 
-## Base URL
+**OpenAPI:** With the server running, use Swagger UI at `/docs` (see [README.md](../README.md) and [docs/README.md](README.md)).
 
-```
-http://localhost:9090
-```
-
-Replace with your actual server host and port.
+---
 
 ## Authentication
 
-Currently, the API does not require authentication. This may change in future versions.
+Not required today; may change in a future version.
 
-## Common Response Formats
+---
 
-### Success Response
+## Common responses
 
-All successful operations return a 2xx status code with a JSON response body specific to the operation.
-
-### Error Response
-
-Error responses follow a consistent format:
+### Errors
 
 ```json
 {
@@ -34,23 +26,29 @@ Error responses follow a consistent format:
 }
 ```
 
-## Error Codes
+### Error codes
 
-| Code                    | HTTP Status | Description                            |
-| ----------------------- | ----------- | -------------------------------------- |
-| `BAD_REQUEST`           | 400         | Invalid request format or parameters   |
-| `ENTITY_NOT_FOUND`      | 404         | Requested resource not found           |
-| `INTERNAL_SERVER_ERROR` | 500         | Server encountered an unexpected error |
+| Code | HTTP | Description |
+| ---- | ---- | ----------- |
+| `BAD_REQUEST` | 400 | Invalid request |
+| `ENTITY_NOT_FOUND` | 404 | Resource not found |
+| `INTERNAL_SERVER_ERROR` | 500 | Unexpected server error |
 
-## Endpoints
+---
 
-### Health Check
+# Implemented endpoints
 
-Check the health status of the service.
+These routes are registered in [`internal/actors/mux_worker.go`](../internal/actors/mux_worker.go) and match the current server behavior.
 
-**Endpoint:** `GET /health`
+## Health check
 
-**Response:**
+**`GET /health`**
+
+```bash
+curl http://localhost:9090/health
+```
+
+Response example:
 
 ```json
 {
@@ -58,21 +56,19 @@ Check the health status of the service.
 }
 ```
 
-**Example:**
-
-```bash
-curl http://localhost:9090/health
-```
-
 ---
 
-### Trigger Workflow
+## Trigger workflow
 
-Start a new workflow execution from a schema.
+**`POST /v1/workflows/trigger`**
 
-**Endpoint:** `POST /v1/workflows/trigger`
+Starts a new workflow instance for the given schema.
 
-**Request Body:**
+**Body** ([`internal/dtos/workflow.go`](../internal/dtos/workflow.go)):
+
+| Field | Type | Required | JSON key |
+| ----- | ---- | -------- | -------- |
+| Schema ID | string | yes | `schemaID` |
 
 ```json
 {
@@ -80,375 +76,133 @@ Start a new workflow execution from a schema.
 }
 ```
 
-**Response:**
-
-```json
-{
-  "schemaId": "my-workflow-schema",
-  "workflowId": "550e8400-e29b-41d4-a716-446655440000",
-  "code": "OK"
-}
-```
-
-**Example:**
+**Response** (200): `schemaId`, `workflowId`, `code` (e.g. `"OK"`).
 
 ```bash
 curl -X POST http://localhost:9090/v1/workflows/trigger \
   -H "Content-Type: application/json" \
-  -d '{"schemaID": "my-workflow-schema"}'
+  -d '{"schemaID":"my-workflow-schema"}'
 ```
-
-**Error Responses:**
-
-- `400 BAD_REQUEST` - Invalid schema ID or request format
-- `500 INTERNAL_SERVER_ERROR` - Failed to trigger workflow
 
 ---
 
-### Create/Update Workflow Schema
+## Workflow schema
 
-Create a new workflow schema or update an existing one.
+### Upsert schema
 
-**Endpoint:** `PUT /v1/schemas/{schemaID}`
+**`PUT /v1/schemas/{schemaID}`**
 
-**Path Parameters:**
+Path parameter: `schemaID` — same identifier you pass in `POST /v1/workflows/trigger` as `schemaID`.
 
-- `schemaID` (string, required) - Unique identifier for the schema
+**Body:** [`GraphSchema`](../internal/workflow/graph_schema.go): requires `id`, `name`, `nodes`, `edges`. Each node uses `id` and `function` (package path / function id). Edges require `id`, `from`, `to`, and may include `conditional`, `input`, `onError`.
 
-**Request Body:**
+Minimal example:
 
 ```json
 {
-  "id": "my-workflow",
+  "id": "smallest-test",
+  "name": "Smallest test",
   "nodes": [
-    {
-      "id": "start",
-      "function": "trigger",
-      "config": {}
-    },
-    {
-      "id": "process",
-      "function": "transform",
-      "config": {
-        "transformation": "uppercase"
-      }
-    }
+    { "id": "n1", "function": "fuse/pkg/debug/nil" }
   ],
-  "edges": [
-    {
-      "from": "start",
-      "to": "process"
-    }
-  ]
+  "edges": []
 }
 ```
 
-**Response:**
+Response (200): `{ "schemaId": "<schemaID>" }`.
 
-```json
-{
-  "schemaId": "my-workflow"
-}
-```
+### Get schema
 
-**Example:**
+**`GET /v1/schemas/{schemaID}`**
 
-```bash
-curl -X PUT http://localhost:9090/v1/schemas/my-workflow \
-  -H "Content-Type: application/json" \
-  -d @workflow-schema.json
-```
-
-**Error Responses:**
-
-- `400 BAD_REQUEST` - Invalid schema format or validation errors
-- `404 ENTITY_NOT_FOUND` - Schema not found (for updates)
-- `500 INTERNAL_SERVER_ERROR` - Failed to save schema
+Returns the stored graph schema JSON (same shape as upsert body).
 
 ---
 
-### Get Workflow Schema
+## Packages
 
-Retrieve a workflow schema by ID.
+### List packages
 
-**Endpoint:** `GET /v1/schemas/{schemaID}`
+**`GET /v1/packages`**
 
-**Path Parameters:**
+Returns `{ "metadata": { "total", "page", "size" }, "items": [ ... ] }`.
 
-- `schemaID` (string, required) - Schema identifier
+### Get package
 
-**Response:**
+**`GET /v1/packages/{packageID}`**
 
-```json
-{
-  "id": "my-workflow",
-  "nodes": [...],
-  "edges": [...]
-}
-```
+### Register or update package
 
-**Example:**
+**`PUT /v1/packages/{packageID}`**
 
-```bash
-curl http://localhost:9090/v1/schemas/my-workflow
-```
-
-**Error Responses:**
-
-- `400 BAD_REQUEST` - Invalid schema ID
-- `404 ENTITY_NOT_FOUND` - Schema not found
-- `500 INTERNAL_SERVER_ERROR` - Failed to retrieve schema
+Request/response shapes follow handler and Swagger definitions; see `/docs` for the full package document model.
 
 ---
 
-### List Packages
+## Async function result
 
-Retrieve all registered packages.
+**`POST /v1/workflows/{workflowID}/execs/{execID}`**
 
-**Endpoint:** `GET /v1/packages`
-
-**Response:**
-
-```json
-{
-  "metadata": {
-    "total": 2,
-    "page": 0,
-    "size": 2
-  },
-  "items": [
-    {
-      "id": "internal",
-      "functions": [...]
-    },
-    {
-      "id": "custom-package",
-      "functions": [...]
-    }
-  ]
-}
-```
-
-**Example:**
-
-```bash
-curl http://localhost:9090/v1/packages
-```
-
-**Error Responses:**
-
-- `500 INTERNAL_SERVER_ERROR` - Failed to list packages
-
----
-
-### Register/Update Package
-
-Register a new package or update an existing one.
-
-**Endpoint:** `PUT /v1/packages/{packageID}`
-
-**Path Parameters:**
-
-- `packageID` (string, required) - Package identifier
-
-**Request Body:**
-
-```json
-{
-  "id": "my-package",
-  "functions": [
-    {
-      "id": "my-function",
-      "metadata": {
-        "id": "my-function",
-        "name": "My Function",
-        "description": "Does something useful",
-        "input": {
-          "parameters": [
-            {
-              "name": "value",
-              "type": "string",
-              "required": true
-            }
-          ]
-        },
-        "output": {
-          "conditionalOutput": false,
-          "schema": {}
-        }
-      }
-    }
-  ]
-}
-```
-
-**Response:**
-
-```json
-{
-  "message": "Package registered successfully",
-  "packageId": "my-package"
-}
-```
-
-**Example:**
-
-```bash
-curl -X PUT http://localhost:9090/v1/packages/my-package \
-  -H "Content-Type: application/json" \
-  -d @package.json
-```
-
-**Error Responses:**
-
-- `400 BAD_REQUEST` - Invalid package format or validation errors
-- `404 ENTITY_NOT_FOUND` - Package not found (for updates)
-- `500 INTERNAL_SERVER_ERROR` - Failed to save package
-
----
-
-### Get Package
-
-Retrieve a package by ID.
-
-**Endpoint:** `GET /v1/packages/{packageID}`
-
-**Path Parameters:**
-
-- `packageID` (string, required) - Package identifier
-
-**Response:**
-
-```json
-{
-  "id": "my-package",
-  "functions": [...]
-}
-```
-
-**Example:**
-
-```bash
-curl http://localhost:9090/v1/packages/my-package
-```
-
-**Error Responses:**
-
-- `400 BAD_REQUEST` - Invalid package ID
-- `404 ENTITY_NOT_FOUND` - Package not found
-- `500 INTERNAL_SERVER_ERROR` - Failed to retrieve package
-
----
-
-### Submit Async Function Result
-
-Submit the result of an asynchronous function execution.
-
-**Endpoint:** `POST /v1/workflows/{workflowID}/execs/{execID}`
-
-**Path Parameters:**
-
-- `workflowID` (string, required) - Workflow identifier
-- `execID` (string, required) - Execution identifier
-
-**Request Body:**
+Submits completion for an async node execution. Body wraps [`FunctionOutput`](../pkg/workflow/fn_output.go): `status` (e.g. `"success"`) and `data` (object).
 
 ```json
 {
   "result": {
     "status": "success",
-    "output": {
-      "data": "result data"
-    }
+    "data": {}
   }
 }
 ```
 
-**Response:**
-
-```json
-{
-  "workflowID": "550e8400-e29b-41d4-a716-446655440000",
-  "execID": "exec-123",
-  "code": "OK"
-}
-```
-
-**Example:**
+Response (200): `workflowID`, `execID`, `code`.
 
 ```bash
-curl -X POST http://localhost:9090/v1/workflows/550e8400.../execs/exec-123 \
+curl -X POST "http://localhost:9090/v1/workflows/$WF_ID/execs/$EXEC_ID" \
   -H "Content-Type: application/json" \
-  -d '{"result": {"status": "success", "output": {}}}'
+  -d '{"result":{"status":"success","data":{}}}'
 ```
-
-**Error Responses:**
-
-- `400 BAD_REQUEST` - Invalid workflow ID, execution ID, or result format
-- `500 INTERNAL_SERVER_ERROR` - Failed to submit result
 
 ---
 
-## Workflow Execution Flow
+## Schema structure (reference)
 
-1. **Create Schema**: Define your workflow structure using `PUT /v1/schemas/{schemaID}`
-2. **Trigger Workflow**: Start execution with `POST /v1/workflows/trigger`
-3. **Monitor Progress**: Track workflow execution (via logs or future status endpoints)
-4. **Handle Async Results**: Submit async function results via `POST /v1/workflows/{workflowID}/execs/{execID}`
+- **Graph:** `id`, `name`, `nodes[]`, `edges[]`, optional `metadata`, `tags`, `timeout`.
+- **Node:** `id`, `function`, optional `config`, `retry`, `timeout`.
+- **Edge:** `id`, `from`, `to`, optional `conditional` (`name`, `value`), `input[]` ([`InputMapping`](../internal/workflow/edge_schema.go): `source`, `mapTo`, optional `variable` / `value`), `onError`.
 
-## Schema Structure
+Real examples: [`examples/workflows/`](../examples/workflows/).
 
-### Graph Schema
+---
 
-A workflow schema consists of nodes and edges:
+## Execution flow (today)
 
-```json
-{
-  "id": "workflow-id",
-  "nodes": [
-    {
-      "id": "node-id",
-      "function": "package-id/function-name",
-      "config": {
-        // Node-specific configuration
-      }
-    }
-  ],
-  "edges": [
-    {
-      "from": "source-node-id",
-      "to": "target-node-id",
-      "condition": "optional-condition-expression"
-    }
-  ]
-}
-```
+1. `PUT /v1/schemas/{schemaID}` — define or update the workflow.
+2. `POST /v1/workflows/trigger` — start an instance (`schemaID` in body).
+3. For async steps, complete via `POST /v1/workflows/{workflowID}/execs/{execID}`.
 
-### Node Configuration
+---
 
-Each node can have custom configuration based on its function type. Refer to package documentation for function-specific configuration options.
+# Planned endpoints and fields (roadmap)
 
-### Edge Types
+**Not implemented until the linked phase ships.** Names and paths may change slightly during implementation; see [docs/roadmap/](roadmap/).
 
-- **Unconditional Edge**: Always follows the connection
-- **Conditional Edge**: Follows only if condition evaluates to true
+| Item | Phase | Notes |
+| ---- | ----- | ----- |
+| `POST /v1/workflows/{workflowID}/cancel` | [2](roadmap/phase-2-control-flow.md) | User-initiated cancellation |
+| `POST /v1/awakeables/{awakeableID}/resolve` | [2](roadmap/phase-2-control-flow.md) | Resolve wait-for-event / awakeable |
+| `idempotencyKey`, optional `schemaVersion` on trigger body | [3](roadmap/phase-3-operational.md), [4](roadmap/phase-4-polish.md) | Dedup and version pinning |
+| `GET /v1/workflows/{workflowID}/trace` | [3](roadmap/phase-3-operational.md) | Persisted execution trace |
+| `GET /v1/schemas/{schemaID}/traces` | [3](roadmap/phase-3-operational.md) | Traces by schema |
+| Cron / webhook / event triggers (`/v1/hooks/...`, internal bus) | [3](roadmap/phase-3-operational.md) | Beyond HTTP-only trigger |
+| `GET/POST /v1/schemas/.../versions` etc. | [4](roadmap/phase-4-polish.md) | Versioned schemas, activate, rollback |
 
-## Best Practices
+---
 
-1. **Schema Validation**: Always validate schemas before triggering workflows
-2. **Error Handling**: Implement proper error handling for all API calls
-3. **Idempotency**: Use unique schema IDs to avoid conflicts
-4. **Async Operations**: For long-running operations, use async function pattern
-5. **Monitoring**: Monitor workflow execution through logs
+## Rate limiting and API versioning
 
-## Rate Limiting
-
-Currently, no rate limiting is implemented. This may change in future versions.
-
-## Versioning
-
-The API is versioned via URL path (e.g., `/v1/`). Breaking changes will increment the version number.
+- **Rate limiting:** not implemented on the API today; roadmap Phase 3 includes function-level rate limits.
+- **Versioning:** URL prefix `/v1/`. Breaking changes would introduce a new prefix.
 
 ## Support
 
-For issues, questions, or contributions, please refer to the project's GitHub repository.
+Issues and contributions: GitHub repository for this project.

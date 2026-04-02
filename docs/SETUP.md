@@ -2,6 +2,10 @@
 
 This setup includes LocalStack with AWS resources (S3, SQS, SNS).
 
+## Production-like deployment (Kubernetes)
+
+For running FUSE on a cluster (Helm chart, `standalone` vs ergo `cluster` mode, HA caveats), see [DEPLOYMENT.md](DEPLOYMENT.md) and [`deploy/helm/fuse/`](../deploy/helm/fuse/).
+
 ## Services
 
 ### LocalStack
