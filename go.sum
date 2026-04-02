@@ -1,7 +1,7 @@
 ergo.services/application/observer v0.0.0-20250927194435-52bffba635a1 h1:zJzsibOEcXGWuGCTiy/jIIEGExJ+fxaaCAMcKpvXUvQ=
 ergo.services/application/observer v0.0.0-20250927194435-52bffba635a1/go.mod h1:w5QSh1RMojfPUHOTf1jpTE5ltCiFUEHHvuUlQuFgOyg=
-ergo.services/ergo v1.999.310 h1:qHx35J5UxCheNJaFrOK/1K6/p7jir680+NTPZo6bhbI=
-ergo.services/ergo v1.999.310/go.mod h1:bLQ6PoO6Mz/8gVuzvPv3xfMfo1P9w6rZV1WnMXMeMdg=
+ergo.services/ergo v1.999.320 h1:IYyjCBJvXPLW8Mpy6pq5FoBa2RjNAS4QSL2lK7bBueQ=
+ergo.services/ergo v1.999.320/go.mod h1:bLQ6PoO6Mz/8gVuzvPv3xfMfo1P9w6rZV1WnMXMeMdg=
 ergo.services/meta/websocket v0.0.0-20250904215344-e002b0fa33cd h1:RRuchK5Rcq8AWDHwmLCRN+3tL8NP/u2uVk4fWufnF7o=
 ergo.services/meta/websocket v0.0.0-20250904215344-e002b0fa33cd/go.mod h1:3qUvw5XiesYfj8Tmwi6hSVrc7CjwXMKDQEriIlTZ1Ys=
 github.com/KyleBanks/depth v1.2.1 h1:5h8fQADFrWtarTdtDudMmGsC7GPbOAu6RVB3ffsVFHc=

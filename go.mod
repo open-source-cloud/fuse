@@ -4,7 +4,7 @@ go 1.25
 
 require (
 	ergo.services/application/observer v0.0.0-20250927194435-52bffba635a1
-	ergo.services/ergo v1.999.310
+	ergo.services/ergo v1.999.320
 	github.com/TyphonHill/go-mermaid v1.0.0
 	github.com/caarlos0/env/v11 v11.3.1
 	github.com/expr-lang/expr v1.17.6
