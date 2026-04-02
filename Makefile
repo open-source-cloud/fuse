@@ -1,4 +1,4 @@
-.PHONY: run test test-report testdox clean lint lint-fix swagger
+.PHONY: run run-debug test test-report testdox clean lint lint-fix swagger build build-debug
 
 GOTESTSUM := $(shell go env GOPATH)/bin/gotestsum
 GOLANGCI_LINT := $(shell go env GOPATH)/bin/golangci-lint
@@ -15,6 +15,12 @@ test-benchmark:
 
 build:
 	go build -o bin/fuse cmd/fuse/main.go
+
+build-debug:
+	go build -tags pprof -o bin/fuse cmd/fuse/main.go
+
+run-debug: build-debug
+	./bin/fuse server -o -p 9090 -l debug
 
 clean:
 	rm -rf bin/
