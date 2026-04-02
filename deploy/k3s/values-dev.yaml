@@ -1,0 +1,29 @@
+# Development overrides for local k3s/k3d cluster
+replicaCount: 1
+mode: standalone
+
+image:
+  repository: fuse-app
+  tag: dev
+  pullPolicy: Never
+
+env:
+  DB_DRIVER: mongodb
+  DB_NAME: fuse
+  LOG_LEVEL: debug
+  SHUTDOWN_TIMEOUT: 10s
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 250m
+    memory: 256Mi
+
+mongodb:
+  enabled: true
+  auth:
+    rootPassword: "fuse-dev"
+    databases:
+      - fuse
