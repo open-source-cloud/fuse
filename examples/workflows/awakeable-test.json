@@ -1,0 +1,33 @@
+{
+  "id": "awakeable-test",
+  "name": "Awakeable (Wait for Event) Test",
+  "nodes": [
+    {
+      "id": "start",
+      "function": "fuse/pkg/debug/nil"
+    },
+    {
+      "id": "wait-approval",
+      "function": "system/wait"
+    },
+    {
+      "id": "after-approval",
+      "function": "fuse/pkg/debug/nil"
+    }
+  ],
+  "edges": [
+    {
+      "id": "start-to-wait",
+      "from": "start",
+      "to": "wait-approval",
+      "input": [
+        { "source": "schema", "value": "24h", "mapTo": "timeout" }
+      ]
+    },
+    {
+      "id": "wait-to-end",
+      "from": "wait-approval",
+      "to": "after-approval"
+    }
+  ]
+}

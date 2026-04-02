@@ -1,0 +1,61 @@
+{
+  "id": "merge-strategy-test",
+  "name": "Merge Strategy Test",
+  "nodes": [
+    {
+      "id": "start",
+      "function": "fuse/pkg/debug/nil"
+    },
+    {
+      "id": "branch-a",
+      "function": "fuse/pkg/logic/rand"
+    },
+    {
+      "id": "branch-b",
+      "function": "fuse/pkg/logic/rand"
+    },
+    {
+      "id": "join-node",
+      "function": "fuse/pkg/logic/sum",
+      "merge": {
+        "strategy": "keyed"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "start-to-a",
+      "from": "start",
+      "to": "branch-a",
+      "input": [
+        { "source": "schema", "value": 1, "mapTo": "min" },
+        { "source": "schema", "value": 50, "mapTo": "max" }
+      ]
+    },
+    {
+      "id": "start-to-b",
+      "from": "start",
+      "to": "branch-b",
+      "input": [
+        { "source": "schema", "value": 50, "mapTo": "min" },
+        { "source": "schema", "value": 100, "mapTo": "max" }
+      ]
+    },
+    {
+      "id": "a-to-join",
+      "from": "branch-a",
+      "to": "join-node",
+      "input": [
+        { "source": "flow", "variable": "branch-a.rand", "mapTo": "values" }
+      ]
+    },
+    {
+      "id": "b-to-join",
+      "from": "branch-b",
+      "to": "join-node",
+      "input": [
+        { "source": "flow", "variable": "branch-b.rand", "mapTo": "values" }
+      ]
+    }
+  ]
+}

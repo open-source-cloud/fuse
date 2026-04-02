@@ -1,0 +1,79 @@
+{
+  "id": "expression-condition-test",
+  "name": "Expression Condition Test",
+  "nodes": [
+    {
+      "id": "debug-nil",
+      "function": "fuse/pkg/debug/nil"
+    },
+    {
+      "id": "logic-rand",
+      "function": "fuse/pkg/logic/rand"
+    },
+    {
+      "id": "logic-if",
+      "function": "fuse/pkg/logic/if"
+    },
+    {
+      "id": "high-value",
+      "function": "fuse/pkg/debug/nil"
+    },
+    {
+      "id": "low-value",
+      "function": "fuse/pkg/debug/nil"
+    },
+    {
+      "id": "default-path",
+      "function": "fuse/pkg/debug/nil"
+    }
+  ],
+  "edges": [
+    {
+      "id": "start-to-rand",
+      "from": "debug-nil",
+      "to": "logic-rand",
+      "input": [
+        { "source": "schema", "value": 1, "mapTo": "min" },
+        { "source": "schema", "value": 200, "mapTo": "max" }
+      ]
+    },
+    {
+      "id": "rand-to-if",
+      "from": "logic-rand",
+      "to": "logic-if",
+      "input": [
+        { "source": "schema", "value": "rand > 100", "mapTo": "expression" },
+        { "source": "flow", "variable": "logic-rand.rand", "mapTo": "rand" }
+      ]
+    },
+    {
+      "id": "if-to-high",
+      "from": "logic-if",
+      "to": "high-value",
+      "conditional": {
+        "name": "if-true",
+        "type": "expression",
+        "expression": "output.result == true"
+      }
+    },
+    {
+      "id": "if-to-low",
+      "from": "logic-if",
+      "to": "low-value",
+      "conditional": {
+        "name": "if-false",
+        "type": "expression",
+        "expression": "output.result == false"
+      }
+    },
+    {
+      "id": "if-to-default",
+      "from": "logic-if",
+      "to": "default-path",
+      "conditional": {
+        "name": "fallback",
+        "type": "default"
+      }
+    }
+  ]
+}
