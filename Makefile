@@ -1,4 +1,4 @@
-.PHONY: run run-debug install-gotestsum test test-report testdox clean install-lint lint lint-fix swagger build build-debug
+.PHONY: run run-debug install-gotestsum test test-report testdox clean install-lint lint lint-fix swagger build build-debug dockerfile-lint sonar-local
 
 GOTESTSUM := $(shell go env GOPATH)/bin/gotestsum
 GOLANGCI_LINT := $(shell go env GOPATH)/bin/golangci-lint
@@ -47,6 +47,26 @@ format:
 # Generate Swagger documentation
 swagger:
 	swag init -g cmd/fuse/main.go -o docs/
+
+# Lint Dockerfiles (consecutive RUN merge, etc.). Mirrors Sonar Docker rules; requires Docker.
+HADOLINT_IMAGE := hadolint/hadolint:2.12.0-alpine
+dockerfile-lint:
+	docker run --rm -v "$$(pwd):/work" -w /work --entrypoint /bin/hadolint $(HADOLINT_IMAGE) \
+		--config /work/.hadolint.yaml Dockerfile Dockerfile.dev
+
+# Full SonarCloud analysis (same project as GitHub checks). Requires SONAR_TOKEN from
+# https://sonarcloud.io/account/security and Docker.
+sonar-local:
+	@test -n "$$SONAR_TOKEN" || (echo "Set SONAR_TOKEN (SonarCloud > My Account > Security)" >&2; exit 1)
+	docker run --rm \
+		-e SONAR_TOKEN \
+		-v "$$(pwd):/usr/src" \
+		sonarsource/sonar-scanner-cli:latest \
+		-Dsonar.organization=open-source-cloud \
+		-Dsonar.projectKey=open-source-cloud_fuse \
+		-Dsonar.sources=. \
+		-Dsonar.exclusions=**/vendor/**,**/bin/**,**/.git/** \
+		-Dsonar.host.url=https://sonarcloud.io
 
 dkb:
 	docker build -t fuse-app:dev .

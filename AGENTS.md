@@ -13,3 +13,5 @@
 - Multiple files under `examples/workflows/` reuse the same schema `id` (e.g. `small-test`); upserting them in order means the last file wins for that id.
 - `GET /v1/workflows/{workflowID}/status` returns workflow instance state and audit data from the in-memory workflow repository; an optional `logs` field appears when the server log level is debug.
 - `MemoryPackageRepository` uses a mutex because internal package registration saves packages from concurrent goroutines.
+- `make dockerfile-lint` runs Hadolint in Docker on `Dockerfile` and `Dockerfile.dev` with `.hadolint.yaml`; it catches consecutive-`RUN` patterns that align with SonarCloud Docker rules (e.g. docker:S7031). `make sonar-local` runs SonarScanner against SonarCloud for project `open-source-cloud_fuse` and requires `SONAR_TOKEN`.
+- `Dockerfile.dev` runs as non-root `fuse` (UID/GID 1000): module files stay root-owned and readable, `/go` is writable for caches and installs. On Linux, bind-mounted source must suit UID 1000 or use Compose `user` to match the host.

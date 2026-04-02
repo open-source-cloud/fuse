@@ -4,9 +4,8 @@
 FROM golang:1.26-bookworm
 
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl \
-	&& rm -rf /var/lib/apt/lists/*
-
-RUN groupadd --gid 1000 fuse \
+	&& rm -rf /var/lib/apt/lists/* \
+	&& groupadd --gid 1000 fuse \
 	&& useradd --uid 1000 --gid fuse --shell /bin/bash --create-home fuse \
 	&& chown -R fuse:fuse /go
 
@@ -17,9 +16,8 @@ COPY go.mod go.sum ./
 
 USER fuse
 
-RUN go mod download
-
-RUN go install github.com/air-verse/air@latest
+RUN go mod download \
+	&& go install github.com/air-verse/air@latest
 
 ENV CGO_ENABLED=0
 
