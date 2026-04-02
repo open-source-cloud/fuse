@@ -29,6 +29,13 @@ x-fuse-dev-common: &fuse-dev-common
     start_period: 90s
 
 services:
+  fuse-dev:
+    <<: *fuse-dev-common
+    container_name: fuse-dev
+    hostname: fuse-node-dev
+    ports:
+      - "9090:9090"
+
   fuse-dev-1:
     <<: *fuse-dev-common
     container_name: fuse-dev-1
