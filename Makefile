@@ -54,19 +54,34 @@ dockerfile-lint:
 	docker run --rm -v "$$(pwd):/work" -w /work --entrypoint /bin/hadolint $(HADOLINT_IMAGE) \
 		--config /work/.hadolint.yaml Dockerfile Dockerfile.dev
 
-# Full SonarCloud analysis (same project as GitHub checks). Requires SONAR_TOKEN from
-# https://sonarcloud.io/account/security and Docker.
+# SonarCloud local analysis (reads ./sonar-project.properties). Requires Docker.
+# SONAR_TOKEN: https://sonarcloud.io/account/security — use a SonarCloud user or org
+# scoped token with analysis permission (not a GitHub OAuth token).
+# If you see "Error 404 on .../analysis/analyses", try SONAR_REGION=us for US-hosted orgs.
+# Optional: SONAR_SCANNER_IMAGE=sonarsource/sonar-scanner-cli:latest
+SONAR_SCANNER_IMAGE ?= sonarsource/sonar-scanner-cli:latest
+
 sonar-local:
-	@test -n "$$SONAR_TOKEN" || (echo "Set SONAR_TOKEN (SonarCloud > My Account > Security)" >&2; exit 1)
+	@test -n "$$SONAR_TOKEN" || (echo "Set SONAR_TOKEN (SonarCloud > My Account > Security)." >&2; exit 1)
+	@set -e; \
+	opts=""; \
+	b=$$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true); \
+	if [ -n "$$b" ] && [ "$$b" != "HEAD" ]; then \
+		opts="$$opts -Dsonar.branch.name=$$b"; \
+	fi; \
+	if [ -n "$$SONAR_REGION" ]; then \
+		opts="$$opts -Dsonar.region=$$SONAR_REGION"; \
+	fi; \
+	rev=$$(git rev-parse HEAD 2>/dev/null || true); \
+	if [ -n "$$rev" ]; then \
+		opts="$$opts -Dsonar.scm.revision=$$rev"; \
+	fi; \
 	docker run --rm \
 		-e SONAR_TOKEN \
 		-v "$$(pwd):/usr/src" \
-		sonarsource/sonar-scanner-cli:latest \
-		-Dsonar.organization=open-source-cloud \
-		-Dsonar.projectKey=open-source-cloud_fuse \
-		-Dsonar.sources=. \
-		-Dsonar.exclusions=**/vendor/**,**/bin/**,**/.git/** \
-		-Dsonar.host.url=https://sonarcloud.io
+		-w /usr/src \
+		$(SONAR_SCANNER_IMAGE) \
+		$$opts
 
 dkb:
 	docker build -t fuse-app:dev .
