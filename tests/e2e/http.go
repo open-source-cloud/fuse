@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -18,6 +19,12 @@ const (
 	HealthInterval = 2 * time.Second
 	// HTTPClientTimeout bounds each HTTP request duration.
 	HTTPClientTimeout = 30 * time.Second
+	// StatusPollInterval is the sleep between workflow status poll attempts.
+	StatusPollInterval = 500 * time.Millisecond
+	// DefaultStatusTimeout is the default timeout for waiting for a workflow status.
+	DefaultStatusTimeout = 15 * time.Second
+	// LongStatusTimeout is a longer timeout for workflows that sleep or do external calls.
+	LongStatusTimeout = 30 * time.Second
 )
 
 // TriggerResponse is the subset of POST /v1/workflows/trigger JSON we assert on.
@@ -25,9 +32,23 @@ type TriggerResponse struct {
 	WorkflowID string `json:"workflowId"`
 }
 
+// WorkflowStatusResponse is the JSON returned by GET /v1/workflows/{workflowID}.
+type WorkflowStatusResponse struct {
+	WorkflowID string `json:"workflowId"`
+	Status     string `json:"status"`
+}
+
 // NewHTTPClient returns a client with a bounded timeout suitable for E2E requests.
+// Each client gets its own Transport clone: the default nil Transport is http.DefaultTransport,
+// which is shared by every client in the process, so idle connections from one test can be
+// handed to the next and fail with EOF if the server already closed its side.
 func NewHTTPClient() *http.Client {
-	return &http.Client{Timeout: HTTPClientTimeout}
+	tr := http.DefaultTransport.(*http.Transport).Clone()
+	tr.DisableKeepAlives = true
+	return &http.Client{
+		Timeout:   HTTPClientTimeout,
+		Transport: tr,
+	}
 }
 
 // WaitForHealth polls GET /health until success or attempts exhausted.
@@ -107,4 +128,81 @@ func POSTJSON(client *http.Client, url string, body []byte) (int, []byte, error)
 // MarshalTriggerBody returns JSON for POST /v1/workflows/trigger.
 func MarshalTriggerBody(schemaID string) ([]byte, error) {
 	return json.Marshal(map[string]string{"schemaID": schemaID})
+}
+
+// GetWorkflowStatus fetches the current status of a workflow.
+func GetWorkflowStatus(client *http.Client, baseURL, workflowID string) (*WorkflowStatusResponse, error) {
+	url := fmt.Sprintf("%s/v1/workflows/%s", baseURL, workflowID)
+	code, body, err := GET(client, url)
+	if err != nil {
+		return nil, fmt.Errorf("GET workflow status: %w", err)
+	}
+	if code == http.StatusNotFound {
+		return nil, fmt.Errorf("workflow %s not found (404)", workflowID)
+	}
+	if code != http.StatusOK {
+		return nil, fmt.Errorf("GET workflow status: unexpected status %d, body=%s", code, string(body))
+	}
+	var resp WorkflowStatusResponse
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return nil, fmt.Errorf("decode workflow status: %w", err)
+	}
+	return &resp, nil
+}
+
+// isTerminalStatus returns true if the workflow status is a terminal state.
+func isTerminalStatus(status string) bool {
+	switch status {
+	case "finished", "error", "cancelled":
+		return true
+	}
+	return false
+}
+
+// WaitForWorkflowTerminal polls GET /v1/workflows/{workflowID} until a terminal state
+// (finished, error, cancelled) is reached or the timeout expires.
+func WaitForWorkflowTerminal(client *http.Client, baseURL, workflowID string, timeout time.Duration) (*WorkflowStatusResponse, error) {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		resp, err := GetWorkflowStatus(client, baseURL, workflowID)
+		if err != nil {
+			time.Sleep(StatusPollInterval)
+			continue
+		}
+		if isTerminalStatus(resp.Status) {
+			return resp, nil
+		}
+		time.Sleep(StatusPollInterval)
+	}
+	// One final attempt to return whatever status we have.
+	resp, err := GetWorkflowStatus(client, baseURL, workflowID)
+	if err != nil {
+		return nil, fmt.Errorf("workflow %s did not reach terminal state within %s: %w", workflowID, timeout, err)
+	}
+	return resp, fmt.Errorf("workflow %s still in status %q after %s", workflowID, resp.Status, timeout)
+}
+
+// WaitForWorkflowStatus polls GET /v1/workflows/{workflowID} until the given target status
+// is reached or the timeout expires. Use this for non-terminal states like "sleeping".
+func WaitForWorkflowStatus(client *http.Client, baseURL, workflowID, targetStatus string, timeout time.Duration) (*WorkflowStatusResponse, error) {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		resp, err := GetWorkflowStatus(client, baseURL, workflowID)
+		if err != nil {
+			time.Sleep(StatusPollInterval)
+			continue
+		}
+		if resp.Status == targetStatus {
+			return resp, nil
+		}
+		if isTerminalStatus(resp.Status) {
+			return resp, fmt.Errorf("workflow %s reached terminal status %q while waiting for %q", workflowID, resp.Status, targetStatus)
+		}
+		time.Sleep(StatusPollInterval)
+	}
+	resp, err := GetWorkflowStatus(client, baseURL, workflowID)
+	if err != nil {
+		return nil, fmt.Errorf("workflow %s did not reach status %q within %s: %w", workflowID, targetStatus, timeout, err)
+	}
+	return resp, fmt.Errorf("workflow %s still in status %q after %s (expected %q)", workflowID, resp.Status, timeout, targetStatus)
 }

@@ -43,6 +43,12 @@ type CancelWorkflowResponse struct {
 	CancelledAt string `json:"cancelledAt" example:"2025-07-28T10:00:00Z"`
 }
 
+// GetWorkflowResponse represents get workflow status response
+type GetWorkflowResponse struct {
+	WorkflowID string `json:"workflowId" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Status     string `json:"status" example:"finished"`
+}
+
 // ResolveAwakeableRequest is the request body for the ResolveAwakeableHandler
 type ResolveAwakeableRequest struct {
 	Data map[string]any `json:"data"`

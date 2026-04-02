@@ -32,6 +32,9 @@ const (
 	WorkflowSchemaHandlerPoolName = "workflow_schema_handler_pool"
 )
 
+// UpsertSchemaBody is the JSON body for PUT /v1/schemas/{schemaID}. Aliased for swag (package workflow exists in both internal/workflow and pkg/workflow).
+type UpsertSchemaBody = workflow.GraphSchema
+
 // NewWorkflowSchemaHandlerFactory creates a new WorkflowSchemaHandlerFactory
 func NewWorkflowSchemaHandlerFactory(graphService services.GraphService) *WorkflowSchemaHandlerFactory {
 	return &WorkflowSchemaHandlerFactory{
@@ -50,7 +53,7 @@ func NewWorkflowSchemaHandlerFactory(graphService services.GraphService) *Workfl
 // @Accept json
 // @Produce json
 // @Param schemaID path string true "Schema ID"
-// @Param schema body workflow.GraphSchema true "Workflow Schema"
+// @Param schema body UpsertSchemaBody true "Workflow Schema"
 // @Success 200 {object} dtos.UpsertSchemaResponse
 // @Failure 400 {object} dtos.BadRequestError
 // @Failure 404 {object} dtos.NotFoundError
@@ -101,7 +104,7 @@ func (h *WorkflowSchemaHandler) HandlePut(from gen.PID, w http.ResponseWriter, r
 // @Accept json
 // @Produce json
 // @Param schemaID path string true "Schema ID"
-// @Success 200 {object} workflow.GraphSchema
+// @Success 200 {object} UpsertSchemaBody
 // @Failure 400 {object} dtos.BadRequestError
 // @Failure 404 {object} dtos.NotFoundError
 // @Failure 500 {object} dtos.InternalServerErrorResponse

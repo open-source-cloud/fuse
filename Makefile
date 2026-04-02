@@ -1,7 +1,14 @@
-.PHONY: run run-debug install-gotestsum test test-report testdox clean install-lint lint lint-fix swagger build build-debug dockerfile-lint sonar-local e2e-workflows
+.PHONY: run run-debug install-gotestsum test test-report testdox clean install-lint lint lint-fix install-swag swagger build build-debug dockerfile-lint sonar-local e2e-workflows
 
 GOTESTSUM := $(shell go env GOPATH)/bin/gotestsum
 GOLANGCI_LINT := $(shell go env GOPATH)/bin/golangci-lint
+SWAG := $(shell go env GOPATH)/bin/swag
+
+# Keep in sync with github.com/swaggo/swag in go.mod (CLI + runtime types).
+SWAG_VERSION ?= v1.16.6
+
+# Parse API packages explicitly. With multiple -d entries, -g is relative to the first dir (cmd/fuse).
+SWAG_DIRS := ./cmd/fuse,./internal/handlers,./internal/dtos,./internal/workflow,./pkg/workflow
 
 run:
 	go build -o bin/fuse cmd/fuse/main.go
@@ -53,9 +60,13 @@ lint-fix: install-lint
 format:
 	go fmt ./...
 
-# Generate Swagger documentation
-swagger:
-	swag init -g cmd/fuse/main.go -o docs/
+# Install swag CLI into GOPATH/bin (same path as SWAG)
+install-swag:
+	GOTOOLCHAIN=go$(GOMOD_GOVER).0 go install github.com/swaggo/swag/cmd/swag@$(SWAG_VERSION)
+
+# Generate Swagger documentation (OpenAPI 2.0 under docs/)
+swagger: install-swag
+	$(SWAG) init -g main.go -o docs/ -d $(SWAG_DIRS)
 
 # Lint Dockerfiles (consecutive RUN merge, etc.). Mirrors Sonar Docker rules; requires Docker.
 HADOLINT_IMAGE := hadolint/hadolint:2.12.0-alpine

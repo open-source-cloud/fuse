@@ -16,6 +16,7 @@ type workerHandlerRegistrationParams struct {
 	TriggerWorkflowHandlerFactory     *handlers.TriggerWorkflowHandlerFactory
 	PackagesHandlerFactory            *handlers.PackagesHandlerFactory
 	RegisterPackageHandlerFactory     *handlers.RegisterPackageHandlerFactory
+	GetWorkflowHandlerFactory         *handlers.GetWorkflowHandlerFactory
 	CancelWorkflowHandlerFactory      *handlers.CancelWorkflowHandlerFactory
 	ResolveAwakeableHandlerFactory    *handlers.ResolveAwakeableHandlerFactory
 }
@@ -27,6 +28,7 @@ func registerWorkerHandlers(p workerHandlerRegistrationParams) {
 	p.Workers.AddFactory(handlers.TriggerWorkflowHandlerName, p.TriggerWorkflowHandlerFactory.Factory)
 	p.Workers.AddFactory(handlers.PackagesHandlerName, p.PackagesHandlerFactory.Factory)
 	p.Workers.AddFactory(handlers.RegisterPackageHandlerName, p.RegisterPackageHandlerFactory.Factory)
+	p.Workers.AddFactory(handlers.GetWorkflowHandlerName, p.GetWorkflowHandlerFactory.Factory)
 	p.Workers.AddFactory(handlers.CancelWorkflowHandlerName, p.CancelWorkflowHandlerFactory.Factory)
 	p.Workers.AddFactory(handlers.ResolveAwakeableHandlerName, p.ResolveAwakeableHandlerFactory.Factory)
 }
@@ -41,6 +43,7 @@ var WorkerModule = fx.Module(
 		handlers.NewHealthCheckHandler,
 		handlers.NewPackagesHandler,
 		handlers.NewRegisterPackageHandler,
+		handlers.NewGetWorkflowHandlerFactory,
 		handlers.NewCancelWorkflowHandlerFactory,
 		handlers.NewResolveAwakeableHandlerFactory,
 		actors.NewWorkers,

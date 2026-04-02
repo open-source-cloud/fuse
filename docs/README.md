@@ -22,10 +22,10 @@ To regenerate the Swagger documentation after making changes to API endpoints or
 make swagger
 ```
 
-Or run directly:
+Or run directly after `make install-swag` (see `SWAG_DIRS` in the root `Makefile`):
 
 ```bash
-swag init -g cmd/fuse/main.go -o docs/
+$(go env GOPATH)/bin/swag init -g main.go -o docs/ -d ./cmd/fuse,./internal/handlers,./internal/dtos,./internal/workflow,./pkg/workflow
 ```
 
 ## Viewing Documentation

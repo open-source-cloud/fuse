@@ -40,6 +40,18 @@ func NewResolveAwakeableHandlerFactory(awakeableRepo repositories.AwakeableRepos
 }
 
 // HandlePost handles the resolve awakeable endpoint (POST /v1/awakeables/{awakeableID}/resolve)
+// @Summary Resolve awakeable
+// @Description Completes a pending awakeable with payload data and resumes the workflow
+// @Tags workflows
+// @Accept json
+// @Produce json
+// @Param awakeableID path string true "Awakeable ID"
+// @Param request body dtos.ResolveAwakeableRequest true "Resolution payload"
+// @Success 200 {object} dtos.ResolveAwakeableResponse
+// @Failure 400 {object} dtos.BadRequestError
+// @Failure 404 {object} dtos.NotFoundError
+// @Failure 500 {object} dtos.InternalServerErrorResponse
+// @Router /v1/awakeables/{awakeableID}/resolve [post]
 func (h *ResolveAwakeableHandler) HandlePost(_ gen.PID, w http.ResponseWriter, r *http.Request) error {
 	awakeableID, err := h.GetPathParam(r, "awakeableID")
 	if err != nil {

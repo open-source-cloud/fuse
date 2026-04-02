@@ -30,9 +30,9 @@ type BackoffConfig struct {
 	// Type of backoff: fixed, exponential, linear
 	Type BackoffType `json:"type" validate:"oneof=fixed exponential linear"`
 	// InitialInterval is the base delay between retries
-	InitialInterval FlexibleDuration `json:"initialInterval"`
+	InitialInterval FlexibleDuration `json:"initialInterval" swaggertype:"string" example:"1s"`
 	// MaxInterval caps the delay for exponential/linear backoff
-	MaxInterval FlexibleDuration `json:"maxInterval"`
+	MaxInterval FlexibleDuration `json:"maxInterval" swaggertype:"string" example:"30s"`
 	// Multiplier for exponential backoff (default: 2.0)
 	Multiplier float64 `json:"multiplier,omitempty"`
 }

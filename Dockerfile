@@ -10,8 +10,8 @@ COPY pkg /app/pkg
 
 # Install swag, generate swagger docs, and build (single layer for smaller image / Sonar Docker rules).
 RUN go mod download \
-	&& go install github.com/swaggo/swag/cmd/swag@latest \
-	&& swag init -g cmd/fuse/main.go -o docs/ \
+	&& go install github.com/swaggo/swag/cmd/swag@v1.16.6 \
+	&& swag init -g main.go -o docs/ -d ./cmd/fuse,./internal/handlers,./internal/dtos,./internal/workflow,./pkg/workflow \
 	&& CGO_ENABLED=0 go build -o bin/fuse /app/cmd/fuse/main.go
 
 ## Runnable container

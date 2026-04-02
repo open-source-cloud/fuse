@@ -36,6 +36,17 @@ func NewCancelWorkflowHandlerFactory() *CancelWorkflowHandlerFactory {
 }
 
 // HandlePost handles the cancel workflow endpoint (POST /v1/workflows/{workflowID}/cancel)
+// @Summary Cancel workflow execution
+// @Description Requests cancellation of a running workflow instance
+// @Tags workflows
+// @Accept json
+// @Produce json
+// @Param workflowID path string true "Workflow ID"
+// @Param request body dtos.CancelWorkflowRequest false "Optional cancellation reason"
+// @Success 200 {object} dtos.CancelWorkflowResponse
+// @Failure 400 {object} dtos.BadRequestError
+// @Failure 500 {object} dtos.InternalServerErrorResponse
+// @Router /v1/workflows/{workflowID}/cancel [post]
 func (h *CancelWorkflowHandler) HandlePost(_ gen.PID, w http.ResponseWriter, r *http.Request) error {
 	workflowID, err := h.GetPathParam(r, "workflowID")
 	if err != nil {
