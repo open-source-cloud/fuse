@@ -1,11 +1,10 @@
+// Package messaging defines typed messages exchanged between workflow actors.
 package messaging
 
 // MessageType defines the MessageType type
 type MessageType string
 
 const (
-	// ActorInit message type
-	ActorInit       MessageType = "actor:init"
 	// TriggerWorkflow message type
 	TriggerWorkflow MessageType = "workflow:trigger"
 	// ExecuteFunction message type

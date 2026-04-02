@@ -1,4 +1,4 @@
-.PHONY: run test test-report testdox clean lint lint-fix swagger
+.PHONY: run run-debug install-gotestsum test test-report testdox clean install-lint lint lint-fix swagger build build-debug
 
 GOTESTSUM := $(shell go env GOPATH)/bin/gotestsum
 GOLANGCI_LINT := $(shell go env GOPATH)/bin/golangci-lint
@@ -7,7 +7,11 @@ run:
 	go build -o bin/fuse cmd/fuse/main.go
 	./bin/fuse server -o -p 9090 -l debug
 
-test:
+# Install gotestsum into GOPATH/bin (same path as GOTESTSUM)
+install-gotestsum:
+	go install gotest.tools/gotestsum@latest
+
+test: install-gotestsum
 	$(GOTESTSUM) --junitfile test-report.xml --format testdox -- ./pkg/... ./internal/...
 
 test-benchmark:
@@ -16,12 +20,18 @@ test-benchmark:
 build:
 	go build -o bin/fuse cmd/fuse/main.go
 
+build-debug:
+	go build -tags pprof -o bin/fuse cmd/fuse/main.go
+
+run-debug: build-debug
+	./bin/fuse server -o -p 9090 -l debug
+
 clean:
 	rm -rf bin/
 
-# Install golangci-lint if not installed
+# Install golangci-lint (built with the active Go toolchain; required when go.mod > golangci-lint's embed Go)
 install-lint:
-	@which golangci-lint || curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $(shell go env GOPATH)/bin v2.0.2
+	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.5.0
 
 # Run linter
 lint: install-lint

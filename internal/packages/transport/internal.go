@@ -23,7 +23,9 @@ type InternalFunctionTransport struct {
 // Execute executes the function using internal transport
 func (t *InternalFunctionTransport) Execute(handle actor.Handle, execInfo *workflow.ExecutionInfo) (workflow.FunctionResult, error) {
 	execInfo.Finish = func(result workflow.FunctionOutput) {
-		err := handle.Send(
+		// Do not use handle.Send from a background goroutine: after HandleMessage returns,
+		// the worker is in Sleep state and Process.Send returns gen.ErrNotAllowed.
+		err := handle.Node().Send(
 			actornames.WorkflowHandlerName(execInfo.WorkflowID),
 			messaging.NewAsyncFunctionResultMessage(execInfo.WorkflowID, execInfo.ExecID, result),
 		)

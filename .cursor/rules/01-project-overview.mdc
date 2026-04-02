@@ -8,7 +8,7 @@ FUSE (FUSE Utility for Stateful Events) is a flexible and extensible workflow en
 
 ## Key Technologies
 
-- **Go 1.24+** - Programming language
+- **Go 1.26+** - Programming language
 - **[ergo.services](https://docs.ergo.services/)** - Actor model framework
 - **MongoDB** - Persistent storage
 - **zerolog** - Structured logging
@@ -132,7 +132,7 @@ FUSE (FUSE Utility for Stateful Events) is a flexible and extensible workflow en
 
 ## Key Technologies
 
-- **Go 1.24+** - Programming language
+- **Go 1.26+** - Programming language
 - **[ergo.services](https://docs.ergo.services/)** - Actor model framework
 - **MongoDB** - Persistent storage
 - **zerolog** - Structured logging

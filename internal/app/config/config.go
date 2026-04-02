@@ -2,6 +2,8 @@
 package config
 
 import (
+	"time"
+
 	"github.com/caarlos0/env/v11"
 )
 
@@ -18,8 +20,9 @@ type (
 
 	// ParamsConfig configuration parameters
 	ParamsConfig struct {
-		LogLevel      string
-		ActorObserver bool
+		LogLevel        string
+		ActorObserver   bool
+		ShutdownTimeout time.Duration `env:"SHUTDOWN_TIMEOUT" envDefault:"30s"`
 	}
 
 	// DatabaseConfig represents the configuration settings required to connect to a database.

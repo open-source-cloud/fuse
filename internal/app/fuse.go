@@ -22,6 +22,7 @@ func NewApp(
 	serverSup *actors.MuxServerSupFactory,
 ) (gen.Node, error) {
 	var options gen.NodeOptions
+	options.ShutdownTimeout = config.Params.ShutdownTimeout
 
 	apps := make([]gen.ApplicationBehavior, 0, 2)
 	apps = append(apps, &Fuse{
@@ -76,6 +77,7 @@ func (app *Fuse) Load(_ gen.Node, _ ...any) (gen.ApplicationSpec, error) {
 			},
 		},
 		Mode:     gen.ApplicationModeTemporary,
+		Tags:     []gen.Atom{"v0.1.0"},
 		LogLevel: parseLogLevel(app.config.Params.LogLevel),
 	}, nil
 }
