@@ -29,6 +29,8 @@ const (
 	AwakeableResolvedMsg MessageType = "workflow:awakeable:resolved"
 	// SubWorkflowCompleted message type - a sub-workflow has completed
 	SubWorkflowCompleted MessageType = "workflow:subworkflow:completed"
+	// PublishGraphSchemaUpsert message type - local schema saved; replication actor should SendEvent
+	PublishGraphSchemaUpsert MessageType = "schema:publish-upsert"
 )
 
 // Message defines the basic Message

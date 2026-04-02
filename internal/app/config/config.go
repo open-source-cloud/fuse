@@ -2,6 +2,7 @@
 package config
 
 import (
+	"strings"
 	"time"
 
 	"github.com/caarlos0/env/v11"
@@ -33,10 +34,12 @@ type (
 
 	// ClusterConfig configuration for ergo distributed clustering
 	ClusterConfig struct {
-		Enabled      bool   `env:"CLUSTER_ENABLED" envDefault:"false"`
-		NodeName     string `env:"CLUSTER_NODE_NAME"`
-		Cookie       string `env:"CLUSTER_COOKIE" envDefault:"fuse-cluster-secret"`
-		AcceptorPort uint16 `env:"CLUSTER_ACCEPTOR_PORT" envDefault:"15000"`
+		Enabled             bool   `env:"CLUSTER_ENABLED" envDefault:"false"`
+		NodeName            string `env:"CLUSTER_NODE_NAME"`
+		Cookie              string `env:"CLUSTER_COOKIE" envDefault:"fuse-cluster-secret"`
+		AcceptorPort        uint16 `env:"CLUSTER_ACCEPTOR_PORT" envDefault:"15000"`
+		HeadlessServiceFQDN string `env:"CLUSTER_HEADLESS_SERVICE_FQDN"`
+		PeerNodesCSV        string `env:"CLUSTER_PEER_NODES"`
 	}
 )
 
@@ -55,4 +58,20 @@ func Instance() *Config {
 // Validate checks the fields of the Config object for correctness and returns an error if validation fails.
 func (c *Config) Validate() error {
 	return nil
+}
+
+// PeerNodeNames returns CLUSTER_PEER_NODES split into non-empty trimmed entries (full ergo node names).
+func (c *ClusterConfig) PeerNodeNames() []string {
+	if c.PeerNodesCSV == "" {
+		return nil
+	}
+	parts := strings.Split(c.PeerNodesCSV, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }

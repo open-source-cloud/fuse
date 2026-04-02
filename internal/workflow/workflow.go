@@ -543,9 +543,47 @@ func (w *Workflow) inputMapping(edge *Edge, mappings []InputMapping) map[string]
 			isArray := strings.HasPrefix(inputParamSchema.Type, "[]")
 			rawValue := w.aggregatedOutput.Get(mapping.Variable)
 			var value any
-			if inputParamSchema.Type == "" && allowCustomInputParameters {
+			switch {
+			case inputParamSchema.Type == "" && allowCustomInputParameters:
 				value = rawValue
-			} else {
+			case isArray:
+				// Parallel branches each contribute one element; validate against the upstream
+				// output type (e.g. int from rand), then coerce to the slice-typed destination.
+				var parsedScalar any
+				var err error
+				if outputParamSchema.Type == "" {
+					parsedScalar = rawValue
+				} else {
+					parsedScalar, err = typeschema.ParseValue(outputParamSchema.Type, rawValue)
+					if err != nil {
+						log.Error().
+							Err(err).
+							Str("edge", edge.ID()).
+							Str("param", mapping.MapTo).
+							Any("value", rawValue).
+							Msg("Error parsing value")
+						continue
+					}
+				}
+				if outputParamSchema.Type != "" && !w.validateInputMapping(&outputParamSchema, parsedScalar) {
+					log.Error().
+						Str("edge", edge.ID()).
+						Str("param", mapping.MapTo).
+						Any("value", parsedScalar).
+						Msg("Failed param validation")
+					continue
+				}
+				value, err = typeschema.ParseValue(inputParamSchema.Type, parsedScalar)
+				if err != nil {
+					log.Error().
+						Err(err).
+						Str("edge", edge.ID()).
+						Str("param", mapping.MapTo).
+						Any("value", parsedScalar).
+						Msg("Error parsing value")
+					continue
+				}
+			default:
 				var err error
 				value, err = typeschema.ParseValue(inputParamSchema.Type, rawValue)
 				if err != nil {
@@ -557,15 +595,14 @@ func (w *Workflow) inputMapping(edge *Edge, mappings []InputMapping) map[string]
 						Msg("Error parsing value")
 					continue
 				}
-			}
-
-			if !w.validateInputMapping(&outputParamSchema, value) {
-				log.Error().
-					Str("edge", edge.ID()).
-					Str("param", mapping.MapTo).
-					Any("value", value).
-					Msg("Failed param validation")
-				continue
+				if !w.validateInputMapping(&outputParamSchema, value) {
+					log.Error().
+						Str("edge", edge.ID()).
+						Str("param", mapping.MapTo).
+						Any("value", value).
+						Msg("Failed param validation")
+					continue
+				}
 			}
 
 			if isArray {

@@ -1,6 +1,9 @@
 package workflow
 
-import "maps"
+import (
+	"maps"
+	"reflect"
+)
 
 // MergeStrategyType defines how to combine outputs from parallel branches at a join node
 type MergeStrategyType string
@@ -56,6 +59,10 @@ func mergeAppend(inputs []BranchInput) map[string]any {
 	for _, input := range inputs {
 		for key, value := range input.Data {
 			if existing, ok := result[key]; ok {
+				if merged, did := mergeAppendCompatibleSlices(existing, value); did {
+					result[key] = merged
+					continue
+				}
 				switch v := existing.(type) {
 				case []any:
 					result[key] = append(v, value)
@@ -68,6 +75,22 @@ func mergeAppend(inputs []BranchInput) map[string]any {
 		}
 	}
 	return result
+}
+
+// mergeAppendCompatibleSlices concatenates two values when both are non-empty slices of the same element type.
+func mergeAppendCompatibleSlices(existing, value any) (any, bool) {
+	ev := reflect.ValueOf(existing)
+	vv := reflect.ValueOf(value)
+	if ev.Kind() != reflect.Slice || vv.Kind() != reflect.Slice {
+		return nil, false
+	}
+	if ev.Type() != vv.Type() {
+		return nil, false
+	}
+	out := reflect.MakeSlice(ev.Type(), ev.Len()+vv.Len(), ev.Len()+vv.Len())
+	reflect.Copy(out.Slice(0, ev.Len()), ev)
+	reflect.Copy(out.Slice(ev.Len(), out.Len()), vv)
+	return out.Interface(), true
 }
 
 func mergeObjects(inputs []BranchInput) map[string]any {

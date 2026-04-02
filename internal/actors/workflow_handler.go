@@ -274,9 +274,8 @@ func (a *WorkflowHandler) checkWorkflowCompletion() {
 	a.workflow.SetState(internalworkflow.StateFinished)
 	a.Log().Info("workflow %s completed with state %s", a.workflow.ID(), a.workflow.State())
 
-	supName := actornames.WorkflowInstanceSupervisorName(a.workflow.ID())
 	completedMsg := messaging.NewWorkflowCompletedMessage(a.workflow.ID(), a.workflow.State().String())
-	if err := a.Send(gen.Atom(supName), completedMsg); err != nil {
+	if err := a.Send(a.Parent(), completedMsg); err != nil {
 		a.Log().Error("failed to send workflow completed message: %s", err)
 	}
 
@@ -340,9 +339,8 @@ func (a *WorkflowHandler) handleMsgCancelWorkflow(msg messaging.Message) error {
 		}
 	}
 
-	supName := actornames.WorkflowInstanceSupervisorName(a.workflow.ID())
 	completedMsg := messaging.NewWorkflowCompletedMessage(a.workflow.ID(), internalworkflow.StateCancelled.String())
-	if err := a.Send(gen.Atom(supName), completedMsg); err != nil {
+	if err := a.Send(a.Parent(), completedMsg); err != nil {
 		a.Log().Error("failed to send cancellation completed message: %s", err)
 	}
 

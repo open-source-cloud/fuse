@@ -9,7 +9,6 @@ import (
 type workerHandlerRegistrationParams struct {
 	fx.In
 
-	Workers                           *actors.Workers
 	HealthCheckHandlerFactory         *handlers.HealthCheckHandlerFactory
 	AsyncFunctionResultHandlerFactory *handlers.AsyncFunctionResultHandlerFactory
 	WorkflowSchemaHandlerFactory      *handlers.WorkflowSchemaHandlerFactory
@@ -21,16 +20,21 @@ type workerHandlerRegistrationParams struct {
 	ResolveAwakeableHandlerFactory    *handlers.ResolveAwakeableHandlerFactory
 }
 
-func registerWorkerHandlers(p workerHandlerRegistrationParams) {
-	p.Workers.AddFactory(handlers.HealthCheckHandlerName, p.HealthCheckHandlerFactory.Factory)
-	p.Workers.AddFactory(handlers.AsyncFunctionResultHandlerName, p.AsyncFunctionResultHandlerFactory.Factory)
-	p.Workers.AddFactory(handlers.WorkflowSchemaHandlerName, p.WorkflowSchemaHandlerFactory.Factory)
-	p.Workers.AddFactory(handlers.TriggerWorkflowHandlerName, p.TriggerWorkflowHandlerFactory.Factory)
-	p.Workers.AddFactory(handlers.PackagesHandlerName, p.PackagesHandlerFactory.Factory)
-	p.Workers.AddFactory(handlers.RegisterPackageHandlerName, p.RegisterPackageHandlerFactory.Factory)
-	p.Workers.AddFactory(handlers.GetWorkflowHandlerName, p.GetWorkflowHandlerFactory.Factory)
-	p.Workers.AddFactory(handlers.CancelWorkflowHandlerName, p.CancelWorkflowHandlerFactory.Factory)
-	p.Workers.AddFactory(handlers.ResolveAwakeableHandlerName, p.ResolveAwakeableHandlerFactory.Factory)
+// newWorkers builds the HTTP worker registry with all handler factories registered.
+// It must be an fx.Provide (not Invoke) so *Workers is populated before gen.Node starts
+// and MuxServerSup spawns pool children.
+func newWorkers(p workerHandlerRegistrationParams) *actors.Workers {
+	w := actors.NewWorkers()
+	w.AddFactory(handlers.HealthCheckHandlerName, p.HealthCheckHandlerFactory.Factory)
+	w.AddFactory(handlers.AsyncFunctionResultHandlerName, p.AsyncFunctionResultHandlerFactory.Factory)
+	w.AddFactory(handlers.WorkflowSchemaHandlerName, p.WorkflowSchemaHandlerFactory.Factory)
+	w.AddFactory(handlers.TriggerWorkflowHandlerName, p.TriggerWorkflowHandlerFactory.Factory)
+	w.AddFactory(handlers.PackagesHandlerName, p.PackagesHandlerFactory.Factory)
+	w.AddFactory(handlers.RegisterPackageHandlerName, p.RegisterPackageHandlerFactory.Factory)
+	w.AddFactory(handlers.GetWorkflowHandlerName, p.GetWorkflowHandlerFactory.Factory)
+	w.AddFactory(handlers.CancelWorkflowHandlerName, p.CancelWorkflowHandlerFactory.Factory)
+	w.AddFactory(handlers.ResolveAwakeableHandlerName, p.ResolveAwakeableHandlerFactory.Factory)
+	return w
 }
 
 // WorkerModule FX module with the worker providers
@@ -46,9 +50,8 @@ var WorkerModule = fx.Module(
 		handlers.NewGetWorkflowHandlerFactory,
 		handlers.NewCancelWorkflowHandlerFactory,
 		handlers.NewResolveAwakeableHandlerFactory,
-		actors.NewWorkers,
+		newWorkers,
 	),
-	fx.Invoke(registerWorkerHandlers),
 )
 
 // ActorModule FX module with the actor providers
@@ -62,5 +65,6 @@ var ActorModule = fx.Module(
 		actors.NewWorkflowHandlerFactory,
 		actors.NewWorkflowFuncPoolFactory,
 		actors.NewWorkflowFuncFactory,
+		actors.NewSchemaReplicationActorFactory,
 	),
 )

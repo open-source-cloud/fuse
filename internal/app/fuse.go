@@ -23,15 +23,17 @@ func NewApp(
 	config *config.Config,
 	workflowSup *actors.WorkflowSupervisorFactory,
 	serverSup *actors.MuxServerSupFactory,
+	schemaReplicationSup *actors.SchemaReplicationActorFactory,
 ) (gen.Node, error) {
 	var options gen.NodeOptions
 	options.ShutdownTimeout = config.Params.ShutdownTimeout
 
 	apps := make([]gen.ApplicationBehavior, 0, 2)
 	apps = append(apps, &Fuse{
-		config:      config,
-		workflowSup: workflowSup,
-		serverSup:   serverSup,
+		config:               config,
+		workflowSup:          workflowSup,
+		serverSup:            serverSup,
+		schemaReplicationSup: schemaReplicationSup,
 	})
 	if config.Params.ActorObserver {
 		apps = append(apps, observer.CreateApp(observer.Options{}))
@@ -78,9 +80,14 @@ func NewApp(
 func buildNodeName(cfg *config.Config) gen.Atom {
 	if cfg.Cluster.Enabled {
 		nodeName := cfg.Cluster.NodeName
-		if nodeName == "" {
-			// Auto-derive from K8s downward API env vars
-			podName := os.Getenv("POD_NAME")
+		if nodeName != "" && strings.Contains(nodeName, "@") {
+			return gen.Atom(nodeName)
+		}
+		podName := os.Getenv("POD_NAME")
+		if cfg.Cluster.HeadlessServiceFQDN != "" && podName != "" {
+			host := fmt.Sprintf("%s.%s", podName, cfg.Cluster.HeadlessServiceFQDN)
+			nodeName = fmt.Sprintf("fuse-%s@%s", podName, host)
+		} else {
 			podIP := os.Getenv("POD_IP")
 			if podName != "" && podIP != "" {
 				nodeName = fmt.Sprintf("fuse-%s@%s", podName, podIP)
@@ -96,10 +103,11 @@ func buildNodeName(cfg *config.Config) gen.Atom {
 
 // Fuse the FUSE application
 type Fuse struct {
-	config      *config.Config
-	workflowSup *actors.WorkflowSupervisorFactory
-	serverSup   *actors.MuxServerSupFactory
-	node        gen.Node
+	config               *config.Config
+	workflowSup          *actors.WorkflowSupervisorFactory
+	serverSup            *actors.MuxServerSupFactory
+	schemaReplicationSup *actors.SchemaReplicationActorFactory
+	node                 gen.Node
 }
 
 // Load invoked on loading application using the method ApplicationLoad of gen.Node interface.
@@ -116,6 +124,10 @@ func (app *Fuse) Load(node gen.Node, _ ...any) (gen.ApplicationSpec, error) {
 			{
 				Name:    actornames.MuxServerSupName,
 				Factory: app.serverSup.Factory,
+			},
+			{
+				Name:    actornames.SchemaReplicationActorName,
+				Factory: app.schemaReplicationSup.Factory,
 			},
 		},
 		Mode:     gen.ApplicationModeTemporary,

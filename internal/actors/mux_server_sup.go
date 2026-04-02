@@ -32,12 +32,9 @@ type MuxServerSup struct {
 func (m *MuxServerSup) Init(_ ...any) (act.SupervisorSpec, error) {
 	m.Log().Info("starting mux server supervisor")
 
-	children := []act.SupervisorChildSpec{
-		{
-			Name:    actornames.MuxServerName,
-			Factory: m.muxServer.Factory,
-		},
-	}
+	// Worker pools must start before mux_server: WebHandler meta processes Send to pool names by atom,
+	// and those processes must already be registered or HTTP returns "unknown process" (ergo meta/web_handler.go).
+	children := make([]act.SupervisorChildSpec, 0, 1+len(m.workers.GetAll()))
 
 	for _, worker := range m.workers.GetAll() {
 		workerFactory, ok := m.workers.GetFactory(string(worker.Name))
@@ -53,6 +50,11 @@ func (m *MuxServerSup) Init(_ ...any) (act.SupervisorSpec, error) {
 		})
 		m.Log().Info("added worker pool", "worker", worker.Name, "pool", worker.PoolConfig.Name)
 	}
+
+	children = append(children, act.SupervisorChildSpec{
+		Name:    actornames.MuxServerName,
+		Factory: m.muxServer.Factory,
+	})
 
 	spec := act.SupervisorSpec{
 		Type:     act.SupervisorTypeOneForOne,
