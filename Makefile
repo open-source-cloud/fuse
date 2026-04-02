@@ -41,6 +41,9 @@ lint: install-lint
 lint-fix: install-lint
 	$(GOLANGCI_LINT) run ./... --fix --timeout=5m
 
+format:
+	go fmt ./...
+
 # Generate Swagger documentation
 swagger:
 	swag init -g cmd/fuse/main.go -o docs/
