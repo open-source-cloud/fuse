@@ -15,8 +15,3 @@ keywords:
 home: https://github.com/open-source-cloud/fuse
 sources:
   - https://github.com/open-source-cloud/fuse
-dependencies:
-  - name: mongodb
-    version: "~16.x"
-    repository: https://charts.bitnami.com/bitnami
-    condition: mongodb.enabled

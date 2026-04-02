@@ -10,9 +10,6 @@ data:
   {{- range $key, $value := .Values.env }}
   {{ $key }}: {{ $value | quote }}
   {{- end }}
-  {{- if .Values.mongodb.enabled }}
-  DB_URL: {{ include "fuse.mongodbURL" . | quote }}
-  {{- end }}
   {{- if or (eq .Values.mode "cluster") .Values.cluster.enabled }}
   CLUSTER_ENABLED: "true"
   CLUSTER_COOKIE: {{ .Values.cluster.cookie | quote }}

@@ -8,8 +8,6 @@ image:
   pullPolicy: Never
 
 env:
-  DB_DRIVER: mongodb
-  DB_NAME: fuse
   LOG_LEVEL: debug
   SHUTDOWN_TIMEOUT: 10s
 
@@ -20,10 +18,3 @@ resources:
   limits:
     cpu: 250m
     memory: 256Mi
-
-mongodb:
-  enabled: true
-  auth:
-    rootPassword: "fuse-dev"
-    databases:
-      - fuse

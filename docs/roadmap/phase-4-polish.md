@@ -643,14 +643,9 @@ type TriggerWorkflowRequest struct {
 - Workflow struct gains a `schemaVersion int` field — existing workflows default to version 1
 - The PUT endpoint (`/v1/schemas/{schemaID}`) now creates versions instead of replacing — same API, versioned backend
 
-#### MongoDB Migration
+#### Persistent store migration (when applicable)
 
-```go
-// Create version collection, migrate existing schemas:
-// For each schema in "graphs" collection:
-//   1. Copy to "graph_versions" with version=1, isActive=true
-//   2. Add "activeVersion: 1" field to the original document
-```
+When a durable graph store exists, migrate existing schemas in that backend: e.g. copy each active schema into a `graph_versions` collection (or equivalent) with `version=1`, `isActive=true`, and record `activeVersion: 1` on the primary document.
 
 ### Open Questions
 

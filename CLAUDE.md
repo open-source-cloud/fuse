@@ -27,7 +27,7 @@ go clean -testcache
 make dkb                # Build Docker image (fuse-app:dev)
 make dkx                # Run Docker container
 
-# Local infrastructure (MongoDB + LocalStack)
+# Local infrastructure (LocalStack for S3/SQS/SNS)
 docker compose up -d
 ```
 
@@ -44,7 +44,7 @@ internal/app/config/       → Config via caarlos0/env (environment variables)
 internal/actors/           → ergo actor implementations (supervisors, pools, workers)
 internal/handlers/         → HTTP handlers (extend base Handler, actor-based WebWorker pattern)
 internal/services/         → Business logic layer
-internal/repositories/     → Data access (interfaces + memory/MongoDB implementations)
+internal/repositories/     → Data access (interfaces + in-memory implementations)
 internal/workflow/         → Core workflow logic (graph, nodes, edges)
 internal/packages/         → Function package registry
 internal/messaging/        → Actor message type definitions
@@ -55,7 +55,7 @@ pkg/                       → Public importable libraries (workflow metadata, t
 ### Key Patterns
 
 - **Actor Factory**: All actors use `ActorFactory[T gen.ProcessBehavior]` for creation via DI
-- **Repository Pattern**: Interfaces in `internal/repositories/`, implementations suffixed `_memory.go` and `_mongo.go`. Memory repos use `sync.RWMutex` for thread safety
+- **Repository Pattern**: Interfaces in `internal/repositories/` with `Memory*` implementations (`*_memory.go`). Memory repos use `sync.RWMutex` for thread safety
 - **DI Modules**: Each layer has an fx.Module in `internal/app/di/` — composed into `AllModules`
 - **HTTP Handlers**: Extend base `Handler` struct in `internal/handlers/handler.go`, implement verb methods (`HandleGet`, `HandlePost`, etc.)
 - **Config**: Environment variables with struct tags (`env:"VAR_NAME" envDefault:"value"`)
@@ -80,7 +80,7 @@ pkg/                       → Public importable libraries (workflow metadata, t
 ## Tech Stack
 
 - **Go 1.26**, **ergo.services** (actor model), **uber-go/fx** (DI), **cobra** (CLI)
-- **MongoDB** (production) / **memory** (dev/test) for storage
+- **In-memory repositories** for workflow/graph/package state (dev and default runtime)
 - **zerolog** (structured logging), **go-playground/validator** (validation)
 - **gorilla/mux** (routing), **swag** (Swagger generation)
 - **stretchr/testify** (test assertions), **gotestsum** (test runner)

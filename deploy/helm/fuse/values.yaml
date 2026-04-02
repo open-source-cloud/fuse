@@ -42,21 +42,8 @@ cluster:
   # -- Port for ergo cluster acceptor (inter-node communication)
   acceptorPort: 15000
 
-# -- MongoDB subchart configuration
-mongodb:
-  # -- Deploy MongoDB as a subchart dependency
-  enabled: true
-  auth:
-    # -- MongoDB root password
-    rootPassword: "fuse-dev"
-    # -- Databases to create on first boot
-    databases:
-      - fuse
-
 # -- Environment variables injected into the FUSE container via ConfigMap
 env:
-  DB_DRIVER: mongodb
-  DB_NAME: fuse
   LOG_LEVEL: info
   SHUTDOWN_TIMEOUT: 30s
 

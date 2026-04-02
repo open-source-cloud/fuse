@@ -1,20 +1,4 @@
 services:
-  mongodb:
-    image: bitnami/mongodb
-    container_name: fuse-mongodb
-    restart: unless-stopped
-    environment:
-      - MONGODB_ROOT_USER=${DB_ROOT_USER:-admin}
-      - MONGODB_ROOT_PASSWORD=${DB_ROOT_PASS:-password}
-      - MONGODB_DATABASE=${DB_NAME:-fuse}
-      - ALLOW_EMPTY_PASSWORD=no
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongodb_data:/bitnami/mongodb
-    networks:
-      - fuse-network
-
   localstack:
     image: localstack/localstack:latest
     container_name: fuse-localstack
@@ -58,8 +42,6 @@ services:
         condition: service_healthy
 
 volumes:
-  mongodb_data:
-    driver: local
   localstack_data:
     driver: local
 

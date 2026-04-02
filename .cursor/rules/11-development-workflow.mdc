@@ -123,7 +123,7 @@ BREAKING CHANGE: Execute now requires context parameter"
 
 # Multiple scopes
 git commit -m "feat(workflow): add conditional edge support"
-git commit -m "fix(repo): resolve MongoDB connection timeout"
+git commit -m "fix(repo): resolve workflow repository race"
 git commit -m "docs(readme): update installation instructions"
 ```
 
@@ -629,7 +629,7 @@ BREAKING CHANGE: Execute now requires context parameter"
 
 # Multiple scopes
 git commit -m "feat(workflow): add conditional edge support"
-git commit -m "fix(repo): resolve MongoDB connection timeout"
+git commit -m "fix(repo): resolve workflow repository race"
 git commit -m "docs(readme): update installation instructions"
 ```
 

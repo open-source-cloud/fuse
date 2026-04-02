@@ -10,13 +10,12 @@ import (
 var config *Config
 
 type (
-	// Config represents the application configuration, including the app name and database configuration.
+	// Config represents the application configuration.
 	Config struct {
-		Name     string `env:"APP_NAME"`
-		Params   ParamsConfig
-		Server   ServerConfig
-		Database DatabaseConfig
-		Cluster  ClusterConfig
+		Name    string `env:"APP_NAME"`
+		Params  ParamsConfig
+		Server  ServerConfig
+		Cluster ClusterConfig
 	}
 
 	// ParamsConfig configuration parameters
@@ -24,14 +23,6 @@ type (
 		LogLevel        string
 		ActorObserver   bool
 		ShutdownTimeout time.Duration `env:"SHUTDOWN_TIMEOUT" envDefault:"30s"`
-	}
-
-	// DatabaseConfig represents the configuration settings required to connect to a database.
-	DatabaseConfig struct {
-		Driver         string `env:"DB_DRIVER" envDefault:"memory"`
-		Name           string `env:"DB_NAME" envDefault:"fuse"`
-		URL            string `env:"DB_URL" envDefault:""`
-		TestConnection bool   `env:"DB_TEST_CONNECTION" envDefault:"true"`
 	}
 
 	// ServerConfig http server config

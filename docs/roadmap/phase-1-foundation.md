@@ -125,7 +125,7 @@ type JournalRepository interface {
 }
 ```
 
-Memory and MongoDB implementations follow the existing repository pattern (`_memory.go`, `_mongo.go`).
+In-memory implementations follow the existing repository pattern (`*_memory.go`).
 
 #### 1.1.3 Recording Journal Entries
 

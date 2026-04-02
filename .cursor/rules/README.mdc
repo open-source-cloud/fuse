@@ -13,7 +13,7 @@ This directory contains modular cursor rules for the FUSE Workflow Engine projec
 **Project context and architecture overview**
 
 - Project description and goals
-- Key technologies (Go, ergo.services, MongoDB)
+- Key technologies (Go, ergo.services, in-memory repos)
 - Architecture and directory structure
 - Core concepts (Actor Model, Workflows, Nodes)
 - Reference files and external resources
@@ -55,9 +55,9 @@ This directory contains modular cursor rules for the FUSE Workflow Engine projec
 **Repository and service layer patterns**
 
 - Interface-first design
-- Multiple implementations (Memory/MongoDB)
+- In-memory repository implementations
 - Thread-safe in-memory repositories
-- MongoDB repository patterns
+- Repository patterns (interfaces + memory)
 - Custom error definitions
 - Service layer architecture
 
@@ -240,7 +240,7 @@ This directory contains modular cursor rules for the FUSE Workflow Engine projec
 **Project context and architecture overview**
 
 - Project description and goals
-- Key technologies (Go, ergo.services, MongoDB)
+- Key technologies (Go, ergo.services, in-memory repos)
 - Architecture and directory structure
 - Core concepts (Actor Model, Workflows, Nodes)
 - Reference files and external resources
@@ -282,9 +282,9 @@ This directory contains modular cursor rules for the FUSE Workflow Engine projec
 **Repository and service layer patterns**
 
 - Interface-first design
-- Multiple implementations (Memory/MongoDB)
+- In-memory repository implementations
 - Thread-safe in-memory repositories
-- MongoDB repository patterns
+- Repository patterns (interfaces + memory)
 - Custom error definitions
 - Service layer architecture
 

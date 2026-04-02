@@ -81,12 +81,8 @@ type Config struct {
     LogLevel string `env:"LOG_LEVEL" envDefault:"info"`
     NodeName string `env:"NODE_NAME" envDefault:"fuse@localhost"`
 
-    // Database configuration
-    Database struct {
-        URI  string `env:"MONGODB_URI" envDefault:"mongodb://localhost:27017"`
-        Name string `env:"MONGODB_NAME" envDefault:"fuse"`
-        UseMongo bool `env:"USE_MONGO" envDefault:"false"`
-    }
+    // Optional integration endpoints
+    WebhookURL string `env:"WEBHOOK_URL" envDefault:""`
 
     // Application configuration
     MaxWorkers int           `env:"MAX_WORKERS" envDefault:"10"`
@@ -398,23 +394,24 @@ if err != nil {
 ### Pass Context for Cancellation
 
 ```go
-func (r *MongoRepository) Get(ctx context.Context, id string) (*Workflow, error) {
-    filter := bson.M{"id": id}
-    var wf Workflow
-
-    err := r.collection.FindOne(ctx, filter).Decode(&wf)
+func fetchStatus(ctx context.Context, client *http.Client, url string) ([]byte, error) {
+    req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
     if err != nil {
         return nil, err
     }
-
-    return &wf, nil
+    resp, err := client.Do(req)
+    if err != nil {
+        return nil, err
+    }
+    defer resp.Body.Close()
+    return io.ReadAll(resp.Body)
 }
 
 // Usage with timeout
 ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 defer cancel()
 
-workflow, err := repo.Get(ctx, workflowID)
+body, err := fetchStatus(ctx, http.DefaultClient, statusURL)
 ```
 
 ## Performance Tips
@@ -516,12 +513,8 @@ type Config struct {
     LogLevel string `env:"LOG_LEVEL" envDefault:"info"`
     NodeName string `env:"NODE_NAME" envDefault:"fuse@localhost"`
 
-    // Database configuration
-    Database struct {
-        URI  string `env:"MONGODB_URI" envDefault:"mongodb://localhost:27017"`
-        Name string `env:"MONGODB_NAME" envDefault:"fuse"`
-        UseMongo bool `env:"USE_MONGO" envDefault:"false"`
-    }
+    // Optional integration endpoints
+    WebhookURL string `env:"WEBHOOK_URL" envDefault:""`
 
     // Application configuration
     MaxWorkers int           `env:"MAX_WORKERS" envDefault:"10"`
@@ -833,23 +826,24 @@ if err != nil {
 ### Pass Context for Cancellation
 
 ```go
-func (r *MongoRepository) Get(ctx context.Context, id string) (*Workflow, error) {
-    filter := bson.M{"id": id}
-    var wf Workflow
-
-    err := r.collection.FindOne(ctx, filter).Decode(&wf)
+func fetchStatus(ctx context.Context, client *http.Client, url string) ([]byte, error) {
+    req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
     if err != nil {
         return nil, err
     }
-
-    return &wf, nil
+    resp, err := client.Do(req)
+    if err != nil {
+        return nil, err
+    }
+    defer resp.Body.Close()
+    return io.ReadAll(resp.Body)
 }
 
 // Usage with timeout
 ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 defer cancel()
 
-workflow, err := repo.Get(ctx, workflowID)
+body, err := fetchStatus(ctx, http.DefaultClient, statusURL)
 ```
 
 ## Performance Tips

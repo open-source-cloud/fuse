@@ -60,10 +60,3 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
-
-{{/*
-Construct the MongoDB connection URL from the subchart release.
-*/}}
-{{- define "fuse.mongodbURL" -}}
-{{- printf "mongodb://%s-mongodb:27017/%s" .Release.Name (default "fuse" .Values.env.DB_NAME) }}
-{{- end }}

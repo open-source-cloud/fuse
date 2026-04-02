@@ -886,7 +886,7 @@ type TriggerWorkflowMessage struct {
 
 ### Alternatives Considered
 
-1. **Database-level unique constraint**: Use MongoDB unique index on idempotency key. More durable but slower. In-memory store is faster for hot-path deduplication; database provides durability.
+1. **Database-level unique constraint**: Use a persistent store with a unique index on idempotency key. More durable but slower. In-memory store is faster for hot-path deduplication; a database provides durability if added later.
 
 2. **Content-hash based deduplication**: Hash the trigger payload and schema ID. Wouldn't work for intentional re-triggers with the same data.
 
@@ -1171,7 +1171,7 @@ A background actor periodically prunes old traces based on the retention policy.
 
 ### Migration Plan
 
-- New `TraceRepository` implementations (memory + MongoDB)
+- New `TraceRepository` implementations (memory first; persistent adapter optional)
 - New HTTP endpoints added to router
 - Trace building from journal entries means this depends on Phase 1.1
 - For workflows that predate journaling, traces will only be available after the journal is implemented

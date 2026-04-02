@@ -1,14 +1,13 @@
 package di
 
 import (
-	"github.com/open-source-cloud/fuse/internal/app/config"
 	"github.com/open-source-cloud/fuse/internal/repositories"
 	"github.com/rs/zerolog/log"
-	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.uber.org/fx"
 )
 
-// RepoModule FX module with the repo providers based on config
+// RepoModule wires in-memory repositories only. Workflow, graph, package, and journal
+// state are held in process memory (no external persistence layer).
 var RepoModule = fx.Module(
 	"repo",
 	fx.Provide(
@@ -19,56 +18,22 @@ var RepoModule = fx.Module(
 	),
 )
 
-// provideGraphRepository provides the appropriate GraphRepository based on config
-func provideGraphRepository(cfg *config.Config, mongoClient *mongo.Client) repositories.GraphRepository {
-	log.Debug().Msgf("using graph repository driver: %s", cfg.Database.Driver)
-
-	if IsDriverEnabled(cfg.Database.Driver, mongoDriver) && mongoClient != nil {
-		log.Debug().Msg("using mongodb graph repository")
-		return repositories.NewMongoGraphRepository(mongoClient, cfg)
-	}
-
+func provideGraphRepository() repositories.GraphRepository {
 	log.Debug().Msg("using memory graph repository")
 	return repositories.NewMemoryGraphRepository()
 }
 
-// provideWorkflowRepository provides the appropriate WorkflowRepository based on config
-func provideWorkflowRepository(cfg *config.Config, _ *mongo.Client) repositories.WorkflowRepository {
-	log.Debug().Msgf("using workflow repository driver: %s", cfg.Database.Driver)
-
-	// TODO: Temp disabled for testing
-	// if IsDriverEnabled(cfg.Database.Driver, mongoDriver) && mongoClient != nil {
-	// 	log.Debug().Msg("using mongodb workflow repository")
-	// 	return repositories.NewMongoWorkflowRepository(mongoClient, cfg)
-	// }
-
+func provideWorkflowRepository() repositories.WorkflowRepository {
 	log.Debug().Msg("using memory workflow repository")
-
 	return repositories.NewMemoryWorkflowRepository()
 }
 
-// provideJournalRepository provides the appropriate JournalRepository based on config
-func provideJournalRepository(cfg *config.Config, mongoClient *mongo.Client) repositories.JournalRepository {
-	log.Debug().Msgf("using journal repository driver: %s", cfg.Database.Driver)
-
-	if IsDriverEnabled(cfg.Database.Driver, mongoDriver) && mongoClient != nil {
-		log.Debug().Msg("using mongodb journal repository")
-		return repositories.NewMongoJournalRepository(mongoClient, cfg)
-	}
-
+func provideJournalRepository() repositories.JournalRepository {
 	log.Debug().Msg("using memory journal repository")
 	return repositories.NewMemoryJournalRepository()
 }
 
-// providePackageRepository provides the appropriate PackageRepository based on config
-func providePackageRepository(cfg *config.Config, mongoClient *mongo.Client) repositories.PackageRepository {
-	log.Debug().Msgf("using package repository driver: %s", cfg.Database.Driver)
-
-	if IsDriverEnabled(cfg.Database.Driver, mongoDriver) && mongoClient != nil {
-		log.Debug().Msg("using mongodb package repository")
-		return repositories.NewMongoPackageRepository(mongoClient, cfg)
-	}
-
+func providePackageRepository() repositories.PackageRepository {
 	log.Debug().Msg("using memory package repository")
 	return repositories.NewMemoryPackageRepository()
 }

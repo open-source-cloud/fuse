@@ -293,12 +293,12 @@ type WorkflowRepository interface {
 }
 
 // Implementation (infrastructure layer)
-type MongoWorkflowRepository struct {
-    collection *mongo.Collection
+type SqlWorkflowRepository struct {
+    db *sql.DB
 }
 
-func (r *MongoWorkflowRepository) Get(id WorkflowID) (*Workflow, error) {
-    // MongoDB implementation
+func (r *SqlWorkflowRepository) Get(id WorkflowID) (*Workflow, error) {
+    // SQL implementation
 }
 ```
 

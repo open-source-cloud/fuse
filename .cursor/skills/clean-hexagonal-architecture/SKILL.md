@@ -14,7 +14,7 @@ This skill provides expertise in Clean Architecture and Hexagonal Architecture (
 ```go
 // Bad: High-level depends on low-level
 type WorkflowService struct {
-    repo *MongoWorkflowRepository  // Depends on concrete implementation
+    repo *SqlWorkflowRepository  // Depends on concrete implementation
 }
 
 // Good: Both depend on abstraction
@@ -22,7 +22,7 @@ type WorkflowService struct {
     repo WorkflowRepository  // Depends on interface
 }
 
-type MongoWorkflowRepository struct {
+type SqlWorkflowRepository struct {
     // Implements WorkflowRepository interface
 }
 ```
@@ -83,13 +83,13 @@ type NotificationService interface {
 - Can be swapped without changing core logic
 
 ```go
-// Adapter: MongoDB implementation
-type MongoWorkflowRepository struct {
-    collection *mongo.Collection
+// Adapter: SQL implementation
+type SqlWorkflowRepository struct {
+    db *sql.DB
 }
 
-func (r *MongoWorkflowRepository) Get(id WorkflowID) (*Workflow, error) {
-    // MongoDB-specific implementation
+func (r *SqlWorkflowRepository) Get(id WorkflowID) (*Workflow, error) {
+    // SQL-specific implementation
 }
 
 // Adapter: In-memory implementation (for testing)
@@ -176,12 +176,12 @@ func (s *WorkflowService) CreateWorkflow(schema *GraphSchema) (*Workflow, error)
 // Infrastructure Layer: Adapters
 package repositories
 
-type MongoWorkflowRepository struct {
-    collection *mongo.Collection
+type SqlWorkflowRepository struct {
+    db *sql.DB
 }
 
-func (r *MongoWorkflowRepository) Get(id WorkflowID) (*Workflow, error) {
-    // MongoDB-specific implementation
+func (r *SqlWorkflowRepository) Get(id WorkflowID) (*Workflow, error) {
+    // SQL-specific implementation
     // Implements WorkflowRepository port
 }
 ```
@@ -280,7 +280,7 @@ type WorkflowService struct {
 // Infrastructure layer implements interface
 package repositories
 
-type MongoWorkflowRepository struct {
+type SqlWorkflowRepository struct {
     // Implements services.WorkflowRepository
 }
 ```
@@ -354,14 +354,14 @@ func TestWorkflowService_CreateWorkflow(t *testing.T) {
 - Slower, but verify integration
 
 ```go
-func TestMongoWorkflowRepository_Integration(t *testing.T) {
+func TestSqlWorkflowRepository_Integration(t *testing.T) {
     if testing.Short() {
         t.Skip("skipping integration test")
     }
     
-    repo := repositories.NewMongoWorkflowRepository(client, config)
+    repo := repositories.NewSqlWorkflowRepository(client, config)
     
-    // Test with real MongoDB
+    // Test with real database
     workflow, err := repo.Get(id)
     // ...
 }
@@ -405,7 +405,7 @@ internal/
 │       └── workflow_service.go
 ├── infrastructure/  # Infrastructure layer
 │   └── repositories/
-│       ├── mongo_workflow_repo.go
+│       ├── sql_workflow_repo.go
 │       └── memory_workflow_repo.go
 └── presentation/     # Presentation layer
     └── handlers/

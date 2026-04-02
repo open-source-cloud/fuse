@@ -107,7 +107,7 @@ type Repository interface {
     Get(id string) (*Entity, error)
 }
 
-// MemoryRepository and MongoRepository both satisfy Repository
+// MemoryRepository and SqlRepository both satisfy Repository
 // Can be used interchangeably
 ```
 
@@ -147,7 +147,7 @@ type WorkflowService struct {
 
 // Bad: Service depends on concrete implementation
 type WorkflowService struct {
-    repo *MongoWorkflowRepository // Concrete type
+    repo *SqlWorkflowRepository // Concrete type (anti-pattern — prefer interface)
 }
 ```
 
@@ -390,11 +390,11 @@ func TestValidateEmail(t *testing.T) {
 - Skip in short mode
 
 ```go
-func TestMongoRepository_Integration(t *testing.T) {
+func TestSqlRepository_Integration(t *testing.T) {
     if testing.Short() {
         t.Skip("skipping integration test")
     }
-    // Test with real MongoDB
+    // Test with real database
 }
 ```
 
