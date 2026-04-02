@@ -17,7 +17,7 @@ CHART_DIR="${PROJECT_ROOT}/deploy/helm/fuse"
 echo "==> Checking prerequisites..."
 for cmd in k3d docker helm; do
   if ! command -v "${cmd}" &>/dev/null; then
-    echo "ERROR: '${cmd}' is required but not found in PATH."
+    echo "ERROR: '${cmd}' is required but not found in PATH." >&2
     exit 1
   fi
 done

@@ -8,7 +8,7 @@ CLUSTER_NAME="${CLUSTER_NAME:-fuse-dev}"
 
 echo "==> Checking prerequisites..."
 if ! command -v k3d &>/dev/null; then
-  echo "ERROR: 'k3d' is required but not found in PATH."
+  echo "ERROR: 'k3d' is required but not found in PATH." >&2
   exit 1
 fi
 

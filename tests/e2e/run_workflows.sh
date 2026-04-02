@@ -13,8 +13,8 @@ echo "Waiting for API at ${API_URL}/health ..."
 retries=30
 until curl -sf "${API_URL}/health" > /dev/null 2>&1; do
   retries=$((retries - 1))
-  if [ "$retries" -le 0 ]; then
-    echo "ERROR: API did not become ready within timeout"
+  if [[ "$retries" -le 0 ]]; then
+    echo "ERROR: API did not become ready within timeout" >&2
     exit 1
   fi
   sleep 2
@@ -33,7 +33,7 @@ for file in "${WORKFLOWS_DIR}"/*.json; do
     -d @"${file}" \
     "${API_URL}/v1/schemas/${schema_id}")
 
-  if [ "${put_status}" -lt 200 ] || [ "${put_status}" -ge 300 ]; then
+  if [[ "${put_status}" -lt 200 || "${put_status}" -ge 300 ]]; then
     echo "  FAIL: PUT /v1/schemas/${schema_id} returned HTTP ${put_status}"
     failed=$((failed + 1))
     errors+=("${schema_id}: PUT schema returned HTTP ${put_status}")
@@ -52,7 +52,7 @@ for file in "${WORKFLOWS_DIR}"/*.json; do
   trigger_body=$(echo "${trigger_response}" | head -n -1)
   trigger_status=$(echo "${trigger_response}" | tail -n 1)
 
-  if [ "${trigger_status}" -lt 200 ] || [ "${trigger_status}" -ge 300 ]; then
+  if [[ "${trigger_status}" -lt 200 || "${trigger_status}" -ge 300 ]]; then
     echo "  FAIL: POST /v1/workflows/trigger returned HTTP ${trigger_status}"
     failed=$((failed + 1))
     errors+=("${schema_id}: trigger returned HTTP ${trigger_status}")
@@ -63,7 +63,7 @@ for file in "${WORKFLOWS_DIR}"/*.json; do
   # Check for workflowId in response
   workflow_id=$(echo "${trigger_body}" | grep -o '"workflowId"\s*:\s*"[^"]*"' | head -1 | cut -d'"' -f4)
 
-  if [ -z "${workflow_id}" ]; then
+  if [[ -z "${workflow_id}" ]]; then
     echo "  FAIL: trigger response missing workflowId"
     echo "  Response: ${trigger_body}"
     failed=$((failed + 1))
@@ -85,7 +85,7 @@ echo "Passed: ${passed}"
 echo "Failed: ${failed}"
 echo "Total:  $((passed + failed))"
 
-if [ ${#errors[@]} -gt 0 ]; then
+if [[ ${#errors[@]} -gt 0 ]]; then
   echo ""
   echo "Failures:"
   for err in "${errors[@]}"; do
@@ -95,6 +95,6 @@ fi
 
 echo "==============================="
 
-if [ "${failed}" -gt 0 ]; then
+if [[ "${failed}" -gt 0 ]]; then
   exit 1
 fi

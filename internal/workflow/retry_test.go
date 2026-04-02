@@ -72,19 +72,21 @@ func TestRetryPolicy_DelayFor_ExponentialRespectsMaxInterval(t *testing.T) {
 }
 
 func TestRetryTracker(t *testing.T) {
+	const testExecID = "exec-1"
+
 	tracker := NewRetryTracker()
 
 	// Initially zero
-	assert.Equal(t, 0, tracker.GetAttempts("exec-1"))
+	assert.Equal(t, 0, tracker.GetAttempts(testExecID))
 
 	// Increment
-	assert.Equal(t, 1, tracker.Increment("exec-1"))
-	assert.Equal(t, 2, tracker.Increment("exec-1"))
-	assert.Equal(t, 2, tracker.GetAttempts("exec-1"))
+	assert.Equal(t, 1, tracker.Increment(testExecID))
+	assert.Equal(t, 2, tracker.Increment(testExecID))
+	assert.Equal(t, 2, tracker.GetAttempts(testExecID))
 
 	// Clear
-	tracker.Clear("exec-1")
-	assert.Equal(t, 0, tracker.GetAttempts("exec-1"))
+	tracker.Clear(testExecID)
+	assert.Equal(t, 0, tracker.GetAttempts(testExecID))
 
 	// Different exec IDs are independent
 	tracker.Increment("exec-a")
