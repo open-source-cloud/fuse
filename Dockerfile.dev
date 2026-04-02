@@ -1,12 +1,22 @@
 # Dev image: Go toolchain + air for docker-compose hot reload (not for production).
+# Runs as non-root (UID/GID 1000). Bind-mounted source must be readable/writable by that UID
+# on Linux, or override with `user:` in docker-compose to match the host user.
 FROM golang:1.26-bookworm
 
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl \
 	&& rm -rf /var/lib/apt/lists/*
 
+RUN groupadd --gid 1000 fuse \
+	&& useradd --uid 1000 --gid fuse --shell /bin/bash --create-home fuse \
+	&& chown -R fuse:fuse /go
+
 WORKDIR /app
 
+# Leave go.mod/go.sum root-owned; fuse only needs read + a writable /go (Sonar Docker hardening).
 COPY go.mod go.sum ./
+
+USER fuse
+
 RUN go mod download
 
 RUN go install github.com/air-verse/air@latest

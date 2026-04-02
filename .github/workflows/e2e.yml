@@ -4,7 +4,6 @@ on:
   workflow_run:
     workflows: ["CI"]
     types: [completed]
-    branches: [main]
 
 jobs:
   e2e:
@@ -12,6 +11,9 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          repository: ${{ github.event.workflow_run.head_repository.full_name }}
 
       - name: Set up Go
         uses: actions/setup-go@v5
