@@ -4,8 +4,6 @@ package messaging
 type MessageType string
 
 const (
-	// ActorInit message type
-	ActorInit       MessageType = "actor:init"
 	// TriggerWorkflow message type
 	TriggerWorkflow MessageType = "workflow:trigger"
 	// ExecuteFunction message type

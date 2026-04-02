@@ -55,7 +55,9 @@ type (
 	}
 )
 
-// Init is called whenever a WorkflowHandler actor is being initialized
+// Init is called whenever a WorkflowHandler actor is being initialized.
+// In ergo v3.2.0, Send to sibling processes works during Init, so we can
+// perform all initialization inline without the ActorInit self-send pattern.
 func (a *WorkflowHandler) Init(args ...any) error {
 	a.Log().Debug("starting process %s with args %s", a.PID(), args)
 
@@ -65,49 +67,6 @@ func (a *WorkflowHandler) Init(args ...any) error {
 	initArgs, ok := args[0].(WorkflowHandlerInitArgs)
 	if !ok {
 		return fmt.Errorf("workflow actor init args must be 1 == [WorkflowHandlerInitArgs]; got %T", args[0])
-	}
-
-	err := a.Send(a.PID(), messaging.NewActorInitMessage(initArgs))
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// HandleMessage processes messages that are sent to a WorkflowHandler actor
-func (a *WorkflowHandler) HandleMessage(from gen.PID, message any) error {
-	msg, ok := message.(messaging.Message)
-	if !ok {
-		a.Log().Error("message from %s is not a messaging.Message", from)
-		return nil
-	}
-	a.Log().Info("got message from %s - %s", from, msg.Type)
-	jsonArgs, _ := json.Marshal(msg.Args)
-	a.Log().Debug("args: %s", string(jsonArgs))
-
-	switch msg.Type {
-	case messaging.ActorInit:
-		return a.handleMsgActorInit(msg)
-	case messaging.FunctionResult:
-		return a.handleMsgFunctionResult(msg)
-	case messaging.AsyncFunctionResult:
-		return a.handleMsgAsyncFunctionResult(msg)
-	}
-
-	return nil
-}
-
-// Terminate is called whenever a WorkflowHandler actor gets terminated
-func (a *WorkflowHandler) Terminate(reason error) {
-	a.Log().Info("%s terminated with reason: %s", a.PID(), reason)
-}
-
-func (a *WorkflowHandler) handleMsgActorInit(msg messaging.Message) error {
-	initArgs, ok := msg.Args.(WorkflowHandlerInitArgs)
-	if !ok {
-		a.Log().Error("failed to get workflow init args from %s", msg)
-		return nil
 	}
 
 	if a.workflowRepository.Exists(initArgs.workflowID.String()) {
@@ -139,6 +98,32 @@ func (a *WorkflowHandler) handleMsgActorInit(msg messaging.Message) error {
 	action := a.workflow.Trigger()
 	a.handleWorkflowAction(action)
 	return nil
+}
+
+// HandleMessage processes messages that are sent to a WorkflowHandler actor
+func (a *WorkflowHandler) HandleMessage(from gen.PID, message any) error {
+	msg, ok := message.(messaging.Message)
+	if !ok {
+		a.Log().Error("message from %s is not a messaging.Message", from)
+		return nil
+	}
+	a.Log().Info("got message from %s - %s", from, msg.Type)
+	jsonArgs, _ := json.Marshal(msg.Args)
+	a.Log().Debug("args: %s", string(jsonArgs))
+
+	switch msg.Type {
+	case messaging.FunctionResult:
+		return a.handleMsgFunctionResult(msg)
+	case messaging.AsyncFunctionResult:
+		return a.handleMsgAsyncFunctionResult(msg)
+	}
+
+	return nil
+}
+
+// Terminate is called whenever a WorkflowHandler actor gets terminated
+func (a *WorkflowHandler) Terminate(reason error) {
+	a.Log().Info("%s terminated with reason: %s", a.PID(), reason)
 }
 
 func (a *WorkflowHandler) handleMsgFunctionResult(msg messaging.Message) error {
