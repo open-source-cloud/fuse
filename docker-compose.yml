@@ -1,49 +1,54 @@
+# Ergo cluster dev (3 nodes, air hot reload):
+#   docker compose --profile fuse-dev up --build
+#
+# HTTP: http://localhost:9091 ..9093 (one port per node). Cluster acceptor: 15000 (internal only).
+# Each node name is fuse@fuse-node-{1,2,3} (hostname); override CLUSTER_* env as needed.
+
+x-fuse-dev-common: &fuse-dev-common
+  profiles: ["fuse-dev"]
+  build:
+    context: .
+    dockerfile: Dockerfile.dev
+  restart: unless-stopped
+  working_dir: /app
+  volumes:
+    - .:/app
+  networks:
+    - fuse-network
+  environment:
+    HOST: "0.0.0.0"
+    PORT: "9090"
+    CLUSTER_ENABLED: "true"
+    CLUSTER_COOKIE: "${CLUSTER_COOKIE:-fuse-docker-dev}"
+    CLUSTER_ACCEPTOR_PORT: "${CLUSTER_ACCEPTOR_PORT:-15000}"
+  healthcheck:
+    test: ["CMD", "curl", "-f", "http://127.0.0.1:9090/health"]
+    interval: 15s
+    timeout: 5s
+    retries: 5
+    start_period: 90s
+
 services:
-  localstack:
-    image: localstack/localstack:latest
-    container_name: fuse-localstack
-    restart: unless-stopped
-    environment:
-      - SERVICES=s3,sqs,sns
-      - DEBUG=1
-      - DATA_DIR=/var/lib/localstack/data
+  fuse-dev-1:
+    <<: *fuse-dev-common
+    container_name: fuse-dev-1
+    hostname: fuse-node-1
     ports:
-      - "4566:4566"
-      - "4510-4559:4510-4559"
-    volumes:
-      - localstack_data:/var/lib/localstack
-      - /var/run/docker.sock:/var/run/docker.sock
-    networks:
-      - fuse-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+      - "9091:9090"
 
-  s3-setup:
-    image: amazon/aws-cli:latest
-    container_name: fuse-s3-setup
-    volumes:
-      - ./scripts:/scripts
-    networks:
-      - fuse-network
-    environment:
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-test}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-test}
-      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
-      - WORKFLOW_BUCKET_NAME=${WORKFLOW_BUCKET_NAME:-fuse-workflows}
-    entrypoint: ["/bin/bash"]
-    command: ["/scripts/setup-s3.sh"]
-    restart: "no"
-    depends_on:
-      localstack:
-        condition: service_healthy
+  fuse-dev-2:
+    <<: *fuse-dev-common
+    container_name: fuse-dev-2
+    hostname: fuse-node-2
+    ports:
+      - "9092:9090"
 
-volumes:
-  localstack_data:
-    driver: local
+  fuse-dev-3:
+    <<: *fuse-dev-common
+    container_name: fuse-dev-3
+    hostname: fuse-node-3
+    ports:
+      - "9093:9090"
 
 networks:
   fuse-network:

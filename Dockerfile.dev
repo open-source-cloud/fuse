@@ -1,0 +1,16 @@
+# Dev image: Go toolchain + air for docker-compose hot reload (not for production).
+FROM golang:1.26-bookworm
+
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl \
+	&& rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+RUN go install github.com/air-verse/air@latest
+
+ENV CGO_ENABLED=0
+
+CMD ["air", "-c", ".air.toml"]
