@@ -2,9 +2,12 @@
 package app
 
 import (
+	"fmt"
+	"os"
 	"strings"
 
 	"github.com/open-source-cloud/fuse/internal/actors/actornames"
+	"github.com/open-source-cloud/fuse/internal/messaging"
 
 	"ergo.services/application/observer"
 	"ergo.services/ergo"
@@ -46,7 +49,25 @@ func NewApp(
 	}
 	options.Log.Loggers = append(options.Log.Loggers, gen.Logger{Name: "zerolog", Logger: logger})
 
-	node, err := ergo.StartNode("fuse@localhost", options)
+	nodeName := buildNodeName(config)
+
+	// Configure networking for cluster mode
+	if config.Cluster.Enabled {
+		options.Network.Mode = gen.NetworkModeEnabled
+		options.Network.Cookie = config.Cluster.Cookie
+		options.Network.Acceptors = []gen.AcceptorOptions{
+			{
+				Host: "0.0.0.0",
+				Port: config.Cluster.AcceptorPort,
+			},
+		}
+		log.Info().Str("node", string(nodeName)).Uint16("port", config.Cluster.AcceptorPort).Msg("starting in cluster mode")
+	} else {
+		options.Network.Mode = gen.NetworkModeDisabled
+		log.Info().Str("node", string(nodeName)).Msg("starting in standalone mode")
+	}
+
+	node, err := ergo.StartNode(nodeName, options)
 	if err != nil {
 		return nil, err
 	}
@@ -54,15 +75,36 @@ func NewApp(
 	return node, nil
 }
 
+func buildNodeName(cfg *config.Config) gen.Atom {
+	if cfg.Cluster.Enabled {
+		nodeName := cfg.Cluster.NodeName
+		if nodeName == "" {
+			// Auto-derive from K8s downward API env vars
+			podName := os.Getenv("POD_NAME")
+			podIP := os.Getenv("POD_IP")
+			if podName != "" && podIP != "" {
+				nodeName = fmt.Sprintf("fuse-%s@%s", podName, podIP)
+			} else {
+				hostname, _ := os.Hostname()
+				nodeName = fmt.Sprintf("fuse@%s", hostname)
+			}
+		}
+		return gen.Atom(nodeName)
+	}
+	return "fuse@localhost"
+}
+
 // Fuse the FUSE application
 type Fuse struct {
 	config      *config.Config
 	workflowSup *actors.WorkflowSupervisorFactory
 	serverSup   *actors.MuxServerSupFactory
+	node        gen.Node
 }
 
 // Load invoked on loading application using the method ApplicationLoad of gen.Node interface.
-func (app *Fuse) Load(_ gen.Node, _ ...any) (gen.ApplicationSpec, error) {
+func (app *Fuse) Load(node gen.Node, _ ...any) (gen.ApplicationSpec, error) {
+	app.node = node
 	return gen.ApplicationSpec{
 		Name:        "fuse_app",
 		Description: "FUSE application",
@@ -84,7 +126,11 @@ func (app *Fuse) Load(_ gen.Node, _ ...any) (gen.ApplicationSpec, error) {
 
 // Start invoked once the application started
 func (app *Fuse) Start(_ gen.ApplicationMode) {
-	// any start code for the actor model application start goes here...
+	// Trigger workflow recovery for any in-progress workflows from a previous run
+	recoverMsg := messaging.Message{Type: messaging.RecoverWorkflows}
+	if err := app.node.Send(gen.Atom(actornames.WorkflowSupervisorName), recoverMsg); err != nil {
+		log.Error().Err(err).Msg("failed to send workflow recovery message")
+	}
 }
 
 // Terminate invoked once the application stopped

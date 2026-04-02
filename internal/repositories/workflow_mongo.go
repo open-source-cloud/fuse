@@ -57,3 +57,8 @@ func (m *MongoWorkflowRepository) Get(_ string) (*workflow.Workflow, error) {
 func (m *MongoWorkflowRepository) Save(_ *workflow.Workflow) error {
 	return ErrWorkflowMongoNotImplemented
 }
+
+// FindByState returns workflow IDs for workflows in any of the given states
+func (m *MongoWorkflowRepository) FindByState(_ ...workflow.State) ([]string, error) {
+	return nil, ErrWorkflowMongoNotImplemented
+}

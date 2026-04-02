@@ -15,6 +15,7 @@ var RepoModule = fx.Module(
 		provideGraphRepository,
 		provideWorkflowRepository,
 		providePackageRepository,
+		provideJournalRepository,
 	),
 )
 
@@ -44,6 +45,19 @@ func provideWorkflowRepository(cfg *config.Config, _ *mongo.Client) repositories
 	log.Debug().Msg("using memory workflow repository")
 
 	return repositories.NewMemoryWorkflowRepository()
+}
+
+// provideJournalRepository provides the appropriate JournalRepository based on config
+func provideJournalRepository(cfg *config.Config, mongoClient *mongo.Client) repositories.JournalRepository {
+	log.Debug().Msgf("using journal repository driver: %s", cfg.Database.Driver)
+
+	if IsDriverEnabled(cfg.Database.Driver, mongoDriver) && mongoClient != nil {
+		log.Debug().Msg("using mongodb journal repository")
+		return repositories.NewMongoJournalRepository(mongoClient, cfg)
+	}
+
+	log.Debug().Msg("using memory journal repository")
+	return repositories.NewMemoryJournalRepository()
 }
 
 // providePackageRepository provides the appropriate PackageRepository based on config

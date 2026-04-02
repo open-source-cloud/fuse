@@ -7,6 +7,7 @@ import (
 	"github.com/open-source-cloud/fuse/internal/app/config"
 	"github.com/open-source-cloud/fuse/internal/messaging"
 	"github.com/open-source-cloud/fuse/internal/repositories"
+	internalworkflow "github.com/open-source-cloud/fuse/internal/workflow"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 )
 
@@ -62,6 +63,7 @@ func (a *WorkflowSupervisor) Init(_ ...any) (act.SupervisorSpec, error) {
 			Intensity: 1, // How big bursts of restarts you want to tolerate.
 			Period:    5, // In seconds.
 		},
+		EnableHandleChild: true,
 	}
 
 	return spec, nil
@@ -80,7 +82,8 @@ func (a *WorkflowSupervisor) HandleMessage(from gen.PID, message any) error {
 	a.Log().Info("got message from %s - %s", from, msg.Type)
 	a.Log().Debug("args: %s", msg.Args)
 
-	if msg.Type == messaging.TriggerWorkflow {
+	switch msg.Type {
+	case messaging.TriggerWorkflow:
 		triggerMsg, err := msg.TriggerWorkflowMessage()
 		if err != nil {
 			a.Log().Error("failed to get trigger workflow message from message: %s", msg)
@@ -91,6 +94,8 @@ func (a *WorkflowSupervisor) HandleMessage(from gen.PID, message any) error {
 			a.Log().Error("failed to spawn workflow actor for schema id %s : %s", triggerMsg.SchemaID, err)
 			return nil
 		}
+	case messaging.RecoverWorkflows:
+		a.recoverWorkflows()
 	}
 
 	return nil
@@ -107,10 +112,55 @@ func (a *WorkflowSupervisor) HandleInspect(from gen.PID, _ ...string) map[string
 	return nil
 }
 
+// HandleChildStart invoked when a child process starts successfully
+func (a *WorkflowSupervisor) HandleChildStart(name gen.Atom, pid gen.PID) error {
+	a.Log().Info("child started: %s (pid: %s)", name, pid)
+	return nil
+}
+
+// HandleChildTerminate invoked when a child process terminates.
+// Cleans up the workflowActors map to free resources for completed workflows.
+func (a *WorkflowSupervisor) HandleChildTerminate(name gen.Atom, pid gen.PID, reason error) error {
+	a.Log().Info("child terminated: %s (pid: %s, reason: %s)", name, pid, reason)
+	for wfID, wfPID := range a.workflowActors {
+		if wfPID == pid {
+			delete(a.workflowActors, wfID)
+			a.Log().Info("cleaned up workflow actor for workflow %s", wfID)
+			break
+		}
+	}
+	return nil
+}
+
 // HandleEvent handles events within a WorkflowSupervisor supervisor actor context
 func (a *WorkflowSupervisor) HandleEvent(event gen.MessageEvent) error {
 	a.Log().Info("received event %s with value: %#v", event.Event, event.Message)
 	return nil
+}
+
+func (a *WorkflowSupervisor) recoverWorkflows() {
+	ids, err := a.workflowRepository.FindByState(internalworkflow.StateRunning, internalworkflow.StateSleeping)
+	if err != nil {
+		a.Log().Error("failed to query workflows for recovery: %s", err)
+		return
+	}
+	if len(ids) == 0 {
+		a.Log().Info("no workflows to recover")
+		return
+	}
+
+	a.Log().Info("recovering %d workflow(s)", len(ids))
+	for _, id := range ids {
+		wf, getErr := a.workflowRepository.Get(id)
+		if getErr != nil {
+			a.Log().Error("failed to get workflow %s for recovery: %s", id, getErr)
+			continue
+		}
+		schemaID := wf.Schema().ID
+		if spawnErr := a.spawnWorkflowActor(schemaID, wf.ID()); spawnErr != nil {
+			a.Log().Error("failed to recover workflow %s: %s", id, spawnErr)
+		}
+	}
 }
 
 func (a *WorkflowSupervisor) spawnWorkflowActor(schemaID string, workflowID workflow.ID) error {
@@ -118,6 +168,16 @@ func (a *WorkflowSupervisor) spawnWorkflowActor(schemaID string, workflowID work
 	if err != nil {
 		a.Log().Error("failed to spawn child for schema id %s : %s", schemaID, err)
 		return err
+	}
+
+	// Find the PID of the newly started child to track it for cleanup
+	expectedName := gen.Atom(actornames.WorkflowInstanceSupervisorName(workflowID))
+	for _, child := range a.Children() {
+		if child.Name == expectedName {
+			a.workflowActors[workflowID] = child.PID
+			a.Log().Debug("tracking workflow %s with pid %s", workflowID, child.PID)
+			break
+		}
 	}
 	return nil
 }

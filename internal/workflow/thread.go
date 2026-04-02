@@ -58,6 +58,19 @@ func (t *threads) Get(threadID uint16) *thread {
 	return thread
 }
 
+// AllFinished returns true if all threads have reached the ThreadFinished state.
+// Returns true for an empty thread map (no threads = nothing pending).
+func (t *threads) AllFinished() bool {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	for _, th := range t.threads {
+		if th.state != ThreadFinished {
+			return false
+		}
+	}
+	return true
+}
+
 func (t *threads) AreAllParentsFinishedFor(parentThreadIDs []uint16) bool {
 	for _, parentThreadID := range parentThreadIDs {
 		parentThread := t.Get(parentThreadID)

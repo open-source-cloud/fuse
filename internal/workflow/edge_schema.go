@@ -17,6 +17,7 @@ type (
 		To          string         `json:"to" yaml:"to" validate:"required"`
 		Conditional *EdgeCondition `json:"conditional,omitempty" yaml:"conditional,omitempty"`
 		Input       []InputMapping `json:"input,omitempty" yaml:"input,omitempty"`
+		OnError     bool           `json:"onError,omitempty" yaml:"onError,omitempty"`
 	}
 	// EdgeCondition represents a conditional configuration with a name and its associated value.
 	EdgeCondition struct {
@@ -48,6 +49,7 @@ func (e EdgeSchema) Clone() *EdgeSchema {
 		To:          e.To,
 		Conditional: conditional,
 		Input:       inputs,
+		OnError:     e.OnError,
 	}
 }
 

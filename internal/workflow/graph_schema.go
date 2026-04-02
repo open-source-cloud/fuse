@@ -15,12 +15,13 @@ var (
 
 // GraphSchema represents a data structure containing nodes and edges, identified by a unique ID and optionally named.
 type GraphSchema struct {
-	ID       string            `json:"id" validate:"required"`
-	Name     string            `json:"name" validate:"required,lte=100"`
-	Nodes    []*NodeSchema     `json:"nodes" validate:"required,dive"`
-	Edges    []*EdgeSchema     `json:"edges" validate:"required,dive"`
-	Metadata map[string]string `json:"metadata,omitempty"`
-	Tags     map[string]string `json:"tags,omitempty"`
+	ID       string                 `json:"id" validate:"required"`
+	Name     string                 `json:"name" validate:"required,lte=100"`
+	Nodes    []*NodeSchema          `json:"nodes" validate:"required,dive"`
+	Edges    []*EdgeSchema          `json:"edges" validate:"required,dive"`
+	Metadata map[string]string      `json:"metadata,omitempty"`
+	Tags     map[string]string      `json:"tags,omitempty"`
+	Timeout  *GraphTimeoutConfig `json:"timeout,omitempty"`
 }
 
 // NewGraphSchemaFromJSON creates a new graph schema from a JSON specification

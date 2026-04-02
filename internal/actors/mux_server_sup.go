@@ -6,7 +6,6 @@ import (
 	"github.com/open-source-cloud/fuse/internal/actors/actornames"
 )
 
-
 // MuxServerSupFactory is a factory for creating MuxServerSup actors
 type MuxServerSupFactory ActorFactory[*MuxServerSup]
 

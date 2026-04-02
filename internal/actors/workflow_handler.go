@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/open-source-cloud/fuse/internal/actors/actornames"
 	"github.com/open-source-cloud/fuse/internal/services"
 	internalworkflow "github.com/open-source-cloud/fuse/internal/workflow"
 	"github.com/open-source-cloud/fuse/internal/workflow/workflowactions"
@@ -24,6 +25,7 @@ func NewWorkflowHandlerFactory(
 	cfg *config.Config,
 	graphService services.GraphService,
 	workflowRepository repositories.WorkflowRepository,
+	journalRepository repositories.JournalRepository,
 ) *WorkflowHandlerFactory {
 	return &WorkflowHandlerFactory{
 		Factory: func() gen.ProcessBehavior {
@@ -31,6 +33,7 @@ func NewWorkflowHandlerFactory(
 				config:             cfg,
 				graphService:       graphService,
 				workflowRepository: workflowRepository,
+				journalRepo:        journalRepository,
 			}
 		},
 	}
@@ -44,8 +47,10 @@ type (
 		config             *config.Config
 		graphService       services.GraphService
 		workflowRepository repositories.WorkflowRepository
+		journalRepo        repositories.JournalRepository
 
-		workflow *internalworkflow.Workflow
+		workflow       *internalworkflow.Workflow
+		executionTimer *ExecutionTimer
 	}
 
 	// WorkflowHandlerInitArgs defines the typed arguments for the WorkflowHandler Actor Init message
@@ -60,6 +65,7 @@ type (
 // perform all initialization inline without the ActorInit self-send pattern.
 func (a *WorkflowHandler) Init(args ...any) error {
 	a.Log().Debug("starting process %s with args %s", a.PID(), args)
+	a.executionTimer = NewExecutionTimer()
 
 	if len(args) != 1 {
 		return fmt.Errorf("workflow actor init args must be 1 == [WorkflowHandlerInitArgs]")
@@ -74,11 +80,20 @@ func (a *WorkflowHandler) Init(args ...any) error {
 		var action workflowactions.Action
 		if a.workflow.State() == internalworkflow.StateUntriggered {
 			action = a.workflow.Trigger()
+			a.persistJournal()
 		} else {
-			// TODO : add Resume
+			// Load journal from persistence for replay
+			entries, loadErr := a.journalRepo.LoadAll(initArgs.workflowID.String())
+			if loadErr != nil {
+				a.Log().Error("failed to load journal for workflow %s: %s", initArgs.workflowID, loadErr)
+			} else {
+				a.workflow.Journal().LoadFrom(entries)
+			}
 			action = a.workflow.Resume()
 		}
-		a.handleWorkflowAction(action)
+		if action != nil {
+			a.handleWorkflowAction(action)
+		}
 		return nil
 	}
 
@@ -96,6 +111,8 @@ func (a *WorkflowHandler) Init(args ...any) error {
 	a.Log().Debug("created new workflow with id %s", initArgs.workflowID)
 
 	action := a.workflow.Trigger()
+	a.persistJournal()
+	a.startWorkflowTimeout()
 	a.handleWorkflowAction(action)
 	return nil
 }
@@ -116,6 +133,10 @@ func (a *WorkflowHandler) HandleMessage(from gen.PID, message any) error {
 		return a.handleMsgFunctionResult(msg)
 	case messaging.AsyncFunctionResult:
 		return a.handleMsgAsyncFunctionResult(msg)
+	case messaging.Timeout:
+		return a.handleMsgTimeout(msg)
+	case messaging.WorkflowTimeout:
+		return a.handleMsgWorkflowTimeout()
 	}
 
 	return nil
@@ -132,11 +153,12 @@ func (a *WorkflowHandler) handleMsgFunctionResult(msg messaging.Message) error {
 		a.Log().Error("failed to get function result from %s", msg)
 	}
 
+	a.cancelExecutionTimeout(fnResultMsg.ExecID)
 	a.workflow.SetResultFor(fnResultMsg.ExecID, &fnResultMsg.Result)
 
 	if fnResultMsg.Result.Async {
 		a.Log().Debug("got async function result for workflow %s, execID %s", fnResultMsg.WorkflowID, fnResultMsg.ExecID)
-		// TODO handle async
+		a.persistJournal()
 		return nil
 	}
 	if fnResultMsg.Result.Output.Status != workflow.FunctionSuccess {
@@ -146,14 +168,21 @@ func (a *WorkflowHandler) handleMsgFunctionResult(msg messaging.Message) error {
 			fnResultMsg.ExecID,
 			fnResultMsg.Result.Output.Status,
 		)
-		a.workflow.SetState(internalworkflow.StateError)
-		// TODO handle function failure
+		action := a.workflow.HandleNodeFailure(fnResultMsg.ThreadID, fnResultMsg.ExecID)
+		if action == nil {
+			a.workflow.SetState(internalworkflow.StateError)
+			a.persistJournal()
+			return nil
+		}
+		a.persistJournal()
+		a.handleWorkflowAction(action)
 		return nil
 	}
 
 	action := a.workflow.Next(fnResultMsg.ThreadID)
+	a.persistJournal()
 	if action.Type() == workflowactions.ActionNoop {
-		a.Log().Warning("got noop action from workflow")
+		a.checkWorkflowCompletion()
 		return nil
 	}
 	a.handleWorkflowAction(action)
@@ -167,6 +196,7 @@ func (a *WorkflowHandler) handleMsgAsyncFunctionResult(msg messaging.Message) er
 		a.Log().Error("failed to get async function result from %s", msg)
 	}
 
+	a.cancelExecutionTimeout(fnResultMsg.ExecID)
 	a.workflow.SetResultFor(fnResultMsg.ExecID, &workflow.FunctionResult{
 		Async:  true,
 		Output: fnResultMsg.Output,
@@ -178,19 +208,112 @@ func (a *WorkflowHandler) handleMsgAsyncFunctionResult(msg messaging.Message) er
 			fnResultMsg.ExecID,
 			fnResultMsg.Output.Status,
 		)
-		a.workflow.SetState(internalworkflow.StateError)
-		// TODO handle function failure
+		action := a.workflow.HandleNodeFailure(fnResultMsg.ExecID.Thread(), fnResultMsg.ExecID)
+		if action == nil {
+			a.workflow.SetState(internalworkflow.StateError)
+			a.persistJournal()
+			return nil
+		}
+		a.persistJournal()
+		a.handleWorkflowAction(action)
 		return nil
 	}
 
 	action := a.workflow.Next(fnResultMsg.ExecID.Thread())
+	a.persistJournal()
 	if action.Type() == workflowactions.ActionNoop {
-		a.Log().Warning("got noop action from workflow")
+		a.checkWorkflowCompletion()
 		return nil
 	}
 	a.handleWorkflowAction(action)
 
 	return nil
+}
+
+func (a *WorkflowHandler) persistJournal() {
+	newEntries := a.workflow.Journal().NewEntries()
+	if len(newEntries) == 0 {
+		return
+	}
+	if err := a.journalRepo.Append(a.workflow.ID().String(), newEntries...); err != nil {
+		a.Log().Error("failed to persist journal: %s", err)
+		return
+	}
+	a.workflow.Journal().MarkPersisted()
+}
+
+func (a *WorkflowHandler) checkWorkflowCompletion() {
+	if !a.workflow.AllThreadsFinished() {
+		a.Log().Debug("noop action but not all threads finished yet")
+		return
+	}
+	a.workflow.SetState(internalworkflow.StateFinished)
+	a.Log().Info("workflow %s completed with state %s", a.workflow.ID(), a.workflow.State())
+
+	supName := actornames.WorkflowInstanceSupervisorName(a.workflow.ID())
+	completedMsg := messaging.NewWorkflowCompletedMessage(a.workflow.ID(), a.workflow.State().String())
+	if err := a.Send(gen.Atom(supName), completedMsg); err != nil {
+		a.Log().Error("failed to send workflow completed message: %s", err)
+	}
+}
+
+func (a *WorkflowHandler) handleMsgTimeout(msg messaging.Message) error {
+	timeoutMsg, ok := msg.Args.(messaging.TimeoutMessage)
+	if !ok {
+		return nil
+	}
+
+	a.Log().Warning("execution timeout for exec %s", timeoutMsg.ExecID)
+	execID := workflow.ExecID(timeoutMsg.ExecID)
+
+	// Create a timeout error result and feed through normal error handling
+	result := &workflow.FunctionResult{
+		Output: workflow.FunctionOutput{
+			Status: workflow.FunctionError,
+			Data:   map[string]any{"error": "execution timeout exceeded"},
+		},
+	}
+	a.workflow.SetResultFor(execID, result)
+
+	action := a.workflow.HandleNodeFailure(execID.Thread(), execID)
+	if action == nil {
+		a.workflow.SetState(internalworkflow.StateError)
+		a.persistJournal()
+		return nil
+	}
+	a.persistJournal()
+	a.handleWorkflowAction(action)
+	return nil
+}
+
+func (a *WorkflowHandler) handleMsgWorkflowTimeout() error {
+	a.Log().Warning("workflow timeout for %s", a.workflow.ID())
+	a.workflow.SetState(internalworkflow.StateError)
+	a.persistJournal()
+	a.checkWorkflowCompletion()
+	return nil
+}
+
+func (a *WorkflowHandler) startExecutionTimeout(execID workflow.ExecID, node *internalworkflow.Node) {
+	if node.Schema().Timeout == nil || node.Schema().Timeout.Execution == 0 {
+		return
+	}
+	a.executionTimer.Start(a, a.PID(), execID.String(), node.Schema().Timeout.Execution)
+}
+
+func (a *WorkflowHandler) cancelExecutionTimeout(execID workflow.ExecID) {
+	a.executionTimer.Cancel(execID.String())
+}
+
+func (a *WorkflowHandler) startWorkflowTimeout() {
+	schema := a.workflow.Schema()
+	if schema.Timeout == nil || schema.Timeout.Total == 0 {
+		return
+	}
+	timeoutMsg := messaging.NewWorkflowTimeoutMessage(a.workflow.ID())
+	if _, err := a.SendAfter(a.PID(), timeoutMsg, schema.Timeout.Total); err != nil {
+		a.Log().Error("failed to set workflow timeout: %s", err)
+	}
 }
 
 func (a *WorkflowHandler) handleWorkflowAction(action workflowactions.Action) {
@@ -201,12 +324,29 @@ func (a *WorkflowHandler) handleWorkflowAction(action workflowactions.Action) {
 		for _, runFuncAction := range action.(*workflowactions.RunParallelFunctionsAction).Actions {
 			a.handleWorkflowRunFunctionAction(runFuncAction)
 		}
+	case workflowactions.ActionRetryFunction:
+		retryAction := action.(*workflowactions.RetryFunctionAction)
+		a.Log().Info("scheduling retry attempt %d for exec %s in %s",
+			retryAction.Attempt, retryAction.FunctionExecID, retryAction.Delay)
+		workflowPool := WorkflowFuncPoolName(a.workflow.ID())
+		retryMsg := messaging.NewExecuteFunctionMessage(a.workflow.ID(), &retryAction.RunFunctionAction)
+		if _, err := a.SendAfter(gen.Atom(workflowPool), retryMsg, retryAction.Delay); err != nil {
+			a.Log().Error("failed to schedule retry: %s", err)
+		}
+		a.workflow.SetState(internalworkflow.StateRunning)
 	}
 }
 
 func (a *WorkflowHandler) handleWorkflowRunFunctionAction(action workflowactions.Action) {
 	workflowPool := WorkflowFuncPoolName(a.workflow.ID())
 	execAction := action.(*workflowactions.RunFunctionAction)
+
+	// Start execution timeout if configured for this node
+	if entry, exists := a.workflow.AuditLog().Get(execAction.FunctionExecID.String()); exists {
+		if node, err := a.workflow.Graph().FindNode(entry.FunctionNodeID); err == nil {
+			a.startExecutionTimeout(execAction.FunctionExecID, node)
+		}
+	}
 
 	execFnMsg := messaging.NewExecuteFunctionMessage(a.workflow.ID(), execAction)
 	err := a.Send(workflowPool, execFnMsg)

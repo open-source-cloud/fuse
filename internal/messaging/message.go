@@ -10,9 +10,17 @@ const (
 	// ExecuteFunction message type
 	ExecuteFunction MessageType = "function:execute"
 	// FunctionResult message type
-	FunctionResult      MessageType = "function:result"
+	FunctionResult MessageType = "function:result"
 	// AsyncFunctionResult message type
 	AsyncFunctionResult MessageType = "function:async:result"
+	// WorkflowCompleted message type
+	WorkflowCompleted MessageType = "workflow:completed"
+	// RecoverWorkflows message type - triggers startup recovery of in-progress workflows
+	RecoverWorkflows MessageType = "workflow:recover"
+	// Timeout message type - execution timeout for a single node
+	Timeout MessageType = "execution:timeout"
+	// WorkflowTimeout message type - total workflow execution timeout
+	WorkflowTimeout MessageType = "workflow:timeout"
 )
 
 // Message defines the basic Message

@@ -14,5 +14,6 @@ func New() *workflow.Package {
 		PackageID,
 		workflow.NewFunction(NilFunctionID, NilFunctionMetadata(), NilFunction),
 		workflow.NewFunction(PrintFunctionID, PrintFunctionMetadata(), PrintFunction),
+		workflow.NewFunction(FailFunctionID, FailFunctionMetadata(), FailFunction),
 	)
 }

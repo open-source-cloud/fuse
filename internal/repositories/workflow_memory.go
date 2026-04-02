@@ -47,3 +47,19 @@ func (m *MemoryWorkflowRepository) Save(workflow *workflow.Workflow) error {
 	m.workflows[workflow.ID().String()] = workflow
 	return nil
 }
+
+// FindByState returns workflow IDs for workflows in any of the given states
+func (m *MemoryWorkflowRepository) FindByState(states ...workflow.State) ([]string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	var ids []string
+	for id, wf := range m.workflows {
+		for _, state := range states {
+			if wf.State() == state {
+				ids = append(ids, id)
+				break
+			}
+		}
+	}
+	return ids, nil
+}

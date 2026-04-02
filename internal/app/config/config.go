@@ -16,6 +16,7 @@ type (
 		Params   ParamsConfig
 		Server   ServerConfig
 		Database DatabaseConfig
+		Cluster  ClusterConfig
 	}
 
 	// ParamsConfig configuration parameters
@@ -37,6 +38,14 @@ type (
 	ServerConfig struct {
 		Host string `env:"HOST" envDefault:"0.0.0.0"`
 		Port string `env:"PORT" envDefault:"9090"`
+	}
+
+	// ClusterConfig configuration for ergo distributed clustering
+	ClusterConfig struct {
+		Enabled      bool   `env:"CLUSTER_ENABLED" envDefault:"false"`
+		NodeName     string `env:"CLUSTER_NODE_NAME"`
+		Cookie       string `env:"CLUSTER_COOKIE" envDefault:"fuse-cluster-secret"`
+		AcceptorPort uint16 `env:"CLUSTER_ACCEPTOR_PORT" envDefault:"15000"`
 	}
 )
 
