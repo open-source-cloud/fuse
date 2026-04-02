@@ -60,3 +60,15 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{/*
+Comma-separated ergo node names for CLUSTER_PEER_NODES (must match buildNodeName with headless DNS).
+*/}}
+{{- define "fuse.clusterPeerNodes" -}}
+{{- $fullname := include "fuse.fullname" . -}}
+{{- $headlessFQDN := printf "%s-headless.%s.svc.cluster.local" $fullname .Release.Namespace -}}
+{{- range $i := until (int .Values.replicaCount) -}}
+{{- if ne $i 0 }},{{ end -}}
+fuse-{{ $fullname }}-{{ $i }}@{{ $fullname }}-{{ $i }}.{{ $headlessFQDN -}}
+{{- end -}}
+{{- end }}

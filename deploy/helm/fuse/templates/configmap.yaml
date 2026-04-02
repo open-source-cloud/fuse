@@ -14,4 +14,6 @@ data:
   CLUSTER_ENABLED: "true"
   CLUSTER_COOKIE: {{ .Values.cluster.cookie | quote }}
   CLUSTER_ACCEPTOR_PORT: {{ .Values.cluster.acceptorPort | quote }}
+  CLUSTER_HEADLESS_SERVICE_FQDN: {{ printf "%s-headless.%s.svc.cluster.local" (include "fuse.fullname" .) .Release.Namespace | quote }}
+  CLUSTER_PEER_NODES: {{ include "fuse.clusterPeerNodes" . | quote }}
   {{- end }}

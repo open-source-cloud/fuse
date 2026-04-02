@@ -1,10 +1,13 @@
 # Ergo cluster dev (3 nodes, air hot reload):
 #   docker compose --profile fuse-dev up --build
 #
-# HTTP: http://localhost:9091 ..9093 (one port per node). Cluster acceptor: 15000 (internal only).
-# Each node name is fuse@fuse-node-{1,2,3} (hostname); override CLUSTER_* env as needed.
+# HTTP: http://localhost:9090 (standalone fuse-dev) or http://localhost:9091..9093 (cluster nodes).
+# Cluster acceptor 15000 is reachable on fuse-network only (container DNS: fuse-node-{1,2,3}:15000).
+#
+# Ergo node names match buildNodeName() with hostname fallback: fuse@fuse-node-1, etc.
+# CLUSTER_PEER_NODES must list every replica so schema replication (ergo Events) can MonitorEvent peers.
 
-x-fuse-dev-common: &fuse-dev-common
+x-fuse-dev-service: &fuse-dev-service
   profiles: ["fuse-dev"]
   build:
     context: .
@@ -15,12 +18,6 @@ x-fuse-dev-common: &fuse-dev-common
     - .:/app
   networks:
     - fuse-network
-  environment:
-    HOST: "0.0.0.0"
-    PORT: "9090"
-    CLUSTER_ENABLED: "true"
-    CLUSTER_COOKIE: "${CLUSTER_COOKIE:-fuse-docker-dev}"
-    CLUSTER_ACCEPTOR_PORT: "${CLUSTER_ACCEPTOR_PORT:-15000}"
   healthcheck:
     test: ["CMD", "curl", "-f", "http://127.0.0.1:9090/health"]
     interval: 15s
@@ -28,34 +25,57 @@ x-fuse-dev-common: &fuse-dev-common
     retries: 5
     start_period: 90s
 
+# Single-process dev (no ergo cluster / no cross-container schema replication).
+x-fuse-env-standalone: &fuse-env-standalone
+  HOST: "0.0.0.0"
+  PORT: "9090"
+  CLUSTER_ENABLED: "false"
+
+# Three-node cluster: same peer list on each node (self is skipped for MonitorEvent in code).
+x-fuse-env-cluster: &fuse-env-cluster
+  HOST: "0.0.0.0"
+  PORT: "9090"
+  CLUSTER_ENABLED: "true"
+  CLUSTER_COOKIE: "${CLUSTER_COOKIE:-fuse-docker-dev}"
+  CLUSTER_ACCEPTOR_PORT: "${CLUSTER_ACCEPTOR_PORT:-15000}"
+  CLUSTER_PEER_NODES: "fuse@fuse-node-1,fuse@fuse-node-2,fuse@fuse-node-3"
+
 services:
   fuse-dev:
-    <<: *fuse-dev-common
+    <<: *fuse-dev-service
     container_name: fuse-dev
     hostname: fuse-node-dev
     ports:
       - "9090:9090"
+    environment:
+      <<: *fuse-env-standalone
 
   fuse-dev-1:
-    <<: *fuse-dev-common
+    <<: *fuse-dev-service
     container_name: fuse-dev-1
     hostname: fuse-node-1
     ports:
       - "9091:9090"
+    environment:
+      <<: *fuse-env-cluster
 
   fuse-dev-2:
-    <<: *fuse-dev-common
+    <<: *fuse-dev-service
     container_name: fuse-dev-2
     hostname: fuse-node-2
     ports:
       - "9092:9090"
+    environment:
+      <<: *fuse-env-cluster
 
   fuse-dev-3:
-    <<: *fuse-dev-common
+    <<: *fuse-dev-service
     container_name: fuse-dev-3
     hostname: fuse-node-3
     ports:
       - "9093:9090"
+    environment:
+      <<: *fuse-env-cluster
 
 networks:
   fuse-network:

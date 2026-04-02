@@ -5,7 +5,7 @@ root = "."
 tmp_dir = "/tmp/fuse-air"
 
 [build]
-  bin = "/tmp/fuse-air/fuse"
+  entrypoint = "/tmp/fuse-air/fuse"
   cmd = "go build -buildvcs=false -o /tmp/fuse-air/fuse ./cmd/fuse/main.go"
   args_bin = ["server", "-l", "debug"]
   delay = 500

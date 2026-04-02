@@ -39,6 +39,17 @@ cluster:
 
 **Secrets:** set `cluster.cookie` (and any registry credentials) via Helm values from a secret manager or `helm install --set-file` / external secrets operator—do not commit real cookies.
 
+### Schema replication (cluster mode)
+
+In `cluster` mode, the Helm chart sets:
+
+- `CLUSTER_HEADLESS_SERVICE_FQDN` — headless Service DNS suffix (`<fullname>-headless.<namespace>.svc.cluster.local`).
+- `CLUSTER_PEER_NODES` — comma-separated ergo node names for all StatefulSet replicas, derived from `replicaCount`, matching `fuse-<POD_NAME>@<POD_NAME>.<headless FQDN>`.
+
+After a successful `PUT /v1/schemas/{schemaID}` on one pod, the engine publishes the schema via [ergo Events](https://docs.ergo.services/basics/events); other pods apply it locally **without** republishing (best-effort fan-out, no quorum). Concurrent conflicting edits can still diverge; this does not replace a durable shared store for strong consistency.
+
+For non-Helm deployments, set these variables yourself so peer names match each node’s actual ergo name (`CLUSTER_NODE_NAME` is only used when it contains `@`; otherwise the node name is derived from `POD_NAME` + `CLUSTER_HEADLESS_SERVICE_FQDN` or `POD_IP`).
+
 ## Configuration and probes
 
 Environment variables are injected from a ConfigMap (`values.yaml` key `env`). Defaults include `LOG_LEVEL`, `SHUTDOWN_TIMEOUT`.
@@ -57,7 +68,7 @@ Default Service type is `ClusterIP` on port `9090` (`service.port`). Expose with
 ## Production and HA checklist
 
 1. **Single writer vs many replicas:** Today, workflow state and repositories are largely **in-memory**. Multiple `standalone` replicas behind a load balancer can each hold **different** workflow state unless you add **shared, durable** backends (see [docs/roadmap/phase-1-foundation.md](roadmap/phase-1-foundation.md) and [phase-3-operational.md](roadmap/phase-3-operational.md)).
-2. **Ergo cluster mode:** Multi-node ergo addresses **actor distribution**; you still need **durable workflow/journal/idempotency** stores for crash safety and consistent behavior across restarts.
+2. **Ergo cluster mode:** Multi-node ergo addresses **actor distribution**; workflow **graph schemas** are replicated across peers in cluster mode via ergo Events (see above). You still need **durable workflow/journal/idempotency** stores for crash safety and consistent behavior across restarts.
 3. **Idempotency and triggers:** Roadmap Phase 3 covers trigger idempotency; until then, clients should avoid assuming deduplication across retries at the API layer.
 4. **Observability:** Use pod logs, metrics from your platform, and (once implemented) persisted traces from the roadmap.
 
