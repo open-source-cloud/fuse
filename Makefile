@@ -28,7 +28,7 @@ test-benchmark:
 # -parallel 1 avoids t.Parallel() disk/helper tests racing with workflow suites on one server.
 # Unit tests for helpers: go test ./tests/e2e
 e2e-workflows:
-	go test -tags=e2e ./tests/e2e -v -count=1 -parallel 1 -timeout 15m
+	go test -tags=e2e ./tests/e2e -v -count=4 -parallel 4 -timeout 15m
 
 build:
 	go build -o bin/fuse cmd/fuse/main.go
