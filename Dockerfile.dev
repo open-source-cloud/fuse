@@ -3,22 +3,22 @@
 # on Linux, or override with `user:` in docker-compose to match the host user.
 FROM golang:1.26-bookworm
 
+WORKDIR /app
+
+COPY go.mod go.sum ./
+
+# Single RUN merges apt setup, user creation, and Go module fetch (Sonar docker:S7031).
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl \
 	&& rm -rf /var/lib/apt/lists/* \
 	&& groupadd --gid 1000 fuse \
 	&& useradd --uid 1000 --gid fuse --shell /bin/bash --create-home fuse \
-	&& chown -R fuse:fuse /go
-
-WORKDIR /app
-
-# Leave go.mod/go.sum root-owned; fuse only needs read + a writable /go (Sonar Docker hardening).
-COPY go.mod go.sum ./
-
-USER fuse
-
-RUN go mod download \
+	&& chown -R fuse:fuse /go \
+	&& chown -R fuse:fuse /app \
+	&& CGO_ENABLED=0 go mod download \
 	&& go install github.com/air-verse/air@latest
 
 ENV CGO_ENABLED=0
+
+USER fuse
 
 CMD ["air", "-c", ".air.toml"]
