@@ -1,11 +1,21 @@
-# Development overrides for local k3s/k3d cluster
-replicaCount: 1
+# Development overrides for local k3s/k3d cluster and GitHub E2E (helm -f this file).
+# replicaCount > 1 validates Deployment rollout and readiness with multiple pods.
+# Standalone replicas do not share in-memory workflow state: for API tests, port-forward
+# the Deployment (not the Service) so traffic stays on one pod, or use sessionAffinity.
+replicaCount: 3
 mode: standalone
 
 image:
   repository: fuse-app
   tag: dev
   pullPolicy: Never
+
+# Sticky sessions if you hit Service fuse:9090 instead of port-forwarding the Deployment.
+service:
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800
 
 env:
   LOG_LEVEL: debug
