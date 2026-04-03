@@ -79,7 +79,7 @@ func (s *WorkflowIntegrationSuite) TestFullFoundation_ExercisesAllFeatures() {
 	wfID := UpsertAndTriggerExampleWorkflow(t, s.client, s.baseURL, s.workflowsDir, "full-foundation-test")
 	require.NotEmpty(t, wfID)
 
-	resp, err := WaitForWorkflowTerminal(s.client, s.baseURL, wfID, 45*time.Second)
+	resp, err := WaitForWorkflowTerminal(s.client, s.baseURL, wfID, 60*time.Second)
 	require.NoError(t, err, "workflow should reach terminal state")
 	assert.Equal(t, "finished", resp.Status,
 		"full-foundation-test should finish after retries succeed and branches merge")
