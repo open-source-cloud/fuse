@@ -4,6 +4,7 @@ package workflow
 import (
 	"reflect"
 	"strings"
+	"sync"
 
 	"github.com/open-source-cloud/fuse/internal/workflow/workflowactions"
 
@@ -71,6 +72,7 @@ type (
 
 	// RunningState defines the Workflow running state
 	RunningState struct {
+		mu           sync.RWMutex
 		currentState State
 	}
 )
@@ -373,12 +375,16 @@ func (w *Workflow) ID() workflow.ID {
 
 // State Workflow state
 func (w *Workflow) State() State {
+	w.state.mu.RLock()
+	defer w.state.mu.RUnlock()
 	return w.state.currentState
 }
 
 // SetState changes Workflow state
 func (w *Workflow) SetState(state State) {
+	w.state.mu.Lock()
 	w.state.currentState = state
+	w.state.mu.Unlock()
 	w.journal.Append(JournalEntry{
 		Type:  JournalStateChanged,
 		State: state,
@@ -680,7 +686,16 @@ func (w *Workflow) HandleNodeFailure(threadID uint16, execID workflow.ExecID) wo
 	w.retryTracker.Clear(execID.String())
 	errorEdges := w.findErrorEdges(node)
 	if len(errorEdges) > 0 {
-		return w.newRunFunctionAction(w.threads.Get(threadID), errorEdges[0])
+		currentThread := w.threads.Get(threadID)
+		// Mark source thread finished when error edge crosses to a different thread
+		if currentThread.ID() != errorEdges[0].To().thread {
+			currentThread.SetState(StateFinished)
+			w.journal.Append(JournalEntry{
+				Type:     JournalThreadDone,
+				ThreadID: currentThread.ID(),
+			})
+		}
+		return w.newRunFunctionAction(currentThread, errorEdges[0])
 	}
 
 	// No error edges — caller sets StateError

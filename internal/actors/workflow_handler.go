@@ -167,8 +167,8 @@ func (a *WorkflowHandler) handleMsgFunctionResult(msg messaging.Message) error {
 		a.Log().Error("failed to get function result from %s", msg)
 	}
 
-	if a.workflow.State() == internalworkflow.StateCancelled {
-		a.Log().Warning("ignoring function result for cancelled workflow %s", a.workflow.ID())
+	if a.isTerminalState() {
+		a.Log().Warning("ignoring function result for %s workflow %s", a.workflow.State(), a.workflow.ID())
 		return nil
 	}
 
@@ -214,8 +214,8 @@ func (a *WorkflowHandler) handleMsgAsyncFunctionResult(msg messaging.Message) er
 		a.Log().Error("failed to get async function result from %s", msg)
 	}
 
-	if a.workflow.State() == internalworkflow.StateCancelled {
-		a.Log().Warning("ignoring async function result for cancelled workflow %s", a.workflow.ID())
+	if a.isTerminalState() {
+		a.Log().Warning("ignoring async function result for %s workflow %s", a.workflow.State(), a.workflow.ID())
 		return nil
 	}
 
@@ -277,6 +277,11 @@ func (a *WorkflowHandler) completeWithError() {
 	a.workflow.SetState(internalworkflow.StateError)
 	a.persistJournal()
 	a.sendWorkflowCompleted()
+}
+
+func (a *WorkflowHandler) isTerminalState() bool {
+	s := a.workflow.State()
+	return s == internalworkflow.StateFinished || s == internalworkflow.StateError || s == internalworkflow.StateCancelled
 }
 
 func (a *WorkflowHandler) sendWorkflowCompleted() {
