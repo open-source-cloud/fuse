@@ -33,11 +33,16 @@ service:
   type: ClusterIP
   # -- HTTP API port
   port: 9090
+  # -- ClientIP keeps REST clients on one pod when replicaCount>1 (standalone in-memory state).
+  # Set to "" to omit (default kube behavior).
+  sessionAffinity: ""
+  sessionAffinityConfig: {}
 
 cluster:
-  # -- Enable ergo clustering (automatically true when mode=cluster)
+  # -- If true with mode: standalone, helm render fails (peer list assumes StatefulSet DNS; Deployments use random pod names).
+  # Ergo clustering is configured when mode: cluster regardless of this flag.
   enabled: false
-  # -- Shared cookie for ergo cluster authentication
+  # -- Shared cookie for ergo cluster authentication (Kubernetes Secret, not ConfigMap)
   cookie: "fuse-cluster-secret"
   # -- Port for ergo cluster acceptor (inter-node communication)
   acceptorPort: 15000

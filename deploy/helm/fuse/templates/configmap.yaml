@@ -1,3 +1,6 @@
+{{- if and .Values.cluster.enabled (ne .Values.mode "cluster") }}
+{{- fail "fuse chart: cluster.enabled requires mode: cluster. Standalone uses a Deployment with unstable pod hostnames; CLUSTER_PEER_NODES from the chart only matches StatefulSet ordinals." }}
+{{- end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -10,9 +13,8 @@ data:
   {{- range $key, $value := .Values.env }}
   {{ $key }}: {{ $value | quote }}
   {{- end }}
-  {{- if or (eq .Values.mode "cluster") .Values.cluster.enabled }}
+  {{- if eq .Values.mode "cluster" }}
   CLUSTER_ENABLED: "true"
-  CLUSTER_COOKIE: {{ .Values.cluster.cookie | quote }}
   CLUSTER_ACCEPTOR_PORT: {{ .Values.cluster.acceptorPort | quote }}
   CLUSTER_HEADLESS_SERVICE_FQDN: {{ printf "%s-headless.%s.svc.cluster.local" (include "fuse.fullname" .) .Release.Namespace | quote }}
   CLUSTER_PEER_NODES: {{ include "fuse.clusterPeerNodes" . | quote }}

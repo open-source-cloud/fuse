@@ -6,6 +6,15 @@ metadata:
     {{- include "fuse.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.service.type }}
+  {{- with .Values.service.sessionAffinity }}
+  {{- if ne . "" }}
+  sessionAffinity: {{ . }}
+  {{- with $.Values.service.sessionAffinityConfig }}
+  sessionAffinityConfig:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
   ports:
     - port: {{ .Values.service.port }}
       targetPort: http

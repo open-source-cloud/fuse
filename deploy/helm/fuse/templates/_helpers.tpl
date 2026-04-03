@@ -62,7 +62,7 @@ Create the name of the service account to use
 {{- end }}
 
 {{/*
-Comma-separated ergo node names for CLUSTER_PEER_NODES (must match buildNodeName with headless DNS).
+Comma-separated ergo node names for CLUSTER_PEER_NODES (StatefulSet ordinals only; used when mode=cluster).
 */}}
 {{- define "fuse.clusterPeerNodes" -}}
 {{- $fullname := include "fuse.fullname" . -}}

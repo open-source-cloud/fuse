@@ -1,4 +1,4 @@
-{{- if or (eq .Values.mode "cluster") .Values.cluster.enabled }}
+{{- if eq .Values.mode "cluster" }}
 apiVersion: v1
 kind: Service
 metadata:
