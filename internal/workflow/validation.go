@@ -59,8 +59,12 @@ func validateType(expected string, value any) error {
 			return fmt.Errorf("expected bool, got %T", value)
 		}
 	case "map":
-		if _, ok := value.(map[string]any); !ok {
+		rv := reflect.ValueOf(value)
+		if rv.Kind() != reflect.Map {
 			return fmt.Errorf("expected map, got %T", value)
+		}
+		if rv.Type().Key().Kind() != reflect.String {
+			return fmt.Errorf("expected map with string keys, got %T", value)
 		}
 	case "any":
 		// any type always passes

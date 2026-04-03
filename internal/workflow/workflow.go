@@ -262,8 +262,13 @@ func (w *Workflow) nextWithMultipleOutputEdges(currentThread *thread, currentNod
 	edges := w.filterOutputEdgesByConditionals(currentNode)
 
 	edgeCount := len(edges)
-	// if no edges after conditional filtering, just stop
+	// if no edges after conditional filtering, mark the thread as done and stop
 	if edgeCount == 0 {
+		currentThread.SetState(StateFinished)
+		w.journal.Append(JournalEntry{
+			Type:     JournalThreadDone,
+			ThreadID: currentThread.ID(),
+		})
 		return &workflowactions.NoopAction{}
 	}
 	// if we only have 1 output after filtering conditional edges, let's just run that one
@@ -595,7 +600,7 @@ func (w *Workflow) inputMapping(edge *Edge, mappings []InputMapping) map[string]
 						Msg("Error parsing value")
 					continue
 				}
-				if !w.validateInputMapping(&outputParamSchema, value) {
+				if !w.validateInputMapping(&inputParamSchema, value) {
 					log.Error().
 						Str("edge", edge.ID()).
 						Str("param", mapping.MapTo).

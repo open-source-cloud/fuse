@@ -112,6 +112,18 @@ func TestValidateInputMapping(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name:    "map type with map[string]string passes (headers-like)",
+			schema:  &workflow.ParameterSchema{Name: "headers", Type: "map"},
+			value:   map[string]string{"Authorization": "Bearer x"},
+			wantErr: false,
+		},
+		{
+			name:    "map type with non-string keys fails",
+			schema:  &workflow.ParameterSchema{Name: "m", Type: "map"},
+			value:   map[int]string{1: "a"},
+			wantErr: true,
+		},
+		{
 			name:    "map type with string value fails",
 			schema:  &workflow.ParameterSchema{Name: "m", Type: "map"},
 			value:   "not a map",

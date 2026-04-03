@@ -9,6 +9,21 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// sendAsyncFunctionResult delivers async completion to the workflow handler.
+//
+// Ergo gen.Node.Send only accepts gen.Atom, gen.PID, gen.ProcessID, or gen.Alias; other types
+// return gen.ErrUnsupported ("not supported"). From WorkflowFunc pool workers, sending with a
+// captured workflow-handler gen.PID has been observed to fail that way; addressing the handler by
+// its registered gen.Atom name on the local node matches sync Send(string, ...) and succeeds.
+func sendAsyncFunctionResult(n gen.Node, wfID workflow.ID, execID workflow.ExecID, output workflow.FunctionOutput) error {
+	if n == nil {
+		return errNilNode
+	}
+	handlerName := gen.Atom(actornames.WorkflowHandlerName(wfID))
+	msg := messaging.NewAsyncFunctionResultMessage(wfID, execID, output)
+	return n.Send(handlerName, msg)
+}
+
 // NewInternalFunctionTransport creates a new InternalFunctionTransport
 func NewInternalFunctionTransport(fn workflow.Function) FunctionTransport {
 	return &InternalFunctionTransport{
@@ -23,24 +38,20 @@ type InternalFunctionTransport struct {
 
 // Execute executes the function using internal transport
 func (t *InternalFunctionTransport) Execute(handle actor.Handle, execInfo *workflow.ExecutionInfo) (workflow.FunctionResult, error) {
-	// Snapshot handler PID now: WorkflowFunc may clear it after Execute returns, but async
-	// callbacks (e.g. timer) run later and must not rely on reading the actor field again.
-	handlerPID := gen.PID{}
-	if hp, ok := handle.(actor.WorkflowHandlerPIDProvider); ok {
-		handlerPID = hp.WorkflowHandlerPID()
+	if execInfo == nil {
+		return workflow.FunctionResult{}, errNilExecutionInfo
 	}
 	execInfo.Finish = func(result workflow.FunctionOutput) {
-		// Do not use handle.Send from a background goroutine: after HandleMessage returns,
-		// the worker is in Sleep state and Process.Send returns gen.ErrNotAllowed.
-		// Prefer captured PID from WorkflowFunc; Atom name routing can fail for pool workers.
-		msg := messaging.NewAsyncFunctionResultMessage(execInfo.WorkflowID, execInfo.ExecID, result)
-		to := any(gen.Atom(actornames.WorkflowHandlerName(execInfo.WorkflowID)))
-		if handlerPID != (gen.PID{}) {
-			to = handlerPID
+		if execInfo == nil {
+			log.Error().Msg("async Finish invoked with nil ExecutionInfo")
+			return
 		}
-		err := handle.Node().Send(to, msg)
-		if err != nil {
-			log.Error().Err(err).Msg("failed to send async function result")
+		n := handle.Node()
+		if err := sendAsyncFunctionResult(n, execInfo.WorkflowID, execInfo.ExecID, result); err != nil {
+			log.Error().Err(err).
+				Str("workflowID", string(execInfo.WorkflowID)).
+				Str("execID", execInfo.ExecID.String()).
+				Msg("failed to send async function result")
 		}
 	}
 	return t.fn(execInfo)

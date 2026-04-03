@@ -189,8 +189,7 @@ func (a *WorkflowHandler) handleMsgFunctionResult(msg messaging.Message) error {
 		)
 		action := a.workflow.HandleNodeFailure(fnResultMsg.ThreadID, fnResultMsg.ExecID)
 		if action == nil {
-			a.workflow.SetState(internalworkflow.StateError)
-			a.persistJournal()
+			a.completeWithError()
 			return nil
 		}
 		a.persistJournal()
@@ -234,8 +233,7 @@ func (a *WorkflowHandler) handleMsgAsyncFunctionResult(msg messaging.Message) er
 		)
 		action := a.workflow.HandleNodeFailure(fnResultMsg.ExecID.Thread(), fnResultMsg.ExecID)
 		if action == nil {
-			a.workflow.SetState(internalworkflow.StateError)
-			a.persistJournal()
+			a.completeWithError()
 			return nil
 		}
 		a.persistJournal()
@@ -272,6 +270,16 @@ func (a *WorkflowHandler) checkWorkflowCompletion() {
 		return
 	}
 	a.workflow.SetState(internalworkflow.StateFinished)
+	a.sendWorkflowCompleted()
+}
+
+func (a *WorkflowHandler) completeWithError() {
+	a.workflow.SetState(internalworkflow.StateError)
+	a.persistJournal()
+	a.sendWorkflowCompleted()
+}
+
+func (a *WorkflowHandler) sendWorkflowCompleted() {
 	a.Log().Info("workflow %s completed with state %s", a.workflow.ID(), a.workflow.State())
 
 	completedMsg := messaging.NewWorkflowCompletedMessage(a.workflow.ID(), a.workflow.State().String())
@@ -303,8 +311,7 @@ func (a *WorkflowHandler) handleMsgTimeout(msg messaging.Message) error {
 
 	action := a.workflow.HandleNodeFailure(execID.Thread(), execID)
 	if action == nil {
-		a.workflow.SetState(internalworkflow.StateError)
-		a.persistJournal()
+		a.completeWithError()
 		return nil
 	}
 	a.persistJournal()
@@ -351,9 +358,7 @@ func (a *WorkflowHandler) handleMsgCancelWorkflow(msg messaging.Message) error {
 
 func (a *WorkflowHandler) handleMsgWorkflowTimeout() error {
 	a.Log().Warning("workflow timeout for %s", a.workflow.ID())
-	a.workflow.SetState(internalworkflow.StateError)
-	a.persistJournal()
-	a.checkWorkflowCompletion()
+	a.completeWithError()
 	return nil
 }
 
@@ -398,7 +403,7 @@ func (a *WorkflowHandler) handleWorkflowAction(action workflowactions.Action) {
 		a.Log().Info("scheduling retry attempt %d for exec %s in %s",
 			retryAction.Attempt, retryAction.FunctionExecID, retryAction.Delay)
 		workflowPool := WorkflowFuncPoolName(a.workflow.ID())
-		retryMsg := messaging.NewExecuteFunctionMessage(a.workflow.ID(), &retryAction.RunFunctionAction, a.PID())
+		retryMsg := messaging.NewExecuteFunctionMessage(a.workflow.ID(), &retryAction.RunFunctionAction)
 		if _, err := a.SendAfter(gen.Atom(workflowPool), retryMsg, retryAction.Delay); err != nil {
 			a.Log().Error("failed to schedule retry: %s", err)
 		}
@@ -431,7 +436,7 @@ func (a *WorkflowHandler) handleWorkflowRunFunctionAction(action workflowactions
 		}
 	}
 
-	execFnMsg := messaging.NewExecuteFunctionMessage(a.workflow.ID(), execAction, a.PID())
+	execFnMsg := messaging.NewExecuteFunctionMessage(a.workflow.ID(), execAction)
 	err := a.Send(workflowPool, execFnMsg)
 	if err != nil {
 		a.Log().Error("failed to send execute function message to %s: %s", workflowPool, err)

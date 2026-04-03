@@ -1,6 +1,8 @@
 package actors
 
 import (
+	"fmt"
+
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
 	"github.com/open-source-cloud/fuse/internal/actors/actornames"
@@ -39,8 +41,7 @@ func (m *MuxServerSup) Init(_ ...any) (act.SupervisorSpec, error) {
 	for _, worker := range m.workers.GetAll() {
 		workerFactory, ok := m.workers.GetFactory(string(worker.Name))
 		if !ok {
-			m.Log().Error("worker factory not found", "worker", worker.Name)
-			continue
+			return act.SupervisorSpec{}, fmt.Errorf("mux: worker factory not found for %s", worker.Name)
 		}
 		// Creates the worker pool dynamically based on the worker name and pool config
 		pool := NewMuxWorkerPool(workerFactory, worker.PoolConfig)
