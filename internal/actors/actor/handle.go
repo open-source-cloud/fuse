@@ -10,3 +10,10 @@ type Handle interface {
 	Send(to any, message any) error
 	Node() gen.Node
 }
+
+// WorkflowHandlerPIDProvider is implemented by actors that know the workflow handler PID
+// (e.g. WorkflowFunc) so internal async callbacks can use Node().Send(pid, ...) instead of
+// routing by Atom name, which may not resolve for nested pool workers.
+type WorkflowHandlerPIDProvider interface {
+	WorkflowHandlerPID() gen.PID
+}

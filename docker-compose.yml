@@ -50,32 +50,32 @@ services:
     environment:
       <<: *fuse-env-standalone
 
-  fuse-dev-1:
-    <<: *fuse-dev-service
-    container_name: fuse-dev-1
-    hostname: fuse-node-1
-    ports:
-      - "9091:9090"
-    environment:
-      <<: *fuse-env-cluster
+  # fuse-dev-1:
+  #   <<: *fuse-dev-service
+  #   container_name: fuse-dev-1
+  #   hostname: fuse-node-1
+  #   ports:
+  #     - "9091:9090"
+  #   environment:
+  #     <<: *fuse-env-cluster
 
-  fuse-dev-2:
-    <<: *fuse-dev-service
-    container_name: fuse-dev-2
-    hostname: fuse-node-2
-    ports:
-      - "9092:9090"
-    environment:
-      <<: *fuse-env-cluster
+  # fuse-dev-2:
+  #   <<: *fuse-dev-service
+  #   container_name: fuse-dev-2
+  #   hostname: fuse-node-2
+  #   ports:
+  #     - "9092:9090"
+  #   environment:
+  #     <<: *fuse-env-cluster
 
-  fuse-dev-3:
-    <<: *fuse-dev-service
-    container_name: fuse-dev-3
-    hostname: fuse-node-3
-    ports:
-      - "9093:9090"
-    environment:
-      <<: *fuse-env-cluster
+  # fuse-dev-3:
+  #   <<: *fuse-dev-service
+  #   container_name: fuse-dev-3
+  #   hostname: fuse-node-3
+  #   ports:
+  #     - "9093:9090"
+  #   environment:
+  #     <<: *fuse-env-cluster
 
 networks:
   fuse-network:

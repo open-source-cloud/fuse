@@ -2,9 +2,11 @@ package messaging
 
 import (
 	"fmt"
+	"strings"
+
+	"ergo.services/ergo/gen"
 	"github.com/open-source-cloud/fuse/internal/workflow/workflowactions"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
-	"strings"
 )
 
 // ExecuteFunctionMessage defines a ExecuteFunction message
@@ -15,10 +17,12 @@ type ExecuteFunctionMessage struct {
 	PackageID  string          `json:"package_id"`
 	FunctionID string          `json:"function_id"`
 	Input      map[string]any  `json:"input"`
+	// HandlerPID is the workflow handler process; used for async internal completions from pool workers.
+	HandlerPID gen.PID `json:"handlerPid"`
 }
 
 // NewExecuteFunctionMessage creates a new ExecuteFunction message
-func NewExecuteFunctionMessage(workflowID workflow.ID, execAction *workflowactions.RunFunctionAction) Message {
+func NewExecuteFunctionMessage(workflowID workflow.ID, execAction *workflowactions.RunFunctionAction, handlerPID gen.PID) Message {
 	lastSlashIndex := strings.LastIndex(execAction.FunctionID, "/")
 
 	return Message{
@@ -30,6 +34,7 @@ func NewExecuteFunctionMessage(workflowID workflow.ID, execAction *workflowactio
 			PackageID:  execAction.FunctionID[:lastSlashIndex],
 			FunctionID: execAction.FunctionID,
 			Input:      execAction.Args,
+			HandlerPID: handlerPID,
 		},
 	}
 }

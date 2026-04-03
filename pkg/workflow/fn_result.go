@@ -29,9 +29,15 @@ func NewFunctionResultSuccessWith(data map[string]any) FunctionResult {
 	return NewFunctionResult(FunctionSuccess, data)
 }
 
-// NewFunctionResultError creates a new function result as error, with provided error
+// NewFunctionResultError creates a new function result as error, with provided error.
+// The Go error return is nil: logical failure is carried in FunctionResult.Output (FunctionError).
+// The error return from workflow.Function is reserved for unexpected execution failures
+// (the workflow actor must still receive a FunctionResultMessage for FunctionError).
 func NewFunctionResultError(err error) (FunctionResult, error) {
-	return NewFunctionResult(FunctionError, map[string]any{"error": err}), err
+	if err == nil {
+		return NewFunctionResult(FunctionError, map[string]any{"error": "unknown error"}), nil
+	}
+	return NewFunctionResult(FunctionError, map[string]any{"error": err.Error()}), nil
 }
 
 // NewFunctionResultAsync returns a new node result that describes the result of an ASYNC node execution

@@ -23,7 +23,7 @@
     },
     {
       "id": "recovery",
-      "function": "fuse/pkg/debug/print"
+      "function": "fuse/pkg/debug/nil"
     }
   ],
   "edges": [

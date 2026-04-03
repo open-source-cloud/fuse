@@ -2,6 +2,7 @@ package actors
 
 import (
 	"encoding/json"
+
 	"github.com/open-source-cloud/fuse/internal/actors/actornames"
 
 	"ergo.services/ergo/act"
@@ -32,6 +33,9 @@ type WorkflowFunc struct {
 	act.Actor
 
 	packageRegistry packages.Registry
+	// handlerPID is set for the current ExecuteFunction message so async internal
+	// transports can Node().Send to the workflow handler from a goroutine.
+	handlerPID gen.PID
 }
 
 // Init called when a WorkflowFunc worker actor is being initialized
@@ -72,14 +76,20 @@ func (a *WorkflowFunc) HandleMessage(from gen.PID, message any) error {
 		return nil
 	}
 
+	a.handlerPID = msgPayload.HandlerPID
+	defer func() { a.handlerPID = gen.PID{} }()
+
 	result, err := pkg.ExecuteFunction(
 		a,
 		msgPayload.FunctionID,
 		workflow.NewExecutionInfo(msgPayload.WorkflowID, msgPayload.ExecID, input),
 	)
 	if err != nil {
-		a.Log().Error("failed to execute function %s: %s", msgPayload.FunctionID, err)
-		return nil
+		if result.Output.Status != workflow.FunctionError {
+			a.Log().Error("failed to execute function %s: %s", msgPayload.FunctionID, err)
+			return nil
+		}
+		a.Log().Warning("function %s returned non-nil error with FunctionError result; delivering result to workflow", msgPayload.FunctionID, err)
 	}
 	jsonResult, _ := json.Marshal(result)
 	a.Log().Debug("execute function %s result: %s", msgPayload.FunctionID, string(jsonResult))
@@ -91,4 +101,9 @@ func (a *WorkflowFunc) HandleMessage(from gen.PID, message any) error {
 	}
 
 	return nil
+}
+
+// WorkflowHandlerPID implements actor.WorkflowHandlerPIDProvider for async internal completions.
+func (a *WorkflowFunc) WorkflowHandlerPID() gen.PID {
+	return a.handlerPID
 }

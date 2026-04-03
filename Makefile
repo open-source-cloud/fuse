@@ -25,9 +25,10 @@ test-benchmark:
 	go test -bench=. -benchmem ./...
 
 # Run workflow E2E against a running API (requires -tags=e2e; default http://localhost:9090 via E2E_API_URL).
+# -parallel 1 avoids t.Parallel() disk/helper tests racing with workflow suites on one server.
 # Unit tests for helpers: go test ./tests/e2e
 e2e-workflows:
-	go test -tags=e2e ./tests/e2e -v -count=1
+	go test -tags=e2e ./tests/e2e -v -count=1 -parallel 1 -timeout 15m
 
 build:
 	go build -o bin/fuse cmd/fuse/main.go
