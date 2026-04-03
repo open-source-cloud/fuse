@@ -22,7 +22,9 @@ func (r *recordingSchemaPublisher) PublishLocalUpsert(_ string, _ *workflow.Grap
 	r.upserts++
 }
 
-func (r *recordingSchemaPublisher) BindNode(gen.Node) {}
+func (r *recordingSchemaPublisher) BindNode(gen.Node) {
+	// Required by services.GraphSchemaPublisher; unused in this test recorder.
+}
 
 // TestGraphService tests the GraphService
 func TestGraphService(t *testing.T) {

@@ -7,6 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const testRetryTrackerExecID = "exec-1"
+
 func TestRetryPolicy_DelayFor_Fixed(t *testing.T) {
 	policy := RetryPolicy{
 		MaxAttempts: 3,
@@ -72,21 +74,19 @@ func TestRetryPolicy_DelayFor_ExponentialRespectsMaxInterval(t *testing.T) {
 }
 
 func TestRetryTracker(t *testing.T) {
-	const testExecID = "exec-1"
-
 	tracker := NewRetryTracker()
 
 	// Initially zero
-	assert.Equal(t, 0, tracker.GetAttempts(testExecID))
+	assert.Equal(t, 0, tracker.GetAttempts(testRetryTrackerExecID))
 
 	// Increment
-	assert.Equal(t, 1, tracker.Increment(testExecID))
-	assert.Equal(t, 2, tracker.Increment(testExecID))
-	assert.Equal(t, 2, tracker.GetAttempts(testExecID))
+	assert.Equal(t, 1, tracker.Increment(testRetryTrackerExecID))
+	assert.Equal(t, 2, tracker.Increment(testRetryTrackerExecID))
+	assert.Equal(t, 2, tracker.GetAttempts(testRetryTrackerExecID))
 
 	// Clear
-	tracker.Clear(testExecID)
-	assert.Equal(t, 0, tracker.GetAttempts(testExecID))
+	tracker.Clear(testRetryTrackerExecID)
+	assert.Equal(t, 0, tracker.GetAttempts(testRetryTrackerExecID))
 
 	// Different exec IDs are independent
 	tracker.Increment("exec-a")

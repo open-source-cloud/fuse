@@ -34,13 +34,20 @@ func ValidateInputMapping(schema *workflow.ParameterSchema, value any) error {
 
 func validateType(expected string, value any) error {
 	if strings.HasPrefix(expected, "[]") {
-		rv := reflect.ValueOf(value)
-		if rv.Kind() != reflect.Slice && rv.Kind() != reflect.Array {
-			return fmt.Errorf("expected %s, got %T", expected, value)
-		}
-		return nil
+		return validateSliceOrArrayType(expected, value)
 	}
+	return validateNonSliceType(expected, value)
+}
 
+func validateSliceOrArrayType(expected string, value any) error {
+	rv := reflect.ValueOf(value)
+	if rv.Kind() != reflect.Slice && rv.Kind() != reflect.Array {
+		return fmt.Errorf("expected %s, got %T", expected, value)
+	}
+	return nil
+}
+
+func validateNonSliceType(expected string, value any) error {
 	switch expected {
 	case "string":
 		if _, ok := value.(string); !ok {
@@ -59,17 +66,22 @@ func validateType(expected string, value any) error {
 			return fmt.Errorf("expected bool, got %T", value)
 		}
 	case "map":
-		rv := reflect.ValueOf(value)
-		if rv.Kind() != reflect.Map {
-			return fmt.Errorf("expected map, got %T", value)
-		}
-		if rv.Type().Key().Kind() != reflect.String {
-			return fmt.Errorf("expected map with string keys, got %T", value)
-		}
+		return validateMapStringKeys(value)
 	case "any":
 		// any type always passes
 	default:
 		// unknown type — skip validation
+	}
+	return nil
+}
+
+func validateMapStringKeys(value any) error {
+	rv := reflect.ValueOf(value)
+	if rv.Kind() != reflect.Map {
+		return fmt.Errorf("expected map, got %T", value)
+	}
+	if rv.Type().Key().Kind() != reflect.String {
+		return fmt.Errorf("expected map with string keys, got %T", value)
 	}
 	return nil
 }

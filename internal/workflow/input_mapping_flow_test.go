@@ -9,6 +9,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	testFuncLogicRand     = "fuse/pkg/logic/rand"
+	testVarLogicRand1Rand = "logic-rand-1.rand"
+)
+
 func TestInputMapping_SourceFlow_sliceDestinationValidatesUpstreamScalar(t *testing.T) {
 	sumMeta := &packages.FunctionMetadata{
 		Input: packages.FunctionInputMetadata{
@@ -31,7 +36,7 @@ func TestInputMapping_SourceFlow_sliceDestinationValidatesUpstreamScalar(t *test
 		functionMetadata: sumMeta,
 	}
 	randNode := &Node{
-		schema:           &NodeSchema{ID: "logic-rand-1", Function: "fuse/pkg/logic/rand"},
+		schema:           &NodeSchema{ID: "logic-rand-1", Function: testFuncLogicRand},
 		functionMetadata: randMeta,
 	}
 
@@ -43,12 +48,12 @@ func TestInputMapping_SourceFlow_sliceDestinationValidatesUpstreamScalar(t *test
 	}
 	edge.schema.Input = []InputMapping{{
 		Source:   SourceFlow,
-		Variable: "logic-rand-1.rand",
+		Variable: testVarLogicRand1Rand,
 		MapTo:    "values",
 	}}
 
 	out := store.New()
-	out.Set("logic-rand-1.rand", 42)
+	out.Set(testVarLogicRand1Rand, 42)
 
 	wf := &Workflow{aggregatedOutput: out}
 	args := wf.inputMapping(edge, edge.Input())
@@ -81,12 +86,12 @@ func TestResolveJoinInputs_parallelRandToSum_mergesFloat64Slice(t *testing.T) {
 		functionMetadata: sumMeta,
 	}
 	r1 := &Node{
-		schema:           &NodeSchema{ID: "logic-rand-1", Function: "fuse/pkg/logic/rand"},
+		schema:           &NodeSchema{ID: "logic-rand-1", Function: testFuncLogicRand},
 		functionMetadata: randMeta,
 		thread:           1,
 	}
 	r2 := &Node{
-		schema:           &NodeSchema{ID: "logic-rand-2", Function: "fuse/pkg/logic/rand"},
+		schema:           &NodeSchema{ID: "logic-rand-2", Function: testFuncLogicRand},
 		functionMetadata: randMeta,
 		thread:           2,
 	}
@@ -94,7 +99,7 @@ func TestResolveJoinInputs_parallelRandToSum_mergesFloat64Slice(t *testing.T) {
 	e1 := &Edge{id: "e1", from: r1, to: sumNode, schema: &EdgeSchema{
 		ID: "e1",
 		Input: []InputMapping{{
-			Source: SourceFlow, Variable: "logic-rand-1.rand", MapTo: "values",
+			Source: SourceFlow, Variable: testVarLogicRand1Rand, MapTo: "values",
 		}},
 	}}
 	e2 := &Edge{id: "e2", from: r2, to: sumNode, schema: &EdgeSchema{
@@ -107,7 +112,7 @@ func TestResolveJoinInputs_parallelRandToSum_mergesFloat64Slice(t *testing.T) {
 	sumNode.AddInputEdge(e2)
 
 	out := store.New()
-	out.Set("logic-rand-1.rand", 10)
+	out.Set(testVarLogicRand1Rand, 10)
 	out.Set("logic-rand-2.rand", 32)
 
 	wf := &Workflow{aggregatedOutput: out}

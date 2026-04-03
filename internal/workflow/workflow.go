@@ -41,6 +41,11 @@ const (
 	StateCancelled State = "cancelled"
 )
 
+const (
+	logMsgFailedParamValidation = "Failed param validation"
+	logMsgErrorParsingValue     = "Error parsing value"
+)
+
 // New creates a new Workflow from an already generated ID and a provided WorkflowGraph
 func New(id workflow.ID, graph *Graph) *Workflow {
 	return &Workflow{
@@ -524,7 +529,7 @@ func (w *Workflow) inputMapping(edge *Edge, mappings []InputMapping) map[string]
 					Str("edge", edge.ID()).
 					Str("param", mapping.MapTo).
 					Any("value", mapping.Value).
-					Msg("Failed param validation")
+					Msg(logMsgFailedParamValidation)
 				continue
 			}
 			args.Set(mapping.MapTo, mapping.Value)
@@ -572,7 +577,7 @@ func (w *Workflow) inputMapping(edge *Edge, mappings []InputMapping) map[string]
 							Str("edge", edge.ID()).
 							Str("param", mapping.MapTo).
 							Any("value", rawValue).
-							Msg("Error parsing value")
+							Msg(logMsgErrorParsingValue)
 						continue
 					}
 				}
@@ -581,7 +586,7 @@ func (w *Workflow) inputMapping(edge *Edge, mappings []InputMapping) map[string]
 						Str("edge", edge.ID()).
 						Str("param", mapping.MapTo).
 						Any("value", parsedScalar).
-						Msg("Failed param validation")
+						Msg(logMsgFailedParamValidation)
 					continue
 				}
 				value, err = typeschema.ParseValue(inputParamSchema.Type, parsedScalar)
@@ -591,7 +596,7 @@ func (w *Workflow) inputMapping(edge *Edge, mappings []InputMapping) map[string]
 						Str("edge", edge.ID()).
 						Str("param", mapping.MapTo).
 						Any("value", parsedScalar).
-						Msg("Error parsing value")
+						Msg(logMsgErrorParsingValue)
 					continue
 				}
 			default:
@@ -603,7 +608,7 @@ func (w *Workflow) inputMapping(edge *Edge, mappings []InputMapping) map[string]
 						Str("edge", edge.ID()).
 						Str("param", mapping.MapTo).
 						Any("value", mapping.Value).
-						Msg("Error parsing value")
+						Msg(logMsgErrorParsingValue)
 					continue
 				}
 				if !w.validateInputMapping(&inputParamSchema, value) {
@@ -611,7 +616,7 @@ func (w *Workflow) inputMapping(edge *Edge, mappings []InputMapping) map[string]
 						Str("edge", edge.ID()).
 						Str("param", mapping.MapTo).
 						Any("value", value).
-						Msg("Failed param validation")
+						Msg(logMsgFailedParamValidation)
 					continue
 				}
 			}

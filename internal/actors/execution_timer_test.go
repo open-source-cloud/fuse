@@ -7,6 +7,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const (
+	testTimerExec1 = "exec-1"
+	testTimerExec2 = "exec-2"
+	testTimerExec3 = "exec-3"
+)
+
 func TestExecutionTimer_CancelAll_EmptyTimers(t *testing.T) {
 	timer := NewExecutionTimer()
 
@@ -29,16 +35,16 @@ func TestExecutionTimer_CancelAll_WithTimers(t *testing.T) {
 
 	// Simulate adding timers manually (bypassing Start which needs a process)
 	timer.mu.Lock()
-	timer.timers["exec-1"] = mockCancel("exec-1")
-	timer.timers["exec-2"] = mockCancel("exec-2")
-	timer.timers["exec-3"] = mockCancel("exec-3")
+	timer.timers[testTimerExec1] = mockCancel(testTimerExec1)
+	timer.timers[testTimerExec2] = mockCancel(testTimerExec2)
+	timer.timers[testTimerExec3] = mockCancel(testTimerExec3)
 	timer.mu.Unlock()
 
 	timer.CancelAll()
 
-	assert.True(t, cancelled["exec-1"])
-	assert.True(t, cancelled["exec-2"])
-	assert.True(t, cancelled["exec-3"])
+	assert.True(t, cancelled[testTimerExec1])
+	assert.True(t, cancelled[testTimerExec2])
+	assert.True(t, cancelled[testTimerExec3])
 	assert.Empty(t, timer.timers)
 }
 

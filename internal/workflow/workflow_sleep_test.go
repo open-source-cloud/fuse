@@ -9,19 +9,25 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	testJournalExecID1     = "exec-1"
+	testJournalAwakeableID = "awk-123"
+	testJournalChildWFID   = "child-wf-1"
+)
+
 func TestJournal_SleepEntries(t *testing.T) {
 	j := NewJournal()
 
 	j.Append(JournalEntry{
 		Type:     JournalSleepStarted,
 		ThreadID: 0,
-		ExecID:   "exec-1",
+		ExecID:   testJournalExecID1,
 		Data:     map[string]any{"duration": "5s", "reason": "rate limit"},
 	})
 	j.Append(JournalEntry{
 		Type:     JournalSleepCompleted,
 		ThreadID: 0,
-		ExecID:   "exec-1",
+		ExecID:   testJournalExecID1,
 	})
 
 	entries := j.Entries()
@@ -39,19 +45,19 @@ func TestJournal_AwakeableEntries(t *testing.T) {
 		Type:     JournalAwakeableCreated,
 		ThreadID: 1,
 		ExecID:   "exec-2",
-		Data:     map[string]any{"awakeableId": "awk-123", "timeout": "30s"},
+		Data:     map[string]any{"awakeableId": testJournalAwakeableID, "timeout": "30s"},
 	})
 	j.Append(JournalEntry{
 		Type:     JournalAwakeableResolved,
 		ThreadID: 1,
 		ExecID:   "exec-2",
-		Data:     map[string]any{"awakeableId": "awk-123"},
+		Data:     map[string]any{"awakeableId": testJournalAwakeableID},
 	})
 
 	entries := j.Entries()
 	require.Len(t, entries, 2)
 	assert.Equal(t, JournalAwakeableCreated, entries[0].Type)
-	assert.Equal(t, "awk-123", entries[0].Data["awakeableId"])
+	assert.Equal(t, testJournalAwakeableID, entries[0].Data["awakeableId"])
 	assert.Equal(t, JournalAwakeableResolved, entries[1].Type)
 }
 
@@ -63,7 +69,7 @@ func TestJournal_SubWorkflowEntries(t *testing.T) {
 		ThreadID: 0,
 		ExecID:   "exec-3",
 		Data: map[string]any{
-			"childWorkflowId": "child-wf-1",
+			"childWorkflowId": testJournalChildWFID,
 			"childSchemaId":   "child-schema",
 			"async":           false,
 		},
@@ -73,7 +79,7 @@ func TestJournal_SubWorkflowEntries(t *testing.T) {
 		ThreadID: 0,
 		ExecID:   "exec-3",
 		Data: map[string]any{
-			"childWorkflowId": "child-wf-1",
+			"childWorkflowId": testJournalChildWFID,
 			"childFinalState": "finished",
 		},
 	})
@@ -81,7 +87,7 @@ func TestJournal_SubWorkflowEntries(t *testing.T) {
 	entries := j.Entries()
 	require.Len(t, entries, 2)
 	assert.Equal(t, JournalSubWorkflowStarted, entries[0].Type)
-	assert.Equal(t, "child-wf-1", entries[0].Data["childWorkflowId"])
+	assert.Equal(t, testJournalChildWFID, entries[0].Data["childWorkflowId"])
 	assert.Equal(t, JournalSubWorkflowCompleted, entries[1].Type)
 }
 
@@ -107,8 +113,8 @@ func TestReplayJournalEntries_SleepState(t *testing.T) {
 	wf := newMinimalWorkflow(t)
 
 	entries := []JournalEntry{
-		{Sequence: 1, Type: JournalThreadCreated, ThreadID: 0, ExecID: "exec-1"},
-		{Sequence: 2, Type: JournalStepStarted, ThreadID: 0, FunctionNodeID: "n1", ExecID: "exec-1"},
+		{Sequence: 1, Type: JournalThreadCreated, ThreadID: 0, ExecID: testJournalExecID1},
+		{Sequence: 2, Type: JournalStepStarted, ThreadID: 0, FunctionNodeID: "n1", ExecID: testJournalExecID1},
 		{Sequence: 3, Type: JournalStateChanged, State: StateRunning},
 		{Sequence: 4, Type: JournalStateChanged, State: StateSleeping},
 	}
@@ -122,7 +128,7 @@ func TestReplayJournalEntries_CancelledState(t *testing.T) {
 	wf := newMinimalWorkflow(t)
 
 	entries := []JournalEntry{
-		{Sequence: 1, Type: JournalThreadCreated, ThreadID: 0, ExecID: "exec-1"},
+		{Sequence: 1, Type: JournalThreadCreated, ThreadID: 0, ExecID: testJournalExecID1},
 		{Sequence: 2, Type: JournalStateChanged, State: StateRunning},
 		{Sequence: 3, Type: JournalStateChanged, State: StateCancelled},
 	}

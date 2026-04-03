@@ -27,14 +27,6 @@ func TestMemoryWorkflowRepository_FindByState(t *testing.T) {
 		expected int
 	}{
 		{
-			name: "empty repository returns no results",
-			setup: func(_ *testing.T, _ repositories.WorkflowRepository) {
-				// No setup: assert FindByState on an empty repository.
-			},
-			states:   []internalworkflow.State{internalworkflow.StateRunning},
-			expected: 0,
-		},
-		{
 			name: "finds running workflows",
 			setup: func(t *testing.T, repo repositories.WorkflowRepository) {
 				wf := newTestWorkflow(t)

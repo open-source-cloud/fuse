@@ -19,8 +19,8 @@ func buildConditionalNode(nodeID, conditionalField string, edges []*Edge) *Node 
 				ConditionalOutput:      true,
 				ConditionalOutputField: conditionalField,
 				Edges: map[string]packages.FunctionOutputEdgeMetadata{
-					"branch-a": {Name: "branch-a"},
-					"branch-b": {Name: "branch-b"},
+					testBranchA: {Name: testBranchA},
+					testBranchB: {Name: testBranchB},
 				},
 			},
 		},
@@ -69,8 +69,8 @@ func TestFilterOutputEdgesByConditionals_NonConditionalNode(t *testing.T) {
 func TestFilterOutputEdgesByConditionals_ExactMatch(t *testing.T) {
 	targetA := &Node{schema: &NodeSchema{ID: "branch-a-node"}}
 	targetB := &Node{schema: &NodeSchema{ID: "branch-b-node"}}
-	edgeA := buildEdge("ea", &EdgeCondition{Name: "branch-a", Type: ConditionExact, Value: "a"}, targetA)
-	edgeB := buildEdge("eb", &EdgeCondition{Name: "branch-b", Type: ConditionExact, Value: "b"}, targetB)
+	edgeA := buildEdge("ea", &EdgeCondition{Name: testBranchA, Type: ConditionExact, Value: "a"}, targetA)
+	edgeB := buildEdge("eb", &EdgeCondition{Name: testBranchB, Type: ConditionExact, Value: "b"}, targetB)
 	node := buildConditionalNode("src", "result", []*Edge{edgeA, edgeB})
 
 	output := store.New()
