@@ -1,0 +1,54 @@
+{
+  "id": "error-edge-test",
+  "name": "Error Edge Test",
+  "nodes": [
+    {
+      "id": "trigger",
+      "function": "fuse/pkg/debug/nil"
+    },
+    {
+      "id": "fail-node",
+      "function": "fuse/pkg/debug/fail",
+      "retry": {
+        "maxAttempts": 0,
+        "backoff": {
+          "type": "fixed",
+          "initialInterval": "100ms"
+        }
+      }
+    },
+    {
+      "id": "normal-path",
+      "function": "fuse/pkg/debug/nil"
+    },
+    {
+      "id": "recovery",
+      "function": "fuse/pkg/debug/nil"
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1-trigger-to-fail",
+      "from": "trigger",
+      "to": "fail-node",
+      "input": [
+        {
+          "source": "schema",
+          "value": 999,
+          "mapTo": "failCount"
+        }
+      ]
+    },
+    {
+      "id": "e2-fail-to-normal",
+      "from": "fail-node",
+      "to": "normal-path"
+    },
+    {
+      "id": "e3-fail-to-recovery",
+      "from": "fail-node",
+      "to": "recovery",
+      "onError": true
+    }
+  ]
+}

@@ -2,9 +2,10 @@ package messaging
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/open-source-cloud/fuse/internal/workflow/workflowactions"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
-	"strings"
 )
 
 // ExecuteFunctionMessage defines a ExecuteFunction message

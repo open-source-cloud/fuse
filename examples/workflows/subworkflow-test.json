@@ -1,0 +1,34 @@
+{
+  "id": "subworkflow-test",
+  "name": "Sub-workflow Test",
+  "nodes": [
+    {
+      "id": "start",
+      "function": "fuse/pkg/debug/nil"
+    },
+    {
+      "id": "run-child",
+      "function": "system/subworkflow"
+    },
+    {
+      "id": "after-child",
+      "function": "fuse/pkg/debug/nil"
+    }
+  ],
+  "edges": [
+    {
+      "id": "start-to-child",
+      "from": "start",
+      "to": "run-child",
+      "input": [
+        { "source": "schema", "value": "smallest-test", "mapTo": "schemaId" },
+        { "source": "schema", "value": false, "mapTo": "async" }
+      ]
+    },
+    {
+      "id": "child-to-end",
+      "from": "run-child",
+      "to": "after-child"
+    }
+  ]
+}

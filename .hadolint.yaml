@@ -1,0 +1,5 @@
+# Local Dockerfile lint (make dockerfile-lint). Suppress rules we intentionally skip;
+# keep DL3059 (merge RUN) enabled — matches SonarCloud Docker analysis.
+ignored:
+  - DL3006 # Distroless base tags are not semver-style pins
+  - DL3008 # Dev/prod images use unversioned apt packages on stable Debian

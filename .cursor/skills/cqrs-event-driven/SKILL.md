@@ -201,11 +201,11 @@ func (w *Workflow) ApplyEvent(event DomainEvent) {
 ### Event Store Implementation
 
 ```go
-type MongoEventStore struct {
-    collection *mongo.Collection
+type SqlEventStore struct {
+    db *sql.DB
 }
 
-func (s *MongoEventStore) Append(streamID string, events []DomainEvent, expectedVersion int) error {
+func (s *SqlEventStore) Append(streamID string, events []DomainEvent, expectedVersion int) error {
     // Optimistic concurrency check
     currentVersion, err := s.GetStreamVersion(streamID)
     if err != nil && err != ErrStreamNotFound {

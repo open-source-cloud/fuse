@@ -12,3 +12,6 @@ const MuxServerSupName = "mux_server_sup"
 
 // WorkflowInstanceSupervisor is the name of the WorkflowInstanceSup actor
 const WorkflowInstanceSupervisor = "workflow_instance_sup"
+
+// SchemaReplicationActorName is the schema cluster-replication actor (ergo Events producer/consumer).
+const SchemaReplicationActorName = "schema_replication"

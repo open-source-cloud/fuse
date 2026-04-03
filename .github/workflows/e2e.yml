@@ -1,0 +1,72 @@
+name: E2E
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          repository: ${{ github.event.workflow_run.head_repository.full_name }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+
+      - name: Build Docker image
+        run: docker build -t fuse-app:test .
+
+      - name: Install k3d
+        run: |
+          curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
+
+      - name: Create k3d cluster
+        run: |
+          k3d cluster create fuse-test --wait
+          k3d image import fuse-app:test -c fuse-test
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Deploy FUSE (values-dev, multi-replica)
+        run: |
+          helm install fuse deploy/helm/fuse/ \
+            -f deploy/k3s/values-dev.yaml \
+            --set image.repository=fuse-app \
+            --set image.tag=test \
+            --wait --timeout 180s
+
+      - name: Wait for rollout
+        run: kubectl rollout status deployment/fuse --timeout=180s
+
+      - name: Verify all replicas ready
+        run: |
+          set -euo pipefail
+          desired=$(kubectl get deployment fuse -o jsonpath='{.spec.replicas}')
+          ready=$(kubectl get deployment fuse -o jsonpath='{.status.readyReplicas}')
+          updated=$(kubectl get deployment fuse -o jsonpath='{.status.updatedReplicas}')
+          echo "desired=$desired ready=$ready updated=$updated"
+          test -n "$ready" && test "$ready" = "$desired" && test "$updated" = "$desired"
+
+      # Forward to Deployment so one pod handles the whole E2E run (standalone in-memory state).
+      - name: Port forward
+        run: |
+          kubectl port-forward deployment/fuse 9090:9090 &
+          sleep 3
+
+      - name: Health check
+        run: curl -sf http://localhost:9090/health
+
+      - name: Run E2E workflow tests
+        run: go test -tags=e2e ./tests/e2e -v -count=4 -parallel 4 -timeout 15m
+
+      - name: Cleanup
+        if: always()
+        run: k3d cluster delete fuse-test

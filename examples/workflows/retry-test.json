@@ -1,0 +1,56 @@
+{
+  "id": "retry-test",
+  "name": "Retry Test",
+  "nodes": [
+    {
+      "id": "trigger",
+      "function": "fuse/pkg/debug/nil"
+    },
+    {
+      "id": "fail-node",
+      "function": "fuse/pkg/debug/fail",
+      "retry": {
+        "maxAttempts": 3,
+        "backoff": {
+          "type": "fixed",
+          "initialInterval": "100ms"
+        }
+      }
+    },
+    {
+      "id": "success",
+      "function": "fuse/pkg/debug/print"
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1-trigger-to-fail",
+      "from": "trigger",
+      "to": "fail-node",
+      "input": [
+        {
+          "source": "schema",
+          "value": 2,
+          "mapTo": "failCount"
+        },
+        {
+          "source": "schema",
+          "value": "transient error simulation",
+          "mapTo": "message"
+        }
+      ]
+    },
+    {
+      "id": "e2-fail-to-success",
+      "from": "fail-node",
+      "to": "success",
+      "input": [
+        {
+          "source": "flow",
+          "variable": "fail-node.result",
+          "mapTo": "message"
+        }
+      ]
+    }
+  ]
+}

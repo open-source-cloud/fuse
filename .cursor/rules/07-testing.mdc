@@ -249,40 +249,20 @@ func TestWorkflowService_CreateWorkflow(t *testing.T) {
 
 ### Repository Tests
 
-Test repository implementations against real dependencies:
+Test repository implementations; use the in-memory types for fast integration-style tests without external services:
 
 ```go
-func TestMongoWorkflowRepository_Integration(t *testing.T) {
-    if testing.Short() {
-        t.Skip("skipping integration test")
-    }
+func TestMemoryWorkflowRepository_Integration(t *testing.T) {
+    repo := NewMemoryWorkflowRepository()
 
-    // Setup - Connect to test MongoDB instance
-    client, err := mongo.Connect(context.Background(), options.Client().ApplyURI("mongodb://localhost:27017"))
-    require.NoError(t, err)
-    defer client.Disconnect(context.Background())
-
-    config := &config.Config{
-        Database: config.Database{Name: "test_db"},
-    }
-    repo := NewMongoWorkflowRepository(client, config)
-
-    // Arrange
     workflow := createTestWorkflow()
 
-    // Act - Save
-    err = repo.Save(workflow)
-    require.NoError(t, err)
-
-    // Act - Get
+    require.NoError(t, repo.Save(workflow))
     retrieved, err := repo.Get(workflow.ID().String())
-
-    // Assert
     require.NoError(t, err)
     assert.Equal(t, workflow.ID(), retrieved.ID())
 
-    // Cleanup
-    _ = repo.Delete(workflow.ID().String())
+    require.NoError(t, repo.Delete(workflow.ID().String()))
 }
 ```
 
@@ -729,40 +709,20 @@ func TestWorkflowService_CreateWorkflow(t *testing.T) {
 
 ### Repository Tests
 
-Test repository implementations against real dependencies:
+Test repository implementations; use the in-memory types for fast integration-style tests without external services:
 
 ```go
-func TestMongoWorkflowRepository_Integration(t *testing.T) {
-    if testing.Short() {
-        t.Skip("skipping integration test")
-    }
+func TestMemoryWorkflowRepository_Integration(t *testing.T) {
+    repo := NewMemoryWorkflowRepository()
 
-    // Setup - Connect to test MongoDB instance
-    client, err := mongo.Connect(context.Background(), options.Client().ApplyURI("mongodb://localhost:27017"))
-    require.NoError(t, err)
-    defer client.Disconnect(context.Background())
-
-    config := &config.Config{
-        Database: config.Database{Name: "test_db"},
-    }
-    repo := NewMongoWorkflowRepository(client, config)
-
-    // Arrange
     workflow := createTestWorkflow()
 
-    // Act - Save
-    err = repo.Save(workflow)
-    require.NoError(t, err)
-
-    // Act - Get
+    require.NoError(t, repo.Save(workflow))
     retrieved, err := repo.Get(workflow.ID().String())
-
-    // Assert
     require.NoError(t, err)
     assert.Equal(t, workflow.ID(), retrieved.ID())
 
-    // Cleanup
-    _ = repo.Delete(workflow.ID().String())
+    require.NoError(t, repo.Delete(workflow.ID().String()))
 }
 ```
 

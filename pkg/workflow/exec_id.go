@@ -28,8 +28,8 @@ func (e ExecID) Thread() uint16 {
 
 	// Extract threads parts:
 	// uuid[6] (7th byte), uuid[7] (8th byte)
-	hi := raw[6] & 0x0F          // low nibble of byte 6
-	lo := raw[7]                 // all of byte 7
+	hi := raw[6] & 0x0F // low nibble of byte 6
+	lo := raw[7]        // all of byte 7
 	threadIndex := (uint16(hi) << 8) | uint16(lo)
 	return threadIndex
 }

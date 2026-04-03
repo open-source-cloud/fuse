@@ -1,25 +1,19 @@
 # Fuse Engine - Docker Compose Setup
 
-This setup includes MongoDB and LocalStack with AWS resources.
+This setup includes LocalStack with AWS resources (S3, SQS, SNS).
+
+## Production-like deployment (Kubernetes)
+
+For running FUSE on a cluster (Helm chart, `standalone` vs ergo `cluster` mode, HA caveats), see [DEPLOYMENT.md](DEPLOYMENT.md) and [`deploy/helm/fuse/`](../deploy/helm/fuse/).
 
 ## Services
-
-### MongoDB
-
-- **Image**: `mongo:latest`
-- **Port**: `27017`
-- **Volume**: `mongodb_data:/bitnami/mongodb`
-
-#### ARM
-
-For arm use `arm64v8/mongo` as `$MONGO_DOCKER_IMAGE` instead.
 
 ### LocalStack
 
 - **Image**: `localstack/localstack:latest`
 - **Port**: `4566` (main endpoint)
 - **Services**: S3, SQS, SNS
-- **Volume**: `localstack_data:/tmp/localstack`
+- **Volume**: `localstack_data:/var/lib/localstack`
 
 ### Localstack Setup Container
 
@@ -27,7 +21,7 @@ For arm use `arm64v8/mongo` as `$MONGO_DOCKER_IMAGE` instead.
 
 ## Environment Variables
 
-Create a `.env` file from the .env.example 
+Create a `.env` file from the .env.example
 
 ```bash
 cp .env.example .env
@@ -60,7 +54,6 @@ cp .env.example .env
 
 ## Accessing Services
 
-- **MongoDB**: `mongodb://root:toor@localhost:27017/fuse`
 - **LocalStack S3**: `http://localhost:4566`
 - **S3 Buckets** (via AWS CLI):
   ```bash

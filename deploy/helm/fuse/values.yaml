@@ -1,0 +1,104 @@
+# -- Number of replicas (only applies in standalone mode; cluster mode uses this for StatefulSet replicas)
+replicaCount: 1
+
+# -- Deployment mode: "standalone" uses a Deployment, "cluster" uses a StatefulSet with ergo clustering
+mode: standalone
+
+image:
+  # -- Container image repository
+  repository: ghcr.io/open-source-cloud/fuse
+  # -- Container image tag (pin per release; align with Chart appVersion)
+  tag: "0.1.0"
+  # -- Image pull policy
+  pullPolicy: IfNotPresent
+
+# -- Image pull secrets for private registries
+imagePullSecrets: []
+
+# -- Override the chart name
+nameOverride: ""
+# -- Override the full release name
+fullnameOverride: ""
+
+serviceAccount:
+  # -- Whether to create a service account
+  create: true
+  # -- Annotations to add to the service account
+  annotations: {}
+  # -- The name of the service account (auto-generated if empty)
+  name: ""
+
+service:
+  # -- Kubernetes Service type
+  type: ClusterIP
+  # -- HTTP API port
+  port: 9090
+  # -- ClientIP keeps REST clients on one pod when replicaCount>1 (standalone in-memory state).
+  # Set to "" to omit (default kube behavior).
+  sessionAffinity: ""
+  sessionAffinityConfig: {}
+
+cluster:
+  # -- If true with mode: standalone, helm render fails (peer list assumes StatefulSet DNS; Deployments use random pod names).
+  # Ergo clustering is configured when mode: cluster regardless of this flag.
+  enabled: false
+  # -- Shared cookie for ergo cluster authentication (Kubernetes Secret, not ConfigMap)
+  cookie: "fuse-cluster-secret"
+  # -- Port for ergo cluster acceptor (inter-node communication)
+  acceptorPort: 15000
+
+# -- Environment variables injected into the FUSE container via ConfigMap
+env:
+  LOG_LEVEL: info
+  SHUTDOWN_TIMEOUT: 30s
+
+# -- Extra environment variables (list of {name, value} or {name, valueFrom})
+extraEnv: []
+
+# -- Container resource requests and limits
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+    ephemeral-storage: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# -- Pod annotations
+podAnnotations: {}
+
+# -- Pod security context
+podSecurityContext: {}
+
+# -- Container security context
+securityContext: {}
+
+# -- Node selector constraints
+nodeSelector: {}
+
+# -- Tolerations for pod scheduling
+tolerations: []
+
+# -- Affinity rules for pod scheduling
+affinity: {}
+
+# -- Liveness probe configuration
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 15
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+# -- Readiness probe configuration
+readinessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3

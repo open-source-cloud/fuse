@@ -27,6 +27,16 @@ func (s *KvTestSuit) TestKvStore() {
 	s.Equal("value", kv.Get("key"))
 }
 
+func (s *KvTestSuit) TestSnapshot() {
+	kv := store.New()
+	kv.Set("n1", map[string]any{"x": 1})
+	snap := kv.Snapshot()
+	s.Equal(map[string]any{"x": 1}, snap["n1"])
+	kv.Set("n2", "added")
+	s.NotContains(snap, "n2")
+	s.True(kv.Has("n2"))
+}
+
 // TestBasicOperations tests basic CRUD operations
 func (s *KvTestSuit) TestBasicOperations() {
 	kv := store.New()

@@ -57,7 +57,7 @@ func NewWorkers() *Workers {
 			{
 				Name:    handlers.AsyncFunctionResultHandlerName,
 				Pattern: "/v1/workflows/{workflowID}/execs/{execID}",
-				Methods: []string{"GET"},
+				Methods: []string{"POST"},
 				Timeout: 10 * time.Second,
 				PoolConfig: WorkerPoolConfig{
 					Name:     handlers.AsyncFunctionResultHandlerPoolName,
@@ -85,12 +85,43 @@ func NewWorkers() *Workers {
 				},
 			},
 			{
-				Name:    handlers.RegisterPackageHandlerName,
-				Pattern: "/v1/packages/{packageID}",
+				Name: handlers.RegisterPackageHandlerName,
+				// packageID may contain slashes (e.g. fuse/pkg/logic); default {var} is single-segment only.
+				Pattern: "/v1/packages/{packageID:.+}",
 				Methods: []string{"GET", "PUT"},
 				Timeout: 10 * time.Second,
 				PoolConfig: WorkerPoolConfig{
 					Name:     handlers.RegisterPackageHandlerPoolName,
+					PoolSize: 3,
+				},
+			},
+			{
+				Name:    handlers.GetWorkflowHandlerName,
+				Pattern: "/v1/workflows/{workflowID}",
+				Methods: []string{"GET"},
+				Timeout: 10 * time.Second,
+				PoolConfig: WorkerPoolConfig{
+					Name:     handlers.GetWorkflowHandlerPoolName,
+					PoolSize: 3,
+				},
+			},
+			{
+				Name:    handlers.CancelWorkflowHandlerName,
+				Pattern: "/v1/workflows/{workflowID}/cancel",
+				Methods: []string{"POST"},
+				Timeout: 10 * time.Second,
+				PoolConfig: WorkerPoolConfig{
+					Name:     handlers.CancelWorkflowHandlerPoolName,
+					PoolSize: 3,
+				},
+			},
+			{
+				Name:    handlers.ResolveAwakeableHandlerName,
+				Pattern: "/v1/awakeables/{awakeableID}/resolve",
+				Methods: []string{"POST"},
+				Timeout: 10 * time.Second,
+				PoolConfig: WorkerPoolConfig{
+					Name:     handlers.ResolveAwakeableHandlerPoolName,
 					PoolSize: 3,
 				},
 			},

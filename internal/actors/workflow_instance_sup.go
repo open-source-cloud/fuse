@@ -110,6 +110,11 @@ func (a *WorkflowInstanceSupervisor) HandleMessage(from gen.PID, message any) er
 	a.Log().Info("got message from %s - %s", from, msg.Type)
 	a.Log().Debug("args: %s", msg.Args)
 
+	if msg.Type == messaging.WorkflowCompleted {
+		a.Log().Info("workflow completed, shutting down actor tree")
+		return gen.TerminateReasonNormal
+	}
+
 	return nil
 }
 

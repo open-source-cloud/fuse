@@ -51,3 +51,13 @@ jobs:
 
       - name: Build
         run: make build
+
+      - name: Install Helm
+        # Pinned to v4.3.1 (same commit as the @v4 major tag).
+        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4
+
+      - name: Helm lint
+        run: helm lint deploy/helm/fuse/
+
+      - name: Helm template validation
+        run: helm template fuse deploy/helm/fuse/ --values deploy/helm/fuse/values.yaml > /dev/null

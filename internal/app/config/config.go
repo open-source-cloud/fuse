@@ -2,6 +2,7 @@
 package config
 
 import (
+	"strings"
 	"time"
 
 	"github.com/caarlos0/env/v11"
@@ -10,12 +11,12 @@ import (
 var config *Config
 
 type (
-	// Config represents the application configuration, including the app name and database configuration.
+	// Config represents the application configuration.
 	Config struct {
-		Name     string `env:"APP_NAME"`
-		Params   ParamsConfig
-		Server   ServerConfig
-		Database DatabaseConfig
+		Name    string `env:"APP_NAME"`
+		Params  ParamsConfig
+		Server  ServerConfig
+		Cluster ClusterConfig
 	}
 
 	// ParamsConfig configuration parameters
@@ -25,18 +26,20 @@ type (
 		ShutdownTimeout time.Duration `env:"SHUTDOWN_TIMEOUT" envDefault:"30s"`
 	}
 
-	// DatabaseConfig represents the configuration settings required to connect to a database.
-	DatabaseConfig struct {
-		Driver         string `env:"DB_DRIVER" envDefault:"memory"`
-		Name           string `env:"DB_NAME" envDefault:"fuse"`
-		URL            string `env:"DB_URL" envDefault:""`
-		TestConnection bool   `env:"DB_TEST_CONNECTION" envDefault:"true"`
-	}
-
 	// ServerConfig http server config
 	ServerConfig struct {
 		Host string `env:"HOST" envDefault:"0.0.0.0"`
 		Port string `env:"PORT" envDefault:"9090"`
+	}
+
+	// ClusterConfig configuration for ergo distributed clustering
+	ClusterConfig struct {
+		Enabled             bool   `env:"CLUSTER_ENABLED" envDefault:"false"`
+		NodeName            string `env:"CLUSTER_NODE_NAME"`
+		Cookie              string `env:"CLUSTER_COOKIE" envDefault:"fuse-cluster-secret"`
+		AcceptorPort        uint16 `env:"CLUSTER_ACCEPTOR_PORT" envDefault:"15000"`
+		HeadlessServiceFQDN string `env:"CLUSTER_HEADLESS_SERVICE_FQDN"`
+		PeerNodesCSV        string `env:"CLUSTER_PEER_NODES"`
 	}
 )
 
@@ -55,4 +58,20 @@ func Instance() *Config {
 // Validate checks the fields of the Config object for correctness and returns an error if validation fails.
 func (c *Config) Validate() error {
 	return nil
+}
+
+// PeerNodeNames returns CLUSTER_PEER_NODES split into non-empty trimmed entries (full ergo node names).
+func (c *ClusterConfig) PeerNodeNames() []string {
+	if c.PeerNodesCSV == "" {
+		return nil
+	}
+	parts := strings.Split(c.PeerNodesCSV, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }

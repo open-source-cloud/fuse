@@ -2,9 +2,9 @@
 package workflow
 
 import (
-	"fmt"
 	"reflect"
 	"strings"
+	"sync"
 
 	"github.com/open-source-cloud/fuse/internal/workflow/workflowactions"
 
@@ -37,6 +37,13 @@ const (
 	StateFinished State = "finished"
 	// StateError Workflow error state (finished with error)
 	StateError State = "error"
+	// StateCancelled Workflow cancelled state (terminated by user/system)
+	StateCancelled State = "cancelled"
+)
+
+const (
+	logMsgFailedParamValidation = "Failed param validation"
+	logMsgErrorParsingValue     = "Error parsing value"
 )
 
 // New creates a new Workflow from an already generated ID and a provided WorkflowGraph
@@ -44,7 +51,9 @@ func New(id workflow.ID, graph *Graph) *Workflow {
 	return &Workflow{
 		id:               id,
 		graph:            graph,
+		journal:          NewJournal(),
 		auditLog:         NewAuditLog(),
+		retryTracker:     NewRetryTracker(),
 		threads:          newThreads(),
 		aggregatedOutput: store.New(),
 		state: RunningState{
@@ -58,7 +67,9 @@ type (
 	Workflow struct {
 		id               workflow.ID
 		graph            *Graph
+		journal          *Journal
 		auditLog         *AuditLog
+		retryTracker     *RetryTracker
 		threads          *threads
 		aggregatedOutput *store.KV
 		state            RunningState
@@ -66,6 +77,7 @@ type (
 
 	// RunningState defines the Workflow running state
 	RunningState struct {
+		mu           sync.RWMutex
 		currentState State
 	}
 )
@@ -78,6 +90,18 @@ func (w *Workflow) Trigger() workflowactions.Action {
 	triggerThread := w.threads.New(triggerNode.thread, execID)
 	w.auditLog.NewEntry(triggerThread.ID(), triggerNode.ID(), execID.String(), nil)
 
+	w.journal.Append(JournalEntry{
+		Type:     JournalThreadCreated,
+		ThreadID: triggerThread.ID(),
+		ExecID:   execID.String(),
+	})
+	w.journal.Append(JournalEntry{
+		Type:           JournalStepStarted,
+		ThreadID:       triggerThread.ID(),
+		FunctionNodeID: triggerNode.ID(),
+		ExecID:         execID.String(),
+	})
+
 	return &workflowactions.RunFunctionAction{
 		ThreadID:       triggerThread.ID(),
 		FunctionID:     triggerNode.FunctionID(),
@@ -86,10 +110,127 @@ func (w *Workflow) Trigger() workflowactions.Action {
 	}
 }
 
-// Resume resumes a previously started Workflow that needed to be re-created from data
+// Resume resumes a previously started Workflow by replaying its journal entries
+// to reconstruct state, then determining the next action to take.
 func (w *Workflow) Resume() workflowactions.Action {
-	// TODO add logic to re-start an already started Workflow that got reloaded from storage
-	return nil
+	entries := w.journal.Entries()
+	if len(entries) == 0 {
+		return &workflowactions.NoopAction{}
+	}
+
+	lastCompletedThreadIDs := w.replayJournalEntries(entries)
+	return w.buildResumeAction(entries, lastCompletedThreadIDs)
+}
+
+// replayJournalEntries replays journal entries to reconstruct workflow state.
+// Returns the IDs of threads that completed during replay.
+func (w *Workflow) replayJournalEntries(entries []JournalEntry) []uint16 {
+	var lastCompletedThreadIDs []uint16
+
+	for _, entry := range entries {
+		switch entry.Type {
+		case JournalThreadCreated:
+			execID := workflow.ExecID(entry.ExecID)
+			w.threads.New(entry.ThreadID, execID)
+		case JournalStepStarted:
+			w.auditLog.NewEntry(entry.ThreadID, entry.FunctionNodeID, entry.ExecID, entry.Input)
+		case JournalStepCompleted:
+			w.SetResultFor(workflow.ExecID(entry.ExecID), entry.Result)
+		case JournalThreadDone:
+			t := w.threads.Get(entry.ThreadID)
+			if t != nil {
+				t.SetState(ThreadFinished)
+			}
+			lastCompletedThreadIDs = append(lastCompletedThreadIDs, entry.ThreadID)
+		case JournalStateChanged:
+			w.state.currentState = entry.State
+		}
+	}
+
+	return lastCompletedThreadIDs
+}
+
+// buildResumeAction determines the next action after journal replay.
+func (w *Workflow) buildResumeAction(entries []JournalEntry, lastCompletedThreadIDs []uint16) workflowactions.Action {
+	pendingThreads := w.findPendingThreads(entries)
+
+	if len(pendingThreads) == 0 {
+		// All steps completed — try Next() on last finished threads to advance
+		for _, threadID := range lastCompletedThreadIDs {
+			action := w.Next(threadID)
+			if action.Type() != workflowactions.ActionNoop {
+				return action
+			}
+		}
+		return &workflowactions.NoopAction{}
+	}
+
+	// Re-execute pending steps
+	if len(pendingThreads) == 1 {
+		return w.replayPendingThread(pendingThreads[0])
+	}
+	parallel := &workflowactions.RunParallelFunctionsAction{
+		Actions: make([]*workflowactions.RunFunctionAction, 0, len(pendingThreads)),
+	}
+	for _, pt := range pendingThreads {
+		action := w.replayPendingThread(pt)
+		if runAction, ok := action.(*workflowactions.RunFunctionAction); ok {
+			parallel.Actions = append(parallel.Actions, runAction)
+		}
+	}
+	if len(parallel.Actions) == 0 {
+		return &workflowactions.NoopAction{}
+	}
+	return parallel
+}
+
+type pendingThread struct {
+	threadID       uint16
+	functionNodeID string
+	execID         string
+	input          map[string]any
+}
+
+// findPendingThreads finds threads that have a StepStarted but no StepCompleted/StepFailed.
+func (w *Workflow) findPendingThreads(entries []JournalEntry) []pendingThread {
+	started := make(map[string]pendingThread) // execID -> pendingThread
+	completed := make(map[string]bool)        // execID -> completed
+
+	for _, entry := range entries {
+		switch entry.Type {
+		case JournalStepStarted:
+			started[entry.ExecID] = pendingThread{
+				threadID:       entry.ThreadID,
+				functionNodeID: entry.FunctionNodeID,
+				execID:         entry.ExecID,
+				input:          entry.Input,
+			}
+		case JournalStepCompleted, JournalStepFailed:
+			completed[entry.ExecID] = true
+		}
+	}
+
+	var pending []pendingThread
+	for execID, pt := range started {
+		if !completed[execID] {
+			pending = append(pending, pt)
+		}
+	}
+	return pending
+}
+
+// replayPendingThread creates a RunFunctionAction for a thread that was in-progress when execution stopped.
+func (w *Workflow) replayPendingThread(pt pendingThread) workflowactions.Action {
+	node, err := w.graph.FindNode(pt.functionNodeID)
+	if err != nil {
+		return &workflowactions.NoopAction{}
+	}
+	return &workflowactions.RunFunctionAction{
+		ThreadID:       pt.threadID,
+		FunctionID:     node.FunctionID(),
+		FunctionExecID: workflow.ExecID(pt.execID),
+		Args:           pt.input,
+	}
 }
 
 // Next requests the next Action to be enacted by the responsible actor on this workflow
@@ -101,12 +242,19 @@ func (w *Workflow) Next(threadID uint16) workflowactions.Action {
 	switch len(currentNode.OutputEdges()) {
 	case 0:
 		currentThread.SetState(StateFinished)
-		// TODO: if ALL threads are finished, finish actor-tree for this workflow
+		w.journal.Append(JournalEntry{
+			Type:     JournalThreadDone,
+			ThreadID: currentThread.ID(),
+		})
 		return &workflowactions.NoopAction{}
 	case 1:
 		edge := currentNode.OutputEdges()[0]
 		if currentNode.thread != edge.To().thread {
 			currentThread.SetState(StateFinished)
+			w.journal.Append(JournalEntry{
+				Type:     JournalThreadDone,
+				ThreadID: currentThread.ID(),
+			})
 		}
 		if !w.threads.AreAllParentsFinishedFor(edge.To().parentThreads) {
 			return &workflowactions.NoopAction{}
@@ -121,14 +269,23 @@ func (w *Workflow) nextWithMultipleOutputEdges(currentThread *thread, currentNod
 	edges := w.filterOutputEdgesByConditionals(currentNode)
 
 	edgeCount := len(edges)
-	// if no edges after conditional filtering, just stop
+	// if no edges after conditional filtering, mark the thread as done and stop
 	if edgeCount == 0 {
+		currentThread.SetState(StateFinished)
+		w.journal.Append(JournalEntry{
+			Type:     JournalThreadDone,
+			ThreadID: currentThread.ID(),
+		})
 		return &workflowactions.NoopAction{}
 	}
 	// if we only have 1 output after filtering conditional edges, let's just run that one
 	if edgeCount == 1 {
 		if currentNode.thread != edges[0].To().thread {
 			currentThread.SetState(StateFinished)
+			w.journal.Append(JournalEntry{
+				Type:     JournalThreadDone,
+				ThreadID: currentThread.ID(),
+			})
 		}
 		return w.newRunFunctionAction(currentThread, edges[0])
 	}
@@ -138,6 +295,10 @@ func (w *Workflow) nextWithMultipleOutputEdges(currentThread *thread, currentNod
 		Actions: make([]*workflowactions.RunFunctionAction, 0, len(currentNode.OutputEdges())),
 	}
 	currentThread.SetState(StateFinished)
+	w.journal.Append(JournalEntry{
+		Type:     JournalThreadDone,
+		ThreadID: currentThread.ID(),
+	})
 	for _, edge := range edges {
 		if !w.threads.AreAllParentsFinishedFor(edge.To().parentThreads) {
 			return &workflowactions.NoopAction{}
@@ -151,24 +312,38 @@ func (w *Workflow) filterOutputEdgesByConditionals(currentNode *Node) []*Edge {
 	if !currentNode.IsConditional() {
 		return currentNode.OutputEdges()
 	}
-	conditionalEdges := currentNode.FunctionMetadata().Output.Edges
-	conditionalSource := currentNode.FunctionMetadata().Output.ConditionalOutputField
-	conditionalValue := w.aggregatedOutput.Get(fmt.Sprintf("%s.%s", currentNode.ID(), conditionalSource))
 
-	edges := make([]*Edge, 0, len(currentNode.OutputEdges()))
+	var matchedEdges []*Edge
+	var defaultEdge *Edge
+
 	for _, edge := range currentNode.OutputEdges() {
-		edgeCondition := edge.Condition()
-		if edgeCondition.Value == conditionalValue {
-			_, exists := conditionalEdges[edgeCondition.Name]
-			if !exists {
-				log.Error().Str("edge", edge.ID()).Str("condition", edgeCondition.Name).
-					Msg("Conditional edge not found")
-				continue
-			}
-			edges = append(edges, edge)
+		condition := edge.Condition()
+		if condition == nil {
+			matchedEdges = append(matchedEdges, edge)
+			continue
+		}
+
+		if condition.Type == ConditionDefault {
+			defaultEdge = edge
+			continue
+		}
+
+		matches, err := EvaluateCondition(condition, w.aggregatedOutput, currentNode)
+		if err != nil {
+			log.Error().Err(err).Str("edge", edge.ID()).Msg("condition evaluation failed")
+			continue
+		}
+		if matches {
+			matchedEdges = append(matchedEdges, edge)
 		}
 	}
-	return edges
+
+	// If no conditions matched and there's a default edge, use it
+	if len(matchedEdges) == 0 && defaultEdge != nil {
+		matchedEdges = append(matchedEdges, defaultEdge)
+	}
+
+	return matchedEdges
 }
 
 // SetResultFor sets the result of a function execution in the workflow's AuditLog
@@ -179,6 +354,23 @@ func (w *Workflow) SetResultFor(functionExecID workflow.ExecID, result *workflow
 	}
 	entry.Result = result
 	w.aggregatedOutput.Set(entry.FunctionNodeID, result.Output.Data)
+
+	entryType := JournalStepCompleted
+	if result.Output.Status != workflow.FunctionSuccess {
+		entryType = JournalStepFailed
+	}
+	w.journal.Append(JournalEntry{
+		Type:           entryType,
+		ThreadID:       entry.ThreadID,
+		FunctionNodeID: entry.FunctionNodeID,
+		ExecID:         functionExecID.String(),
+		Result:         result,
+	})
+}
+
+// AggregatedOutputSnapshot returns a shallow copy of per-node outputs accumulated during execution.
+func (w *Workflow) AggregatedOutputSnapshot() map[string]any {
+	return w.aggregatedOutput.Snapshot()
 }
 
 // ID Workflow ID
@@ -188,12 +380,35 @@ func (w *Workflow) ID() workflow.ID {
 
 // State Workflow state
 func (w *Workflow) State() State {
+	w.state.mu.RLock()
+	defer w.state.mu.RUnlock()
 	return w.state.currentState
 }
 
 // SetState changes Workflow state
 func (w *Workflow) SetState(state State) {
+	w.state.mu.Lock()
 	w.state.currentState = state
+	w.state.mu.Unlock()
+	w.journal.Append(JournalEntry{
+		Type:  JournalStateChanged,
+		State: state,
+	})
+}
+
+// AllThreadsFinished returns true if all threads in this workflow have reached the finished state
+func (w *Workflow) AllThreadsFinished() bool {
+	return w.threads.AllFinished()
+}
+
+// Graph returns the workflow's graph
+func (w *Workflow) Graph() *Graph {
+	return w.graph
+}
+
+// Journal returns the workflow's execution journal
+func (w *Workflow) Journal() *Journal {
+	return w.journal
 }
 
 // AuditLog Workflow audit log
@@ -225,27 +440,57 @@ func (w *Workflow) newRunFunctionAction(currentThread *thread, edge *Edge) *work
 	execID := workflow.NewExecID(node.thread)
 
 	newOrCurrentThread := currentThread
-	var mappings []InputMapping
+	var args map[string]any
 	if currentThread.ID() != node.thread {
 		newOrCurrentThread = w.threads.New(node.thread, execID)
-		for _, inputEdge := range node.InputEdges() {
-			if inputEdge.To() == node {
-				mappings = append(mappings, inputEdge.Input()...)
-			}
-		}
+		w.journal.Append(JournalEntry{
+			Type:          JournalThreadCreated,
+			ThreadID:      newOrCurrentThread.ID(),
+			ExecID:        execID.String(),
+			ParentThreads: node.parentThreads,
+		})
+		args = w.resolveJoinInputs(node)
 	} else {
 		currentThread.SetCurrentExecID(execID)
-		mappings = edge.Input()
+		args = w.inputMapping(edge, edge.Input())
 	}
-	args := w.inputMapping(edge, mappings)
 
 	w.auditLog.NewEntry(newOrCurrentThread.ID(), edge.To().ID(), execID.String(), args)
+	w.journal.Append(JournalEntry{
+		Type:           JournalStepStarted,
+		ThreadID:       newOrCurrentThread.ID(),
+		FunctionNodeID: edge.To().ID(),
+		ExecID:         execID.String(),
+		Input:          args,
+	})
 	return &workflowactions.RunFunctionAction{
 		ThreadID:       newOrCurrentThread.ID(),
 		FunctionID:     edge.To().FunctionID(),
 		FunctionExecID: execID,
 		Args:           args,
 	}
+}
+
+func (w *Workflow) resolveJoinInputs(node *Node) map[string]any {
+	// Collect branch inputs from all input edges
+	var branchInputs []BranchInput
+	for _, inputEdge := range node.InputEdges() {
+		if inputEdge.To() == node {
+			branchData := w.inputMapping(inputEdge, inputEdge.Input())
+			branchInputs = append(branchInputs, BranchInput{
+				EdgeID:   inputEdge.ID(),
+				ThreadID: inputEdge.From().Thread(),
+				Data:     branchData,
+			})
+		}
+	}
+
+	// Apply merge strategy
+	mergeConfig := DefaultMergeConfig()
+	if node.Schema().Merge != nil {
+		mergeConfig = *node.Schema().Merge
+	}
+	return ApplyMergeStrategy(mergeConfig, branchInputs)
 }
 
 func (w *Workflow) inputMapping(edge *Edge, mappings []InputMapping) map[string]any {
@@ -284,7 +529,7 @@ func (w *Workflow) inputMapping(edge *Edge, mappings []InputMapping) map[string]
 					Str("edge", edge.ID()).
 					Str("param", mapping.MapTo).
 					Any("value", mapping.Value).
-					Msg("Failed param validation")
+					Msg(logMsgFailedParamValidation)
 				continue
 			}
 			args.Set(mapping.MapTo, mapping.Value)
@@ -314,9 +559,47 @@ func (w *Workflow) inputMapping(edge *Edge, mappings []InputMapping) map[string]
 			isArray := strings.HasPrefix(inputParamSchema.Type, "[]")
 			rawValue := w.aggregatedOutput.Get(mapping.Variable)
 			var value any
-			if inputParamSchema.Type == "" && allowCustomInputParameters {
+			switch {
+			case inputParamSchema.Type == "" && allowCustomInputParameters:
 				value = rawValue
-			} else {
+			case isArray:
+				// Parallel branches each contribute one element; validate against the upstream
+				// output type (e.g. int from rand), then coerce to the slice-typed destination.
+				var parsedScalar any
+				var err error
+				if outputParamSchema.Type == "" {
+					parsedScalar = rawValue
+				} else {
+					parsedScalar, err = typeschema.ParseValue(outputParamSchema.Type, rawValue)
+					if err != nil {
+						log.Error().
+							Err(err).
+							Str("edge", edge.ID()).
+							Str("param", mapping.MapTo).
+							Any("value", rawValue).
+							Msg(logMsgErrorParsingValue)
+						continue
+					}
+				}
+				if outputParamSchema.Type != "" && !w.validateInputMapping(&outputParamSchema, parsedScalar) {
+					log.Error().
+						Str("edge", edge.ID()).
+						Str("param", mapping.MapTo).
+						Any("value", parsedScalar).
+						Msg(logMsgFailedParamValidation)
+					continue
+				}
+				value, err = typeschema.ParseValue(inputParamSchema.Type, parsedScalar)
+				if err != nil {
+					log.Error().
+						Err(err).
+						Str("edge", edge.ID()).
+						Str("param", mapping.MapTo).
+						Any("value", parsedScalar).
+						Msg(logMsgErrorParsingValue)
+					continue
+				}
+			default:
 				var err error
 				value, err = typeschema.ParseValue(inputParamSchema.Type, rawValue)
 				if err != nil {
@@ -325,18 +608,17 @@ func (w *Workflow) inputMapping(edge *Edge, mappings []InputMapping) map[string]
 						Str("edge", edge.ID()).
 						Str("param", mapping.MapTo).
 						Any("value", mapping.Value).
-						Msg("Error parsing value")
+						Msg(logMsgErrorParsingValue)
 					continue
 				}
-			}
-
-			if !w.validateInputMapping(&outputParamSchema, value) {
-				log.Error().
-					Str("edge", edge.ID()).
-					Str("param", mapping.MapTo).
-					Any("value", value).
-					Msg("Failed param validation")
-				continue
+				if !w.validateInputMapping(&inputParamSchema, value) {
+					log.Error().
+						Str("edge", edge.ID()).
+						Str("param", mapping.MapTo).
+						Any("value", value).
+						Msg(logMsgFailedParamValidation)
+					continue
+				}
 			}
 
 			if isArray {
@@ -365,7 +647,76 @@ func (w *Workflow) inputMapping(edge *Edge, mappings []InputMapping) map[string]
 	return args.Raw()
 }
 
-func (w *Workflow) validateInputMapping(_ *workflow.ParameterSchema, _ any) bool {
-	// TODO implement input mapping validations
-	return true
+func (w *Workflow) validateInputMapping(schema *workflow.ParameterSchema, value any) bool {
+	return ValidateInputMapping(schema, value) == nil
+}
+
+// HandleNodeFailure handles a function failure with retry policy and error edge routing.
+// Returns nil if the workflow should transition to StateError.
+func (w *Workflow) HandleNodeFailure(threadID uint16, execID workflow.ExecID) workflowactions.Action {
+	entry, exists := w.auditLog.Get(execID.String())
+	if !exists {
+		return nil
+	}
+	node, err := w.graph.FindNode(entry.FunctionNodeID)
+	if err != nil {
+		return nil
+	}
+
+	retryPolicy := w.getRetryPolicy(node)
+	if retryPolicy != nil {
+		attempts := w.retryTracker.Increment(execID.String())
+		if attempts <= retryPolicy.MaxAttempts {
+			delay := retryPolicy.DelayFor(attempts - 1)
+			w.journal.Append(JournalEntry{
+				Type:           JournalStepRetrying,
+				ThreadID:       threadID,
+				FunctionNodeID: entry.FunctionNodeID,
+				ExecID:         execID.String(),
+			})
+			return &workflowactions.RetryFunctionAction{
+				RunFunctionAction: workflowactions.RunFunctionAction{
+					ThreadID:       threadID,
+					FunctionID:     node.FunctionID(),
+					FunctionExecID: execID,
+					Args:           entry.Input,
+				},
+				Delay:   delay,
+				Attempt: attempts,
+			}
+		}
+	}
+
+	// Retries exhausted — check for error edges
+	w.retryTracker.Clear(execID.String())
+	errorEdges := w.findErrorEdges(node)
+	if len(errorEdges) > 0 {
+		currentThread := w.threads.Get(threadID)
+		// Mark source thread finished when error edge crosses to a different thread
+		if currentThread.ID() != errorEdges[0].To().thread {
+			currentThread.SetState(StateFinished)
+			w.journal.Append(JournalEntry{
+				Type:     JournalThreadDone,
+				ThreadID: currentThread.ID(),
+			})
+		}
+		return w.newRunFunctionAction(currentThread, errorEdges[0])
+	}
+
+	// No error edges — caller sets StateError
+	return nil
+}
+
+func (w *Workflow) getRetryPolicy(node *Node) *RetryPolicy {
+	return node.Schema().Retry
+}
+
+func (w *Workflow) findErrorEdges(node *Node) []*Edge {
+	var errorEdges []*Edge
+	for _, edge := range node.OutputEdges() {
+		if edge.schema.OnError {
+			errorEdges = append(errorEdges, edge)
+		}
+	}
+	return errorEdges
 }

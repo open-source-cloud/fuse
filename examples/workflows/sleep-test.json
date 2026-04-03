@@ -1,0 +1,34 @@
+{
+  "id": "sleep-test",
+  "name": "Sleep Test",
+  "nodes": [
+    {
+      "id": "start",
+      "function": "fuse/pkg/debug/nil"
+    },
+    {
+      "id": "wait-5s",
+      "function": "system/sleep"
+    },
+    {
+      "id": "after-sleep",
+      "function": "fuse/pkg/debug/nil"
+    }
+  ],
+  "edges": [
+    {
+      "id": "start-to-sleep",
+      "from": "start",
+      "to": "wait-5s",
+      "input": [
+        { "source": "schema", "value": "5s", "mapTo": "duration" },
+        { "source": "schema", "value": "rate limit delay", "mapTo": "reason" }
+      ]
+    },
+    {
+      "id": "sleep-to-end",
+      "from": "wait-5s",
+      "to": "after-sleep"
+    }
+  ]
+}

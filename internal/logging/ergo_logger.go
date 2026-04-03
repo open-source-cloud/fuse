@@ -1,12 +1,13 @@
 package logging
 
 import (
-	"ergo.services/ergo/gen"
 	"fmt"
+	"strings"
+
+	"ergo.services/ergo/gen"
 	"github.com/fatih/color"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 	"github.com/rs/zerolog"
-	"strings"
 )
 
 type (
@@ -34,7 +35,9 @@ func (l *ergoLogger) Log(message gen.MessageLog) {
 	case gen.LogLevelError:
 		event = l.logger.Error()
 	case gen.LogLevelPanic:
-		event = l.logger.Panic()
+		// Ergo uses panic-level log lines when reporting actor failures; zerolog.Panic() re-panics
+		// after logging, which can crash the node adapter. Record at error instead.
+		event = l.logger.Error()
 	case gen.LogLevelDebug:
 		event = l.logger.Debug()
 	case gen.LogLevelTrace:
@@ -60,7 +63,7 @@ func (l *ergoLogger) Log(message gen.MessageLog) {
 	case gen.MessageLogMeta:
 		source = color.CyanString("%s", src.Meta)
 	default:
-		panic(fmt.Sprintf("unknown log source type: %#v", message.Source))
+		source = fmt.Sprintf("unknown-source(%T)", message.Source)
 	}
 
 	// we shouldn't modify message.Args (might be used in the other loggers)
@@ -89,12 +92,17 @@ func (l *ergoLogger) Log(message gen.MessageLog) {
 			args = append(args, color.YellowString("%d", message.Args[i]))
 
 		default:
+			if message.Args[i] == nil {
+				args = append(args, "<nil>")
+				continue
+			}
 			args = append(args, color.YellowString("%s", message.Args[i]))
 		}
 	}
 
 	format := strings.ReplaceAll(message.Format, "%d", "%s")
-	event.Msgf("%s %s", source, fmt.Sprintf(format, args...))
+	msg := fmt.Sprintf(format, args...)
+	event.Msgf("%s %s", source, msg)
 }
 
 func (l *ergoLogger) Terminate() {

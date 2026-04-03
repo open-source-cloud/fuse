@@ -1,0 +1,73 @@
+x-fuse-dev-service: &fuse-dev-service
+  profiles: ["fuse-e2e"]
+  build:
+    context: .
+    dockerfile: Dockerfile
+  restart: unless-stopped
+  working_dir: /app
+  volumes:
+    - .:/app
+  networks:
+    - fuse-e2e-network
+  healthcheck:
+    test: ["CMD", "curl", "-f", "http://127.0.0.1:9090/health"]
+    interval: 15s
+    timeout: 5s
+    retries: 5
+    start_period: 90s
+
+# Single-process dev (no ergo cluster / no cross-container schema replication).
+x-fuse-env-standalone: &fuse-env-standalone
+  HOST: "0.0.0.0"
+  PORT: "9090"
+  CLUSTER_ENABLED: "false"
+
+# Three-node cluster: same peer list on each node (self is skipped for MonitorEvent in code).
+x-fuse-env-cluster: &fuse-env-cluster
+  HOST: "0.0.0.0"
+  PORT: "9090"
+  CLUSTER_ENABLED: "true"
+  CLUSTER_COOKIE: "${CLUSTER_COOKIE:-fuse-docker-dev}"
+  CLUSTER_ACCEPTOR_PORT: "${CLUSTER_ACCEPTOR_PORT:-15000}"
+  CLUSTER_PEER_NODES: "fuse@fuse-node-1,fuse@fuse-node-2,fuse@fuse-node-3"
+
+services:
+  fuse-e2e-master:
+    <<: *fuse-dev-service
+    container_name: fuse-e2e-master
+    hostname: fuse-node-e2e-master
+    ports:
+      - "9090:9090"
+    environment:
+      <<: *fuse-env-standalone
+
+  fuse-e2e-node-1:
+    <<: *fuse-dev-service
+    container_name: fuse-e2e-node-1
+    hostname: fuse-node-1
+    ports:
+      - "9091:9090"
+    environment:
+      <<: *fuse-env-cluster
+
+  fuse-e2e-node-2:
+    <<: *fuse-dev-service
+    container_name: fuse-e2e-node-2
+    hostname: fuse-node-2
+    ports:
+      - "9092:9090"
+    environment:
+      <<: *fuse-env-cluster
+
+  fuse-e2e-node-3:
+    <<: *fuse-dev-service
+    container_name: fuse-e2e-node-3
+    hostname: fuse-node-3
+    ports:
+      - "9093:9090"
+    environment:
+      <<: *fuse-env-cluster
+
+networks:
+  fuse-e2e-network:
+    driver: bridge

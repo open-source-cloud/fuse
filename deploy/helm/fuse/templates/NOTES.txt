@@ -1,0 +1,29 @@
+FUSE Workflow Engine has been deployed!
+
+Mode: {{ .Values.mode }}
+{{- if eq .Values.mode "cluster" }}
+Replicas: {{ .Values.replicaCount }}
+Cluster acceptor port: {{ .Values.cluster.acceptorPort }}
+{{- end }}
+
+1. Get the application URL by running:
+{{- if eq .Values.service.type "NodePort" }}
+  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "fuse.fullname" . }})
+  export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo "FUSE API: http://$NODE_IP:$NODE_PORT"
+{{- else if eq .Values.service.type "LoadBalancer" }}
+  NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+  Watch with: kubectl get --namespace {{ .Release.Namespace }} svc -w {{ include "fuse.fullname" . }}
+
+  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "fuse.fullname" . }} --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
+  echo "FUSE API: http://$SERVICE_IP:{{ .Values.service.port }}"
+{{- else }}
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "fuse.fullname" . }} {{ .Values.service.port }}:{{ .Values.service.port }}
+  echo "FUSE API: http://127.0.0.1:{{ .Values.service.port }}"
+{{- end }}
+
+2. Verify the deployment:
+  curl http://127.0.0.1:{{ .Values.service.port }}/health
+
+3. Swagger UI (if enabled in the image):
+  http://127.0.0.1:{{ .Values.service.port }}/docs

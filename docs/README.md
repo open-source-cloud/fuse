@@ -2,6 +2,8 @@
 
 This directory contains auto-generated Swagger/OpenAPI documentation for the FUSE Workflow Engine API.
 
+**Human-readable REST overview:** [API.md](API.md) (implemented routes vs roadmap-planned items).
+
 ## Generated Files
 
 The following files are auto-generated and should not be edited manually:
@@ -20,10 +22,10 @@ To regenerate the Swagger documentation after making changes to API endpoints or
 make swagger
 ```
 
-Or run directly:
+Or run directly after `make install-swag` (see `SWAG_DIRS` in the root `Makefile`):
 
 ```bash
-swag init -g cmd/fuse/main.go -o docs/
+$(go env GOPATH)/bin/swag init -g main.go -o docs/ -d ./cmd/fuse,./internal/handlers,./internal/dtos,./internal/workflow,./pkg/workflow
 ```
 
 ## Viewing Documentation

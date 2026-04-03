@@ -62,7 +62,6 @@ var FuseAppModule = fx.Module(
 var AllModules = fx.Options(
 	CommonModule,
 	PackageModule,
-	MongoModule,
 	RepoModule,
 	ServicesModule,
 	WorkerModule,

@@ -1,5 +1,17 @@
 package workflow
 
+// EdgeConditionType classifies how the condition is evaluated
+type EdgeConditionType string
+
+const (
+	// ConditionExact matches edge value exactly (current behavior)
+	ConditionExact EdgeConditionType = "exact"
+	// ConditionExpression evaluates an expr-lang expression
+	ConditionExpression EdgeConditionType = "expression"
+	// ConditionDefault matches when no other condition on the same node matches
+	ConditionDefault EdgeConditionType = "default"
+)
+
 const (
 	// SourceSchema source data from the workflow graph schema
 	SourceSchema InputMappingSource = "schema"
@@ -17,11 +29,14 @@ type (
 		To          string         `json:"to" yaml:"to" validate:"required"`
 		Conditional *EdgeCondition `json:"conditional,omitempty" yaml:"conditional,omitempty"`
 		Input       []InputMapping `json:"input,omitempty" yaml:"input,omitempty"`
+		OnError     bool           `json:"onError,omitempty" yaml:"onError,omitempty"`
 	}
 	// EdgeCondition represents a conditional configuration with a name and its associated value.
 	EdgeCondition struct {
-		Name  string `json:"name" yaml:"name" validate:"required"`
-		Value any    `json:"value" yaml:"value" validate:"required"`
+		Name       string            `json:"name" yaml:"name" validate:"required"`
+		Type       EdgeConditionType `json:"type,omitempty" yaml:"type,omitempty"`
+		Value      any               `json:"value,omitempty" yaml:"value,omitempty"`
+		Expression string            `json:"expression,omitempty" yaml:"expression,omitempty"`
 	}
 	// InputMapping represents a mapping for node input, including source, origin of data, and target mapping name.
 	InputMapping struct {
@@ -48,14 +63,17 @@ func (e EdgeSchema) Clone() *EdgeSchema {
 		To:          e.To,
 		Conditional: conditional,
 		Input:       inputs,
+		OnError:     e.OnError,
 	}
 }
 
 // Clone creates a deep copy of the EdgeCondition
 func (e EdgeCondition) Clone() *EdgeCondition {
 	return &EdgeCondition{
-		Name:  e.Name,
-		Value: e.Value,
+		Name:       e.Name,
+		Type:       e.Type,
+		Value:      e.Value,
+		Expression: e.Expression,
 	}
 }
 

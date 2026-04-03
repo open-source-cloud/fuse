@@ -16,19 +16,27 @@ type (
 	GraphService interface {
 		FindByID(schemaID string) (*workflow.Graph, error)
 		Upsert(schemaID string, schema *workflow.GraphSchema) (*workflow.Graph, error)
+		// ApplyReplicatedUpsert applies a schema from a peer cluster event (does not republish).
+		ApplyReplicatedUpsert(schemaID string, schemaJSON []byte) error
 	}
 	// DefaultGraphService is the default implementation of the GraphService interface
 	DefaultGraphService struct {
 		graphRepo       repositories.GraphRepository
 		packageRegistry packages.Registry
+		publisher       SchemaUpsertPublisher
 	}
 )
 
 // NewGraphService returns a new GraphService
-func NewGraphService(graphRepo repositories.GraphRepository, packageRegistry packages.Registry) GraphService {
+func NewGraphService(
+	graphRepo repositories.GraphRepository,
+	packageRegistry packages.Registry,
+	publisher SchemaUpsertPublisher,
+) GraphService {
 	return &DefaultGraphService{
 		graphRepo:       graphRepo,
 		packageRegistry: packageRegistry,
+		publisher:       publisher,
 	}
 }
 
@@ -52,11 +60,36 @@ func (gs *DefaultGraphService) FindByID(schemaID string) (*workflow.Graph, error
 
 // Upsert upserts a workflow.GraphSchema into the database
 func (gs *DefaultGraphService) Upsert(schemaID string, schema *workflow.GraphSchema) (*workflow.Graph, error) {
-	if schema.ID == "" {
+	g, err := gs.upsertGraph(schemaID, schema)
+	if err != nil {
+		return nil, err
+	}
+	if gs.publisher != nil {
+		pubSchema := g.Schema()
+		gs.publisher.PublishLocalUpsert(pubSchema.ID, &pubSchema)
+	}
+	return g, nil
+}
+
+// ApplyReplicatedUpsert applies JSON from a peer without emitting another replication event.
+func (gs *DefaultGraphService) ApplyReplicatedUpsert(schemaID string, schemaJSON []byte) error {
+	schema, err := workflow.NewGraphSchemaFromJSON(schemaJSON)
+	if err != nil {
+		return err
+	}
+	_, err = gs.upsertGraph(schemaID, schema)
+	return err
+}
+
+func (gs *DefaultGraphService) upsertGraph(schemaID string, schema *workflow.GraphSchema) (*workflow.Graph, error) {
+	// API / replication event key is canonical: must match trigger and GET /schemas/{id}.
+	if schemaID != "" {
 		schema.ID = schemaID
 	}
+	if schema.ID == "" {
+		return nil, errors.New("graph schema id is required")
+	}
 
-	// check if the graph already exists
 	graph, err := gs.graphRepo.FindByID(schema.ID)
 	if err != nil {
 		if errors.Is(err, repositories.ErrGraphNotFound) {
@@ -65,7 +98,6 @@ func (gs *DefaultGraphService) Upsert(schemaID string, schema *workflow.GraphSch
 		return nil, err
 	}
 
-	// redundant check, but just in case
 	if graph == nil {
 		return gs.create(schema)
 	}

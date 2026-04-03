@@ -285,7 +285,7 @@ Document error conditions clearly:
 //   - The workflow if found
 //   - ErrWorkflowNotFound if the workflow doesn't exist
 //   - Other errors for database/connection issues
-func (r *MongoWorkflowRepository) Get(id string) (*Workflow, error) {
+func (r *MemoryWorkflowRepository) Get(id string) (*Workflow, error) {
     // implementation
 }
 
@@ -675,7 +675,7 @@ Document error conditions clearly:
 //   - The workflow if found
 //   - ErrWorkflowNotFound if the workflow doesn't exist
 //   - Other errors for database/connection issues
-func (r *MongoWorkflowRepository) Get(id string) (*Workflow, error) {
+func (r *MemoryWorkflowRepository) Get(id string) (*Workflow, error) {
     // implementation
 }
 

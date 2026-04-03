@@ -1,67 +1,81 @@
+# Ergo cluster dev (3 nodes, air hot reload):
+#   docker compose --profile fuse-dev up --build
+#
+# HTTP: http://localhost:9090 (standalone fuse-dev) or http://localhost:9091..9093 (cluster nodes).
+# Cluster acceptor 15000 is reachable on fuse-network only (container DNS: fuse-node-{1,2,3}:15000).
+#
+# Ergo node names match buildNodeName() with hostname fallback: fuse@fuse-node-1, etc.
+# CLUSTER_PEER_NODES must list every replica so schema replication (ergo Events) can MonitorEvent peers.
+
+x-fuse-dev-service: &fuse-dev-service
+  profiles: ["fuse-dev"]
+  build:
+    context: .
+    dockerfile: Dockerfile.dev
+  restart: unless-stopped
+  working_dir: /app
+  volumes:
+    - .:/app
+  networks:
+    - fuse-network
+  healthcheck:
+    test: ["CMD", "curl", "-f", "http://127.0.0.1:9090/health"]
+    interval: 15s
+    timeout: 5s
+    retries: 5
+    start_period: 90s
+
+# Single-process dev (no ergo cluster / no cross-container schema replication).
+x-fuse-env-standalone: &fuse-env-standalone
+  HOST: "0.0.0.0"
+  PORT: "9090"
+  CLUSTER_ENABLED: "false"
+
+# Three-node cluster: same peer list on each node (self is skipped for MonitorEvent in code).
+x-fuse-env-cluster: &fuse-env-cluster
+  HOST: "0.0.0.0"
+  PORT: "9090"
+  CLUSTER_ENABLED: "true"
+  CLUSTER_COOKIE: "${CLUSTER_COOKIE:-fuse-docker-dev}"
+  CLUSTER_ACCEPTOR_PORT: "${CLUSTER_ACCEPTOR_PORT:-15000}"
+  CLUSTER_PEER_NODES: "fuse@fuse-node-1,fuse@fuse-node-2,fuse@fuse-node-3"
+
 services:
-  mongodb:
-    image: bitnami/mongodb
-    container_name: fuse-mongodb
-    restart: unless-stopped
-    environment:
-      - MONGODB_ROOT_USER=${DB_ROOT_USER:-admin}
-      - MONGODB_ROOT_PASSWORD=${DB_ROOT_PASS:-password}
-      - MONGODB_DATABASE=${DB_NAME:-fuse}
-      - ALLOW_EMPTY_PASSWORD=no
+  fuse-dev:
+    <<: *fuse-dev-service
+    container_name: fuse-dev
+    hostname: fuse-node-dev
     ports:
-      - "27017:27017"
-    volumes:
-      - mongodb_data:/bitnami/mongodb
-    networks:
-      - fuse-network
-
-  localstack:
-    image: localstack/localstack:latest
-    container_name: fuse-localstack
-    restart: unless-stopped
+      - "9090:9090"
     environment:
-      - SERVICES=s3,sqs,sns
-      - DEBUG=1
-      - DATA_DIR=/var/lib/localstack/data
+      <<: *fuse-env-standalone
+
+  fuse-dev-1:
+    <<: *fuse-dev-service
+    container_name: fuse-dev-1
+    hostname: fuse-node-1
     ports:
-      - "4566:4566"
-      - "4510-4559:4510-4559"
-    volumes:
-      - localstack_data:/var/lib/localstack
-      - /var/run/docker.sock:/var/run/docker.sock
-    networks:
-      - fuse-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-
-  s3-setup:
-    image: amazon/aws-cli:latest
-    container_name: fuse-s3-setup
-    volumes:
-      - ./scripts:/scripts
-    networks:
-      - fuse-network
+      - "9091:9090"
     environment:
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-test}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-test}
-      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
-      - WORKFLOW_BUCKET_NAME=${WORKFLOW_BUCKET_NAME:-fuse-workflows}
-    entrypoint: ["/bin/bash"]
-    command: ["/scripts/setup-s3.sh"]
-    restart: "no"
-    depends_on:
-      localstack:
-        condition: service_healthy
+      <<: *fuse-env-cluster
 
-volumes:
-  mongodb_data:
-    driver: local
-  localstack_data:
-    driver: local
+  fuse-dev-2:
+    <<: *fuse-dev-service
+    container_name: fuse-dev-2
+    hostname: fuse-node-2
+    ports:
+      - "9092:9090"
+    environment:
+      <<: *fuse-env-cluster
+
+  fuse-dev-3:
+    <<: *fuse-dev-service
+    container_name: fuse-dev-3
+    hostname: fuse-node-3
+    ports:
+      - "9093:9090"
+    environment:
+      <<: *fuse-env-cluster
 
 networks:
   fuse-network:

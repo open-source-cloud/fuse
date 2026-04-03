@@ -1,198 +1,120 @@
 # FUSE (FUSE Utility for Stateful Events)
 
-A flexible and extensible workflow engine built on the ergo actor model for building end-to-end automations and tasks.
+A workflow engine built on the **[ergo.services](https://docs.ergo.services/) actor model**: each step runs as an isolated actor with message passing, supervision, and room to grow into **durable, production-grade execution**—the same foundation you want for **AI workflows** and **agentic orchestration** (long-running steps, human-in-the-loop, event-driven triggers, idempotent triggers, and observable runs).
 
-## ⚠️ Development Status
+## Status
 
-This project is currently under active development and is not yet ready for production use. The APIs, interfaces, and functionality are subject to change without notice. We recommend waiting for a stable release before using FUSE in any production environment.
+FUSE is under active development. It is suitable for **development, experimentation, and pilots**. Running **multiple replicas** or treating the engine as **HA production** without additional work is **not** recommended yet: workflow state and repositories are still primarily **in-memory**, and the [roadmap](docs/roadmap/README.md) (Phase 1 onward) describes **durable execution**, **persistence**, and **shared stores** needed for safe multi-instance deployment.
 
-## Overview
+A dedicated **documentation portal** is planned later; today, this README, [docs/API.md](docs/API.md), Swagger at `/docs`, and [docs/roadmap/](docs/roadmap/) are the sources of truth.
 
-FUSE is a workflow engine that enables the creation of complex automation pipelines through a system of interconnected nodes, powered by the ergo actor model. Each node in the workflow operates as an independent actor, processing data, making decisions, and communicating with other nodes through message passing.
+## What works today
 
-## Core Concepts
+- **Graph workflows**: nodes and edges, validation, trigger-oriented execution
+- **Control flow**: conditional branching, parallel branches, joins, graph-level loops
+- **Async nodes**: external completion via HTTP callback
+- **HTTP API**: health, trigger workflow, upsert/get schema, list/register packages, async result submission
+- **Packages**: internal and external function registration, HTTP and internal transports
+- **Actor supervision**: mux server, workflow supervisor, per-workflow handlers and worker pools
 
-### Actor Model Implementation
+See the [current state](docs/roadmap/README.md#current-state-what-exists-today) table in the roadmap for issue-level detail.
 
-FUSE leverages the ergo actor model to provide:
+## Roadmap at a glance
 
-- **Isolated Execution**: Each node runs as an independent actor
-- **Message Passing**: Asynchronous communication between nodes
-- **Supervision**: Built-in fault tolerance and recovery
-- **State Management**: Actor-based state handling
-- **Scalability**: Distributed execution capabilities
+Detailed designs live in the phase documents. Implement in order **Phase 1 → 4** where dependencies apply.
 
-### Node
-
-A Node is the fundamental building block of a workflow. Each node:
-
-- Operates as an ergo actor
-- Has a unique identifier
-- Defines input and output metadata
-- Executes specific logic
-- Can operate in both synchronous and asynchronous modes
-- Returns standardized results
-
-### Node Metadata
-
-Nodes define their interface through metadata that includes:
-
-- Input parameters with validation rules
-- Output specifications
-- Edge configuration for connecting nodes
-- Parameter schemas with type checking and validation
-
-## Architecture
+| Phase | Theme | Headlines |
+| ----- | ----- | --------- |
+| [1 — Foundation](docs/roadmap/phase-1-foundation.md) | Reliable execution | Durable execution / journal & resume, retries & error edges, per-node & workflow timeouts, graceful actor cleanup, input mapping validation |
+| [2 — Control flow](docs/roadmap/phase-2-control-flow.md) | Powerful graphs | Durable sleep & wait-for-event (awakeables), cancellation API, sub-workflows, expr-based conditionals & default edges, merge strategies at joins |
+| [3 — Operational](docs/roadmap/phase-3-operational.md) | Production operations | Cron / webhook / internal event triggers, concurrency & rate limits, trigger idempotency, persisted execution traces |
+| [4 — Polish](docs/roadmap/phase-4-polish.md) | Higher-level patterns | For-each / batch over collections, schema versioning & rollback |
 
 ```mermaid
-graph TD
-    A[Workflow] --> B[Node Actor]
-    B --> C[Message Handler]
-    B --> D[State Manager]
-    B --> E[Supervisor]
-    C --> F[Input Processing]
-    C --> G[Output Generation]
-    D --> H[State Storage]
-    E --> I[Fault Recovery]
+flowchart TD
+  P1[Phase1_Foundation]
+  P2[Phase2_ControlFlow]
+  P3[Phase3_Operational]
+  P4[Phase4_Polish]
+  P1 --> P2
+  P1 --> P3
+  P2 --> P3
+  P1 --> P4
+  P2 --> P4
+  P3 --> P4
 ```
 
-## Features
+## Scaling
 
-- **Actor-Based Architecture**: Built on ergo actor model for robust concurrent execution
-- **Type-Safe Interfaces**: Strong typing and validation for node inputs and outputs
-- **Flexible Execution**: Support for both synchronous and asynchronous node execution
-- **Metadata-Driven**: Comprehensive metadata system for defining node interfaces
-- **Validation Rules**: Built-in support for parameter validation with custom rules
-- **Edge Management**: Configurable edge connections between nodes
-- **Parameter Schemas**: Detailed schema definitions for node parameters
-- **Fault Tolerance**: Built-in supervision and recovery mechanisms
-- **State Management**: Actor-based state handling and persistence
+- **Vertical**: Larger CPU/memory limits, tuning worker pool sizes in the mux configuration, and (per roadmap Phase 3) per-function and per-schema **concurrency** and **rate limits** so one workflow cannot overwhelm external APIs.
+- **Horizontal**: The Helm chart supports **`standalone`** (Deployment, `replicaCount`) and **`cluster`** (StatefulSet + ergo clustering). For **N &gt; 1** HTTP replicas or a multi-node ergo cluster to be safe, **workflow instances, journals, idempotency, and optional event/bus state must be shared and durable** across processes—see Phase 1 and Phase 3 in the roadmap. Until then, prefer **a single active writer** for workflow state or accept best-effort semantics.
 
-## Project Structure
+Kubernetes deployment: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) and [deploy/helm/fuse/](deploy/helm/fuse/).
 
-The project follows a clean architecture with the following structure:
+## Quick start
 
-- `pkg/workflow`: Core workflow engine implementation
-- `pkg/actor`: Actor model implementation using ergo
-- `pkg/debug`: Debugging utilities
-- `pkg/logic`: Common logic operations
-- `pkg/uuid`: UUID generation utilities
-- `internal/`: Internal packages (not for external use)
-- `cmd/`: Command-line applications
-- `docs/`: Documentation
-- `examples/`: Example workflows and usage patterns
-
-## Example Workflows
-
-FUSE includes several example workflows in the `examples/` directory:
-
-1. **Smallest Test** (`smallest-test.json`): A basic workflow demonstrating node connections
-2. **Mermaid Test** (`mermaid-test.json`): Example of complex workflow visualization
-3. **Loop Test** (`mermaid-loop-test.json`): Demonstrates loop handling in workflows
-4. **Conditional Test** (`small-cond-test.json`): Shows conditional branching
-5. **Random Branch** (`sum-rand-branch.json`): Example of random number generation and branching
-
-## Getting Started
-
-### Prerequisites
-
-- Go 1.26 or later
-- Make
-- golangci-lint
-
-### Building
+**Prerequisites:** Go 1.26+, Make, golangci-lint (see [docs/CONTRIBUTE.md](docs/CONTRIBUTE.md)).
 
 ```bash
 make build
-```
-
-### Testing
-
-```bash
 make test
-```
-
-### Linting
-
-```bash
 make lint
+make run   # server on port 9090 (see Makefile)
 ```
 
-## API Documentation
+**Optional local stack** (LocalStack, etc.): [docs/SETUP.md](docs/SETUP.md).
 
-FUSE provides a comprehensive REST API for managing workflows, schemas, and packages. Interactive API documentation is available via Swagger UI.
+## API and documentation
 
-### Viewing API Documentation
+- **REST reference (human-readable):** [docs/API.md](docs/API.md)
+- **Interactive OpenAPI:** `make swagger` then open `http://localhost:9090/docs` with the server running
+- **Swagger generation (contributors):** [docs/README.md](docs/README.md)
+- **Roadmap & specs:** [docs/roadmap/README.md](docs/roadmap/README.md)
 
-After starting the server, visit:
+### Implemented HTTP routes (summary)
 
-```
-http://localhost:9090/docs
-```
+| Method | Path |
+| ------ | ---- |
+| GET | `/health` |
+| POST | `/v1/workflows/trigger` |
+| PUT, GET | `/v1/schemas/{schemaID}` |
+| GET | `/v1/packages` |
+| GET, PUT | `/v1/packages/{packageID}` |
+| POST | `/v1/workflows/{workflowID}/execs/{execID}` |
 
-Or the full path:
+**Request JSON:** `POST /v1/workflows/trigger` expects `schemaID` (camelCase key) in the body—see [docs/API.md](docs/API.md).
 
-```
-http://localhost:9090/docs/index.html
-```
+## Architecture (high level)
 
-The Swagger UI provides:
-
-- Interactive API exploration
-- Request/response examples
-- Schema definitions
-- Try-it-out functionality for testing endpoints
-
-### Generating API Documentation
-
-To regenerate the API documentation after making changes:
-
-```bash
-make swagger
-```
-
-### Available Endpoints
-
-- **Health Check**: `GET /health` - Service health status
-- **Workflows**: `POST /v1/workflows/trigger` - Trigger workflow execution
-- **Schemas**: `PUT /v1/schemas/{schemaID}` - Create/update workflow schemas
-- **Schemas**: `GET /v1/schemas/{schemaID}` - Retrieve workflow schema
-- **Packages**: `GET /v1/packages` - List all packages
-- **Packages**: `PUT /v1/packages/{packageID}` - Register/update package
-- **Packages**: `GET /v1/packages/{packageID}` - Get package details
-- **Async Results**: `POST /v1/workflows/{workflowID}/execs/{execID}` - Submit async function results
-
-### Example API Usage
-
-Trigger a workflow:
-
-```bash
-curl -X POST http://localhost:9090/v1/workflows/trigger \
-  -H "Content-Type: application/json" \
-  -d '{"schemaID": "my-workflow-schema"}'
+```mermaid
+flowchart LR
+  HTTP[HTTP_Mux]
+  Sup[WorkflowSupervisor]
+  Inst[WorkflowInstanceSup]
+  WH[WorkflowHandler]
+  Pool[WorkflowFuncPool]
+  HTTP --> Sup
+  Sup --> Inst
+  Inst --> WH
+  Inst --> Pool
 ```
 
-Get workflow schema:
+## Project structure
 
-```bash
-curl http://localhost:9090/v1/schemas/my-workflow-schema
-```
-
-For more details, see the [API Documentation](docs/README.md).
+- `cmd/fuse` — CLI entrypoint
+- `internal/app` — config, DI (`internal/app/di`), CLI commands
+- `internal/actors` — ergo supervisors, pools, mux, workflow execution
+- `internal/handlers` — HTTP WebWorkers
+- `internal/services` / `internal/repositories` — business logic and persistence (memory implementations today)
+- `internal/workflow` — graph, execution, actions
+- `pkg/` — public libraries (workflow types, transport, utilities)
+- `examples/` — example workflow JSON
+- `deploy/helm/fuse` — Helm chart for Kubernetes
 
 ## Contributing
 
-Please see [./docs/CONTRIBUTE.md](docs/CONTRIBUTE.md) for detailed information about:
-
-- Setting up your development environment
-- Code conventions and project structure
-- Submitting pull requests
-- Commit message guidelines
+See [docs/CONTRIBUTE.md](docs/CONTRIBUTE.md) (quality gates: `make lint && make build && make test`).
 
 ## License
 
 [License information to be added]
-
-## Setup
-
-Follow the instructions on [SETUP](./docs/SETUP.md)

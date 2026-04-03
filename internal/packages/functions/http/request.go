@@ -64,11 +64,11 @@ func RequestFunctionMetadata() workflow.FunctionMetadata {
 				},
 				{
 					Name:        "headers",
-					Type:        "string",
+					Type:        "map",
 					Required:    false,
 					Validations: nil,
-					Description: "The headers of the request",
-					Default:     "",
+					Description: "HTTP request headers as a map (JSON object)",
+					Default:     nil,
 				},
 				{
 					Name:        "timeout",
@@ -131,7 +131,7 @@ func RequestFunction(execInfo *workflow.ExecutionInfo) (workflow.FunctionResult,
 	request, err := makeRequestSchema(input)
 	if err != nil {
 		log.Err(err).Msgf("Error making request schema: %+v", request)
-		return workflow.NewFunctionResult(workflow.FunctionError, map[string]any{"error": err.Error()}), err
+		return workflow.NewFunctionResult(workflow.FunctionError, map[string]any{"error": err.Error()}), nil
 	}
 
 	host := input.GetStr("host")
@@ -140,7 +140,7 @@ func RequestFunction(execInfo *workflow.ExecutionInfo) (workflow.FunctionResult,
 	response, err := client.SendRequest(request)
 	if err != nil {
 		log.Err(err).Msgf("Error making request: %+v", request)
-		return workflow.NewFunctionResult(workflow.FunctionError, map[string]any{"error": err.Error()}), err
+		return workflow.NewFunctionResult(workflow.FunctionError, map[string]any{"error": err.Error()}), nil
 	}
 
 	// if the response is a JSON response and the body is not empty, we need to unmarshal the body
