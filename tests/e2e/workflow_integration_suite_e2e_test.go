@@ -39,7 +39,7 @@ func (s *WorkflowIntegrationSuite) TestMermaidDAG_TraversesComplexGraph() {
 	require.NotEmpty(t, wfID)
 
 	resp, err := WaitForWorkflowTerminal(s.client, s.baseURL, wfID, DefaultStatusTimeout)
-	require.NoError(t, err, "workflow should reach terminal state")
+	require.NoError(t, err, errMsgWorkflowShouldReachTerminal)
 	assert.Equal(t, "finished", resp.Status,
 		"mermaid-test should traverse all DAG paths and finish")
 }
@@ -52,7 +52,7 @@ func (s *WorkflowIntegrationSuite) TestMermaidLoop_HandlesBackEdge() {
 	require.NotEmpty(t, wfID)
 
 	resp, err := WaitForWorkflowTerminal(s.client, s.baseURL, wfID, DefaultStatusTimeout)
-	require.NoError(t, err, "workflow should reach terminal state")
+	require.NoError(t, err, errMsgWorkflowShouldReachTerminal)
 	assert.Equal(t, "finished", resp.Status,
 		"mermaid-loop-test should handle the loop back-edge and finish")
 }
@@ -66,7 +66,7 @@ func (s *WorkflowIntegrationSuite) TestGitHubHTTPRequest_ReachesTerminalState() 
 	require.NotEmpty(t, wfID)
 
 	resp, err := WaitForWorkflowTerminal(s.client, s.baseURL, wfID, LongStatusTimeout)
-	require.NoError(t, err, "workflow should reach terminal state")
+	require.NoError(t, err, errMsgWorkflowShouldReachTerminal)
 	assert.Contains(t, []string{"finished", "error"}, resp.Status,
 		"github-request-example should reach a terminal state (finished or error depending on network)")
 }
@@ -80,7 +80,7 @@ func (s *WorkflowIntegrationSuite) TestFullFoundation_ExercisesAllFeatures() {
 	require.NotEmpty(t, wfID)
 
 	resp, err := WaitForWorkflowTerminal(s.client, s.baseURL, wfID, 60*time.Second)
-	require.NoError(t, err, "workflow should reach terminal state")
+	require.NoError(t, err, errMsgWorkflowShouldReachTerminal)
 	assert.Equal(t, "finished", resp.Status,
 		"full-foundation-test should finish after retries succeed and branches merge")
 }

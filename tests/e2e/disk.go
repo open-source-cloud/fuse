@@ -8,28 +8,39 @@ import (
 	"strings"
 )
 
+// absExistingDir returns the absolute path if path exists and is a directory.
+// On failure it still returns abs (when resolved) so callers can mention it in errors.
+func absExistingDir(path string) (abs string, err error) {
+	abs, err = filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	st, statErr := os.Stat(abs)
+	if statErr != nil {
+		return abs, statErr
+	}
+	if !st.IsDir() {
+		return abs, fmt.Errorf("not a directory: %s", abs)
+	}
+	return abs, nil
+}
+
 // ResolveWorkflowsDir returns an absolute workflows directory.
 // If override is non-empty, it must exist as a directory.
 // Otherwise E2E_WORKFLOWS_DIR is used if set.
 // Otherwise examples/workflows under the repository root (go.mod walk from cwd) is used.
 func ResolveWorkflowsDir(override string) (string, error) {
 	if override != "" {
-		abs, err := filepath.Abs(override)
+		abs, err := absExistingDir(override)
 		if err != nil {
-			return "", err
-		}
-		if st, err := os.Stat(abs); err != nil || !st.IsDir() {
 			return "", fmt.Errorf("workflows directory not found or not a directory: %s", abs)
 		}
 		return abs, nil
 	}
 
 	if d := os.Getenv("E2E_WORKFLOWS_DIR"); d != "" {
-		abs, err := filepath.Abs(d)
+		abs, err := absExistingDir(d)
 		if err != nil {
-			return "", err
-		}
-		if st, err := os.Stat(abs); err != nil || !st.IsDir() {
 			return "", fmt.Errorf("E2E_WORKFLOWS_DIR is not a directory: %s", abs)
 		}
 		return abs, nil
@@ -44,10 +55,11 @@ func ResolveWorkflowsDir(override string) (string, error) {
 		return "", err
 	}
 	dir := filepath.Join(root, "examples", "workflows")
-	if st, err := os.Stat(dir); err != nil || !st.IsDir() {
+	abs, err := absExistingDir(dir)
+	if err != nil {
 		return "", fmt.Errorf("examples/workflows not found under repo root %s", root)
 	}
-	return dir, nil
+	return abs, nil
 }
 
 func findRepoRoot(start string) (string, error) {

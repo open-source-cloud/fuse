@@ -37,7 +37,7 @@ func TestE2E_GET_v1_packages(t *testing.T) {
 	client, base := RequireE2E(t)
 
 	// Arrange
-	url := base + "/v1/packages"
+	url := base + pathV1Packages
 
 	// Act
 	code, body, err := GET(client, url)
@@ -62,7 +62,7 @@ func TestE2E_GET_v1_packages_byID(t *testing.T) {
 	client, base := RequireE2E(t)
 
 	// Arrange — pick first package from list
-	listCode, listBody, err := GET(client, base+"/v1/packages")
+	listCode, listBody, err := GET(client, base+pathV1Packages)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, listCode)
 	var list struct {
@@ -73,7 +73,7 @@ func TestE2E_GET_v1_packages_byID(t *testing.T) {
 	require.NoError(t, json.Unmarshal(listBody, &list))
 	require.NotEmpty(t, list.Items, "need at least one registered package")
 	packageID := list.Items[0].ID
-	url := fmt.Sprintf("%s/v1/packages/%s", base, packageID)
+	url := fmt.Sprintf("%s%s/%s", base, pathV1Packages, packageID)
 
 	// Act
 	code, body, err := GET(client, url)
@@ -123,7 +123,7 @@ func TestE2E_PUT_v1_packages_roundTrip(t *testing.T) {
 	client, base := RequireE2E(t)
 
 	// Arrange — load an existing package and PUT it back (noop update)
-	listCode, listBody, err := GET(client, base+"/v1/packages")
+	listCode, listBody, err := GET(client, base+pathV1Packages)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, listCode)
 	var list struct {
@@ -134,7 +134,7 @@ func TestE2E_PUT_v1_packages_roundTrip(t *testing.T) {
 	require.NoError(t, json.Unmarshal(listBody, &list))
 	require.NotEmpty(t, list.Items)
 	packageID := list.Items[0].ID
-	getURL := fmt.Sprintf("%s/v1/packages/%s", base, packageID)
+	getURL := fmt.Sprintf("%s%s/%s", base, pathV1Packages, packageID)
 	gc, pkgBody, err := GET(client, getURL)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, gc)

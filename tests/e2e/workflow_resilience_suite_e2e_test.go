@@ -38,7 +38,7 @@ func (s *WorkflowResilienceSuite) TestErrorEdge_FollowsRecoveryPath() {
 	require.NotEmpty(t, wfID)
 
 	resp, err := WaitForWorkflowTerminal(s.client, s.baseURL, wfID, DefaultStatusTimeout)
-	require.NoError(t, err, "workflow should reach terminal state")
+	require.NoError(t, err, errMsgWorkflowShouldReachTerminal)
 	assert.Equal(t, wfID, resp.WorkflowID)
 	assert.Equal(t, "finished", resp.Status,
 		"error-edge-test should finish via the recovery path, not stay in error")
@@ -52,7 +52,7 @@ func (s *WorkflowResilienceSuite) TestRetry_CompletesAfterTransientFailures() {
 	require.NotEmpty(t, wfID)
 
 	resp, err := WaitForWorkflowTerminal(s.client, s.baseURL, wfID, DefaultStatusTimeout)
-	require.NoError(t, err, "workflow should reach terminal state")
+	require.NoError(t, err, errMsgWorkflowShouldReachTerminal)
 	assert.Equal(t, "finished", resp.Status,
 		"retry-test should succeed after retrying transient failures")
 }
@@ -65,7 +65,7 @@ func (s *WorkflowResilienceSuite) TestParallelRetry_CompletesWithConcurrentRetri
 	require.NotEmpty(t, wfID)
 
 	resp, err := WaitForWorkflowTerminal(s.client, s.baseURL, wfID, DefaultStatusTimeout)
-	require.NoError(t, err, "workflow should reach terminal state")
+	require.NoError(t, err, errMsgWorkflowShouldReachTerminal)
 	assert.Equal(t, "finished", resp.Status,
 		"parallel-retry-test should finish after branch-b retries succeed")
 }
@@ -78,7 +78,7 @@ func (s *WorkflowResilienceSuite) TestTimeout_FollowsRecoveryPath() {
 	require.NotEmpty(t, wfID)
 
 	resp, err := WaitForWorkflowTerminal(s.client, s.baseURL, wfID, DefaultStatusTimeout)
-	require.NoError(t, err, "workflow should reach terminal state")
+	require.NoError(t, err, errMsgWorkflowShouldReachTerminal)
 	assert.Equal(t, "finished", resp.Status,
 		"timeout-test should finish via the recovery error edge")
 }
