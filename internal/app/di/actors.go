@@ -3,6 +3,7 @@ package di
 import (
 	"github.com/open-source-cloud/fuse/internal/actors"
 	"github.com/open-source-cloud/fuse/internal/handlers"
+	"github.com/open-source-cloud/fuse/internal/repositories/postgres"
 	"go.uber.org/fx"
 )
 
@@ -67,5 +68,18 @@ var ActorModule = fx.Module(
 		actors.NewWorkflowFuncFactory,
 		actors.NewSchemaReplicationActorFactory,
 		actors.NewWorkflowClaimActorFactory,
+		providePgListenerActorFactory,
 	),
 )
+
+type pgListenerFactoryParams struct {
+	fx.In
+	Listener *postgres.PgListener `optional:"true"`
+}
+
+func providePgListenerActorFactory(p pgListenerFactoryParams) *actors.PgListenerActorFactory {
+	if p.Listener == nil {
+		return &actors.PgListenerActorFactory{}
+	}
+	return actors.NewPgListenerActorFactory(p.Listener)
+}

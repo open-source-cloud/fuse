@@ -34,6 +34,9 @@ func NewWorkflowClaimActorFactory(
 // claimTickMsg is the periodic sweep tick message.
 type claimTickMsg struct{}
 
+// ClaimSweepNowMsg requests an immediate claim sweep (sent by PgListenerActor on NOTIFY).
+type ClaimSweepNowMsg struct{}
+
 // WorkflowClaimActor periodically claims unclaimed workflows and maintains heartbeats.
 type WorkflowClaimActor struct {
 	act.Actor
@@ -76,6 +79,9 @@ func (a *WorkflowClaimActor) HandleMessage(_ gen.PID, message any) error {
 		} else {
 			a.tickCancel = cancel
 		}
+	case ClaimSweepNowMsg:
+		// Fast path: PG LISTEN/NOTIFY triggered an immediate sweep
+		a.sweep()
 	default:
 		a.Log().Warning("unknown message type: %T", message)
 	}

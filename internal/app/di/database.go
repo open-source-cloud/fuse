@@ -10,10 +10,11 @@ import (
 	"go.uber.org/fx"
 )
 
-// DatabaseModule provides the PostgreSQL connection pool when DB_DRIVER=postgres.
+// DatabaseModule provides the PostgreSQL connection pool and optional PG listener.
 var DatabaseModule = fx.Module(
 	"database",
 	fx.Provide(providePgxPool),
+	fx.Provide(providePgListener),
 )
 
 // pgxPoolResult wraps the pool so fx can provide a nil *pgxpool.Pool when driver=memory.
@@ -64,4 +65,29 @@ func providePgxPool(lc fx.Lifecycle, cfg *config.Config) (pgxPoolResult, error) 
 
 	log.Info().Str("dsn", cfg.Database.PostgresDSN).Msg("PostgreSQL pool created")
 	return pgxPoolResult{Pool: pool}, nil
+}
+
+// pgListenerResult wraps the PgListener so fx can provide nil when not needed.
+type pgListenerResult struct {
+	fx.Out
+	Listener *postgres.PgListener `optional:"true"`
+}
+
+func providePgListener(cfg *config.Config) (pgListenerResult, error) {
+	if cfg.Database.Driver != config.DBDriverPostgres || !cfg.HA.Enabled {
+		log.Debug().Msg("PG listener not needed (driver != postgres or HA disabled)")
+		return pgListenerResult{}, nil
+	}
+
+	if cfg.Database.PostgresDSN == "" {
+		return pgListenerResult{}, nil
+	}
+
+	listener, err := postgres.NewPgListener(context.Background(), cfg.Database.PostgresDSN)
+	if err != nil {
+		return pgListenerResult{}, err
+	}
+
+	log.Info().Msg("PG LISTEN/NOTIFY listener created")
+	return pgListenerResult{Listener: listener}, nil
 }

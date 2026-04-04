@@ -25,6 +25,7 @@ func NewApp(
 	serverSup *actors.MuxServerSupFactory,
 	schemaReplicationSup *actors.SchemaReplicationActorFactory,
 	claimActor *actors.WorkflowClaimActorFactory,
+	pgListenerActor *actors.PgListenerActorFactory,
 ) (gen.Node, error) {
 	var options gen.NodeOptions
 	options.ShutdownTimeout = config.Params.ShutdownTimeout
@@ -36,6 +37,7 @@ func NewApp(
 		serverSup:            serverSup,
 		schemaReplicationSup: schemaReplicationSup,
 		claimActor:           claimActor,
+		pgListenerActor:      pgListenerActor,
 	})
 	if config.Params.ActorObserver {
 		apps = append(apps, observer.CreateApp(observer.Options{}))
@@ -110,6 +112,7 @@ type Fuse struct {
 	serverSup            *actors.MuxServerSupFactory
 	schemaReplicationSup *actors.SchemaReplicationActorFactory
 	claimActor           *actors.WorkflowClaimActorFactory
+	pgListenerActor      *actors.PgListenerActorFactory
 	node                 gen.Node
 }
 
@@ -135,6 +138,12 @@ func (app *Fuse) Load(node gen.Node, _ ...any) (gen.ApplicationSpec, error) {
 			Name:    actornames.WorkflowClaimActorName,
 			Factory: app.claimActor.Factory,
 		})
+		if app.pgListenerActor.Factory != nil {
+			group = append(group, gen.ApplicationMemberSpec{
+				Name:    actornames.PgListenerActorName,
+				Factory: app.pgListenerActor.Factory,
+			})
+		}
 	}
 
 	return gen.ApplicationSpec{
