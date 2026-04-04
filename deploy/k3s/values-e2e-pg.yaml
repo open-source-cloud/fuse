@@ -1,0 +1,38 @@
+# E2E overrides: standalone FUSE with PostgreSQL persistence.
+# Uses a dedicated fuse_e2e schema to isolate from dev data.
+replicaCount: 1
+mode: standalone
+
+service:
+  type: LoadBalancer
+
+image:
+  repository: docker.io/library/fuse-app
+  tag: e2e
+  pullPolicy: Never
+
+database:
+  driver: postgres
+  dsn: "postgres://fuse:fuse@fuse-pg:5432/fuse?sslmode=disable&search_path=fuse_e2e"
+  maxOpenConns: 10
+  maxIdleConns: 2
+  connMaxLifetime: 5m
+
+objectStore:
+  driver: memory
+
+ha:
+  enabled: false
+
+env:
+  LOG_LEVEL: debug
+  SHUTDOWN_TIMEOUT: 10s
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+    ephemeral-storage: 128Mi
+  limits:
+    cpu: 250m
+    memory: 256Mi
