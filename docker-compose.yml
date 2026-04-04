@@ -77,6 +77,22 @@ services:
     environment:
       <<: *fuse-env-cluster
 
+  postgres:
+    image: postgres:17
+    container_name: fuse-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: fuse
+      POSTGRES_PASSWORD: fuse
+      POSTGRES_DB: fuse
+    volumes:
+      - fuse-postgres-data:/var/lib/postgresql/data
+
+volumes:
+  fuse-postgres-data:
+    driver: local
+
 networks:
   fuse-network:
     driver: bridge

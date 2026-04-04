@@ -1,4 +1,4 @@
-.PHONY: run run-debug install-gotestsum test test-report testdox clean install-lint lint lint-fix install-swag swagger build build-debug dockerfile-lint sonar-local e2e-workflows
+.PHONY: run run-debug install-gotestsum test test-report testdox clean install-lint lint lint-fix install-swag swagger build build-debug dockerfile-lint sonar-local e2e-workflows migrate format-data-json
 
 GOTESTSUM := $(shell go env GOPATH)/bin/gotestsum
 GOLANGCI_LINT := $(shell go env GOPATH)/bin/golangci-lint
@@ -63,6 +63,10 @@ lint-fix: install-lint
 format:
 	go fmt ./...
 
+# Recursively pretty-print JSON under data/ (2-space indent, UTF-8). Requires python3.
+format-data-json:
+	@find data -type f -name '*.json' -print0 | xargs -0 -n1 python3 -c "import json,sys,pathlib; p=pathlib.Path(sys.argv[1]); d=json.loads(p.read_text(encoding='utf-8')); p.write_text(json.dumps(d, indent=2, ensure_ascii=False)+'\n', encoding='utf-8')"
+
 # Install swag CLI into GOPATH/bin (same path as SWAG)
 install-swag:
 	GOTOOLCHAIN=go$(GOMOD_GOVER).0 go install github.com/swaggo/swag/cmd/swag@$(SWAG_VERSION)
@@ -113,3 +117,11 @@ dkx:
 	docker stop fuse-local
 	docker rm fuse-local
 	docker run --name fuse-local --env-file .env -p 9090:9090 fuse-app:dev
+
+# Apply PostgreSQL migrations only (requires DB_POSTGRES_DSN, same as server).
+migrate: build
+	./bin/fuse migrate
+
+seed: build
+	./bin/fuse seed examples -l debug
+	make format-data-json
