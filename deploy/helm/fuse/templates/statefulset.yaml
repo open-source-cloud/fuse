@@ -48,6 +48,10 @@ spec:
                 name: {{ include "fuse.fullname" . }}
             - secretRef:
                 name: {{ include "fuse.fullname" . }}-cluster
+            {{- if or .Values.database.dsn .Values.objectStore.s3AccessKey }}
+            - secretRef:
+                name: {{ include "fuse.fullname" . }}-credentials
+            {{- end }}
           env:
             - name: POD_NAME
               valueFrom:

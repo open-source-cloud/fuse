@@ -41,6 +41,10 @@ spec:
           envFrom:
             - configMapRef:
                 name: {{ include "fuse.fullname" . }}
+            {{- if or .Values.database.dsn .Values.objectStore.s3AccessKey }}
+            - secretRef:
+                name: {{ include "fuse.fullname" . }}-credentials
+            {{- end }}
           {{- with .Values.extraEnv }}
           env:
             {{- toYaml . | nindent 12 }}
