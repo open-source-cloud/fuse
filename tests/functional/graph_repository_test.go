@@ -48,6 +48,31 @@ func contractTestGraphRepository(t *testing.T, newRepo func() repositories.Graph
 		require.NoError(t, err)
 		assert.Equal(t, graph.ID(), found.ID())
 	})
+
+	t.Run("List returns saved schemas sorted by ID", func(t *testing.T) {
+		repo := newRepo()
+		s1 := mocks.SmallTestGraphSchema()
+		s1.ID = "zebra-schema"
+		s1.Name = "Z"
+		g1, err := internalworkflow.NewGraph(s1)
+		require.NoError(t, err)
+		require.NoError(t, repo.Save(g1))
+
+		s2 := mocks.SmallTestGraphSchema()
+		s2.ID = "alpha-schema"
+		s2.Name = "A"
+		g2, err := internalworkflow.NewGraph(s2)
+		require.NoError(t, err)
+		require.NoError(t, repo.Save(g2))
+
+		list, err := repo.List()
+		require.NoError(t, err)
+		require.Len(t, list, 2)
+		assert.Equal(t, "alpha-schema", list[0].SchemaID)
+		assert.Equal(t, "A", list[0].Name)
+		assert.Equal(t, "zebra-schema", list[1].SchemaID)
+		assert.Equal(t, "Z", list[1].Name)
+	})
 }
 
 func TestMemoryGraphRepository_Contract(t *testing.T) {

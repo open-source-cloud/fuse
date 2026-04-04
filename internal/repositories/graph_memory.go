@@ -1,6 +1,7 @@
 package repositories
 
 import (
+	"slices"
 	"sync"
 
 	"github.com/open-source-cloud/fuse/internal/workflow"
@@ -45,4 +46,26 @@ func (m *MemoryGraphRepository) Save(graph *workflow.Graph) error {
 	log.Info().Msgf("graph saved %s", graph.ID())
 
 	return nil
+}
+
+// List returns all stored graphs as lightweight list items, sorted by schema ID.
+func (m *MemoryGraphRepository) List() ([]GraphSchemaListItem, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	out := make([]GraphSchemaListItem, 0, len(m.graphs))
+	for _, g := range m.graphs {
+		s := g.Schema()
+		out = append(out, GraphSchemaListItem{SchemaID: s.ID, Name: s.Name})
+	}
+	slices.SortFunc(out, func(a, b GraphSchemaListItem) int {
+		if a.SchemaID < b.SchemaID {
+			return -1
+		}
+		if a.SchemaID > b.SchemaID {
+			return 1
+		}
+		return 0
+	})
+	return out, nil
 }

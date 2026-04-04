@@ -13,6 +13,7 @@ type workerHandlerRegistrationParams struct {
 	HealthCheckHandlerFactory             *handlers.HealthCheckHandlerFactory
 	AsyncFunctionResultHandlerFactory     *handlers.AsyncFunctionResultHandlerFactory
 	WorkflowSchemaHandlerFactory          *handlers.WorkflowSchemaHandlerFactory
+	ListSchemasHandlerFactory             *handlers.ListSchemasHandlerFactory
 	TriggerWorkflowHandlerFactory         *handlers.TriggerWorkflowHandlerFactory
 	PackagesHandlerFactory                *handlers.PackagesHandlerFactory
 	RegisterPackageHandlerFactory         *handlers.RegisterPackageHandlerFactory
@@ -33,6 +34,7 @@ func newWorkers(p workerHandlerRegistrationParams) *actors.Workers {
 	w.AddFactory(handlers.HealthCheckHandlerName, p.HealthCheckHandlerFactory.Factory)
 	w.AddFactory(handlers.AsyncFunctionResultHandlerName, p.AsyncFunctionResultHandlerFactory.Factory)
 	w.AddFactory(handlers.WorkflowSchemaHandlerName, p.WorkflowSchemaHandlerFactory.Factory)
+	w.AddFactory(handlers.ListSchemasHandlerName, p.ListSchemasHandlerFactory.Factory)
 	w.AddFactory(handlers.TriggerWorkflowHandlerName, p.TriggerWorkflowHandlerFactory.Factory)
 	w.AddFactory(handlers.PackagesHandlerName, p.PackagesHandlerFactory.Factory)
 	w.AddFactory(handlers.RegisterPackageHandlerName, p.RegisterPackageHandlerFactory.Factory)
@@ -52,6 +54,7 @@ var WorkerModule = fx.Module(
 	fx.Provide(
 		handlers.NewAsyncFunctionResultHandlerFactory,
 		handlers.NewWorkflowSchemaHandlerFactory,
+		handlers.NewListSchemasHandlerFactory,
 		handlers.NewTriggerWorkflowHandlerFactory,
 		handlers.NewHealthCheckHandler,
 		handlers.NewPackagesHandler,

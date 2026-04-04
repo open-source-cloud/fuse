@@ -15,6 +15,8 @@ type (
 	// GraphService represents the transactional and logical service to manage workflow.Graph
 	GraphService interface {
 		FindByID(schemaID string) (*workflow.Graph, error)
+		// ListSchemas returns lightweight metadata for every stored graph schema.
+		ListSchemas() ([]repositories.GraphSchemaListItem, error)
 		Upsert(schemaID string, schema *workflow.GraphSchema) (*workflow.Graph, error)
 		// ApplyReplicatedUpsert applies a schema from a peer cluster event (does not republish).
 		ApplyReplicatedUpsert(schemaID string, schemaJSON []byte) error
@@ -56,6 +58,11 @@ func (gs *DefaultGraphService) FindByID(schemaID string) (*workflow.Graph, error
 	}
 
 	return graph, nil
+}
+
+// ListSchemas lists all stored graph schemas from the repository.
+func (gs *DefaultGraphService) ListSchemas() ([]repositories.GraphSchemaListItem, error) {
+	return gs.graphRepo.List()
 }
 
 // Upsert upserts a workflow.GraphSchema into the database

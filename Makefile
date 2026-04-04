@@ -4,8 +4,8 @@ GOTESTSUM := $(shell go env GOPATH)/bin/gotestsum
 GOLANGCI_LINT := $(shell go env GOPATH)/bin/golangci-lint
 SWAG := $(shell go env GOPATH)/bin/swag
 
-# Keep in sync with github.com/swaggo/swag in go.mod (CLI + runtime types).
-SWAG_VERSION ?= v1.16.6
+# Keep in sync with github.com/swaggo/swag/v2 in go.mod (CLI + runtime types).
+SWAG_VERSION ?= v2.0.0
 
 # Parse API packages explicitly. With multiple -d entries, -g is relative to the first dir (cmd/fuse).
 SWAG_DIRS := ./cmd/fuse,./internal/handlers,./internal/dtos,./internal/workflow,./pkg/workflow
@@ -77,11 +77,11 @@ format:
 format-data-json:
 	@find data -type f -name '*.json' -print0 | xargs -0 -n1 python3 -c "import json,sys,pathlib; p=pathlib.Path(sys.argv[1]); d=json.loads(p.read_text(encoding='utf-8')); p.write_text(json.dumps(d, indent=2, ensure_ascii=False)+'\n', encoding='utf-8')"
 
-# Install swag CLI into GOPATH/bin (same path as SWAG)
+# Install swag CLI v2 into GOPATH/bin (same path as SWAG)
 install-swag:
-	GOTOOLCHAIN=go$(GOMOD_GOVER).0 go install github.com/swaggo/swag/cmd/swag@$(SWAG_VERSION)
+	GOTOOLCHAIN=go$(GOMOD_GOVER).0 go install github.com/swaggo/swag/v2/cmd/swag@latest
 
-# Generate Swagger documentation (OpenAPI 2.0 under docs/)
+# Generate Swagger 2.0 docs under docs/ (default swag v2; avoid --v3.1 — OpenAPI 3.1 breaks many UIs/validators)
 swagger: install-swag
 	$(SWAG) init -g main.go -o docs/ -d $(SWAG_DIRS)
 
@@ -135,3 +135,17 @@ migrate: build
 seed: build
 	./bin/fuse seed examples -l debug
 	make format-data-json
+
+deploy:
+	./scripts/k3s-setup.sh
+
+# Local Kubernetes (Docker Desktop): kind + Helm (same values as k3d script).
+.PHONY: kind-deploy kind-redeploy
+kind-deploy:
+	@chmod +x scripts/kind-setup.sh scripts/kind-redeploy.sh
+	./scripts/kind-setup.sh
+
+# Rebuild image, load into kind, helm upgrade, rollout restart (refreshes /docs from Dockerfile swag).
+kind-redeploy:
+	@chmod +x scripts/kind-redeploy.sh
+	./scripts/kind-redeploy.sh

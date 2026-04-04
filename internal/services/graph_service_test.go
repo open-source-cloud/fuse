@@ -62,6 +62,38 @@ func TestGraphService(t *testing.T) {
 	}
 }
 
+func TestGraphService_ListSchemas(t *testing.T) {
+	memGraphRepo := repositories.NewMemoryGraphRepository()
+	pkgRegistry := packages.NewPackageRegistry()
+	internalPackages := packages.NewInternal()
+	pkgSvc := services.NewPackageService(repositories.NewMemoryPackageRepository(), pkgRegistry, internalPackages)
+	if err := pkgSvc.RegisterInternalPackages(); err != nil {
+		t.Fatalf("failed to register internal packages: %v", err)
+	}
+
+	graphService := services.NewGraphService(memGraphRepo, pkgRegistry, nil)
+
+	schema := mocks.SmallTestGraphSchema()
+	_, err := graphService.Upsert(schema.ID, schema)
+	if err != nil {
+		t.Fatalf("failed to upsert graph: %v", err)
+	}
+
+	list, err := graphService.ListSchemas()
+	if err != nil {
+		t.Fatalf("ListSchemas: %v", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("want 1 schema, got %d", len(list))
+	}
+	if list[0].SchemaID != schema.ID {
+		t.Fatalf("schema ID want %q, got %q", schema.ID, list[0].SchemaID)
+	}
+	if list[0].Name != schema.Name {
+		t.Fatalf("name want %q, got %q", schema.Name, list[0].Name)
+	}
+}
+
 func TestGraphService_Upsert_invokesPublisher(t *testing.T) {
 	memGraphRepo := repositories.NewMemoryGraphRepository()
 	pkgRegistry := packages.NewPackageRegistry()

@@ -62,6 +62,29 @@ func (r *GraphRepository) FindByID(id string) (*workflow.Graph, error) {
 	return graph, nil
 }
 
+// List returns schema_id and name for all rows in graph_schemas, ordered by schema_id.
+func (r *GraphRepository) List() ([]repositories.GraphSchemaListItem, error) {
+	ctx := context.Background()
+	rows, err := r.pool.Query(ctx, `SELECT schema_id, name FROM graph_schemas ORDER BY schema_id`)
+	if err != nil {
+		return nil, fmt.Errorf("postgres/graph: list: %w", err)
+	}
+	defer rows.Close()
+
+	out := make([]repositories.GraphSchemaListItem, 0)
+	for rows.Next() {
+		var id, name string
+		if err := rows.Scan(&id, &name); err != nil {
+			return nil, fmt.Errorf("postgres/graph: list scan: %w", err)
+		}
+		out = append(out, repositories.GraphSchemaListItem{SchemaID: id, Name: name})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("postgres/graph: list rows: %w", err)
+	}
+	return out, nil
+}
+
 // Save persists a graph's schema definition to the object store and metadata to PostgreSQL.
 func (r *GraphRepository) Save(graph *workflow.Graph) error {
 	ctx := context.Background()

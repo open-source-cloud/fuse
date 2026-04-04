@@ -65,6 +65,16 @@ func NewWorkers() *Workers {
 				},
 			},
 			{
+				Name:    handlers.ListSchemasHandlerName,
+				Pattern: "/v1/schemas",
+				Methods: []string{"GET"},
+				Timeout: 10 * time.Second,
+				PoolConfig: WorkerPoolConfig{
+					Name:     handlers.ListSchemasHandlerPoolName,
+					PoolSize: 3,
+				},
+			},
+			{
 				Name:    handlers.WorkflowSchemaHandlerName,
 				Pattern: "/v1/schemas/{schemaID}",
 				Methods: []string{"PUT", "GET"},

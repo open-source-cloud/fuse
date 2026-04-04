@@ -8,7 +8,8 @@ import (
 	"ergo.services/ergo/gen"
 	"ergo.services/ergo/meta"
 	"github.com/gorilla/mux"
-	httpSwagger "github.com/swaggo/http-swagger"
+	"github.com/swaggo/swag/v2"
+	httpSwagger "github.com/swaggo/http-swagger/v2"
 
 	_ "github.com/open-source-cloud/fuse/docs" // Import generated docs
 	"github.com/open-source-cloud/fuse/internal/app/config"
@@ -50,7 +51,16 @@ func (m *muxServer) Init(_ ...any) error {
 		}
 	}
 
-	// Add Swagger endpoint with redirect from /docs to /docs/index.html
+	// Serve OpenAPI doc.json from the swag/v2 registry and Swagger UI
+	muxRouter.HandleFunc("/docs/doc.json", func(w http.ResponseWriter, _ *http.Request) {
+		spec := swag.GetSwagger("swagger")
+		if spec == nil {
+			http.Error(w, "swagger spec not found", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(spec.ReadDoc()))
+	})
 	muxRouter.HandleFunc("/docs", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/docs/index.html", http.StatusMovedPermanently)
 	})
