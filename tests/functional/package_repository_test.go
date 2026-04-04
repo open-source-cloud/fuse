@@ -39,10 +39,10 @@ func contractTestPackageRepository(t *testing.T, newRepo func() repositories.Pac
 
 	t.Run("FindAll returns all saved packages", func(t *testing.T) {
 		repo := newRepo()
-		pkg1 := workflow.NewPackage("pkg-1",
+		pkg1 := workflow.NewPackage("pkg-findall-1",
 			workflow.NewFunction("fn-a", workflow.FunctionMetadata{Transport: transport.HTTP}, nil),
 		)
-		pkg2 := workflow.NewPackage("pkg-2",
+		pkg2 := workflow.NewPackage("pkg-findall-2",
 			workflow.NewFunction("fn-b", workflow.FunctionMetadata{Transport: transport.HTTP}, nil),
 		)
 		require.NoError(t, repo.Save(pkg1))
@@ -50,7 +50,14 @@ func contractTestPackageRepository(t *testing.T, newRepo func() repositories.Pac
 
 		all, err := repo.FindAll()
 		require.NoError(t, err)
-		assert.Len(t, all, 2)
+		// Use >= to be resilient to pre-existing data from other subtests (shared DB)
+		assert.GreaterOrEqual(t, len(all), 2)
+		ids := make([]string, len(all))
+		for i, p := range all {
+			ids[i] = p.ID
+		}
+		assert.Contains(t, ids, "pkg-findall-1")
+		assert.Contains(t, ids, "pkg-findall-2")
 	})
 
 	t.Run("Delete removes package", func(t *testing.T) {

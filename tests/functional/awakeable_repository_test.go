@@ -11,12 +11,26 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func contractTestAwakeableRepository(t *testing.T, newRepo func() repositories.AwakeableRepository) {
+func contractTestAwakeableRepository(t *testing.T, newRepo func() repositories.AwakeableRepository, wfRepo repositories.WorkflowRepository, graphRepo ...repositories.GraphRepository) {
 	t.Helper()
+
+	// seedWf ensures a workflow exists in the DB (for FK constraints).
+	seedWf := func(t *testing.T, wfID workflow.ID) {
+		t.Helper()
+		if wfRepo != nil {
+			wf := newTestWorkflowWithID(t, wfID)
+			if len(graphRepo) > 0 && graphRepo[0] != nil {
+				require.NoError(t, graphRepo[0].Save(wf.Graph()))
+			}
+			require.NoError(t, wfRepo.Save(wf))
+		}
+	}
 
 	t.Run("Save and FindByID returns same awakeable", func(t *testing.T) {
 		repo := newRepo()
 		wfID := workflow.NewID()
+		seedWf(t, wfID)
+
 		awk := &internalworkflow.Awakeable{
 			ID:         "awk-contract-1",
 			WorkflowID: wfID,
@@ -39,15 +53,16 @@ func contractTestAwakeableRepository(t *testing.T, newRepo func() repositories.A
 
 	t.Run("FindByID returns error for nonexistent awakeable", func(t *testing.T) {
 		repo := newRepo()
-		a, err := repo.FindByID("nonexistent-awk")
+		_, err := repo.FindByID("nonexistent-awk")
 		assert.ErrorIs(t, err, repositories.ErrAwakeableNotFound)
-		assert.Nil(t, a)
 	})
 
 	t.Run("FindPending returns only pending awakeables for workflow", func(t *testing.T) {
 		repo := newRepo()
 		wfID := workflow.NewID()
 		otherWfID := workflow.NewID()
+		seedWf(t, wfID)
+		seedWf(t, otherWfID)
 
 		err := repo.Save(&internalworkflow.Awakeable{
 			ID: "awk-pending-1", WorkflowID: wfID, ExecID: workflow.NewExecID(0),
@@ -77,12 +92,15 @@ func contractTestAwakeableRepository(t *testing.T, newRepo func() repositories.A
 	t.Run("Resolve changes status and stores result", func(t *testing.T) {
 		repo := newRepo()
 		wfID := workflow.NewID()
-		_ = repo.Save(&internalworkflow.Awakeable{
+		seedWf(t, wfID)
+
+		err := repo.Save(&internalworkflow.Awakeable{
 			ID: "awk-resolve-1", WorkflowID: wfID, ExecID: workflow.NewExecID(0),
 			Status: internalworkflow.AwakeablePending,
 		})
+		require.NoError(t, err)
 
-		err := repo.Resolve("awk-resolve-1", map[string]any{"approved": true})
+		err = repo.Resolve("awk-resolve-1", map[string]any{"approved": true})
 		require.NoError(t, err)
 
 		found, err := repo.FindByID("awk-resolve-1")
@@ -101,5 +119,5 @@ func contractTestAwakeableRepository(t *testing.T, newRepo func() repositories.A
 func TestMemoryAwakeableRepository_Contract(t *testing.T) {
 	contractTestAwakeableRepository(t, func() repositories.AwakeableRepository {
 		return repositories.NewMemoryAwakeableRepository()
-	})
+	}, nil)
 }

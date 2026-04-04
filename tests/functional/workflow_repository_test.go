@@ -10,15 +10,27 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func contractTestWorkflowRepository(t *testing.T, newRepo func() repositories.WorkflowRepository) {
+// ensureGraphFn is an optional callback that saves the graph schema to the GraphRepository.
+// For memory repos this is nil; for Postgres it saves the schema so Get() can reconstruct.
+type ensureGraphFn func(t *testing.T, wf *internalworkflow.Workflow)
+
+func contractTestWorkflowRepository(t *testing.T, newRepo func() repositories.WorkflowRepository, ensureGraph ensureGraphFn) {
 	t.Helper()
+
+	saveWf := func(t *testing.T, repo repositories.WorkflowRepository, wf *internalworkflow.Workflow) {
+		t.Helper()
+		if ensureGraph != nil {
+			ensureGraph(t, wf)
+		}
+		require.NoError(t, repo.Save(wf))
+	}
 
 	t.Run("Save and Get returns workflow with same ID and state", func(t *testing.T) {
 		repo := newRepo()
 		wf := newTestWorkflow(t)
 		wf.SetState(internalworkflow.StateRunning)
 
-		require.NoError(t, repo.Save(wf))
+		saveWf(t, repo, wf)
 		found, err := repo.Get(wf.ID().String())
 
 		require.NoError(t, err)
@@ -29,7 +41,7 @@ func contractTestWorkflowRepository(t *testing.T, newRepo func() repositories.Wo
 	t.Run("Exists returns true for saved workflow", func(t *testing.T) {
 		repo := newRepo()
 		wf := newTestWorkflow(t)
-		require.NoError(t, repo.Save(wf))
+		saveWf(t, repo, wf)
 
 		assert.True(t, repo.Exists(wf.ID().String()))
 	})
@@ -44,21 +56,21 @@ func contractTestWorkflowRepository(t *testing.T, newRepo func() repositories.Wo
 
 		wf1 := newTestWorkflow(t)
 		wf1.SetState(internalworkflow.StateRunning)
-		require.NoError(t, repo.Save(wf1))
+		saveWf(t, repo, wf1)
 
 		wf2 := newTestWorkflow(t)
 		wf2.SetState(internalworkflow.StateSleeping)
-		require.NoError(t, repo.Save(wf2))
+		saveWf(t, repo, wf2)
 
 		wf3 := newTestWorkflow(t)
 		wf3.SetState(internalworkflow.StateFinished)
-		require.NoError(t, repo.Save(wf3))
+		saveWf(t, repo, wf3)
 
 		ids, err := repo.FindByState(internalworkflow.StateRunning, internalworkflow.StateSleeping)
 		require.NoError(t, err)
-		assert.Len(t, ids, 2)
 		assert.Contains(t, ids, wf1.ID().String())
 		assert.Contains(t, ids, wf2.ID().String())
+		assert.NotContains(t, ids, wf3.ID().String())
 	})
 
 	t.Run("FindByState returns empty for no matches", func(t *testing.T) {
@@ -72,7 +84,7 @@ func contractTestWorkflowRepository(t *testing.T, newRepo func() repositories.Wo
 		repo := newRepo()
 		wf := newTestWorkflow(t)
 		wf.SetState(internalworkflow.StateRunning)
-		require.NoError(t, repo.Save(wf))
+		saveWf(t, repo, wf)
 
 		wf.SetState(internalworkflow.StateFinished)
 		require.NoError(t, repo.Save(wf))
@@ -83,8 +95,16 @@ func contractTestWorkflowRepository(t *testing.T, newRepo func() repositories.Wo
 	})
 }
 
-func contractTestWorkflowSubWorkflowRefs(t *testing.T, newRepo func() repositories.WorkflowRepository) {
+func contractTestWorkflowSubWorkflowRefs(t *testing.T, newRepo func() repositories.WorkflowRepository, ensureGraph ensureGraphFn) {
 	t.Helper()
+
+	saveWf := func(t *testing.T, repo repositories.WorkflowRepository, wf *internalworkflow.Workflow) {
+		t.Helper()
+		if ensureGraph != nil {
+			ensureGraph(t, wf)
+		}
+		require.NoError(t, repo.Save(wf))
+	}
 
 	t.Run("SaveSubWorkflowRef and FindSubWorkflowRef round-trip", func(t *testing.T) {
 		repo := newRepo()
@@ -92,7 +112,7 @@ func contractTestWorkflowSubWorkflowRefs(t *testing.T, newRepo func() repositori
 		childID := workflow.NewID()
 
 		parentWf := newTestWorkflowWithID(t, parentID)
-		require.NoError(t, repo.Save(parentWf))
+		saveWf(t, repo, parentWf)
 
 		ref := &internalworkflow.SubWorkflowRef{
 			ParentWorkflowID: parentID,
@@ -124,7 +144,7 @@ func contractTestWorkflowSubWorkflowRefs(t *testing.T, newRepo func() repositori
 		repo := newRepo()
 		parentID := workflow.NewID()
 		parentWf := newTestWorkflowWithID(t, parentID)
-		require.NoError(t, repo.Save(parentWf))
+		saveWf(t, repo, parentWf)
 
 		child1 := workflow.NewID()
 		child2 := workflow.NewID()
@@ -155,9 +175,9 @@ func contractTestWorkflowSubWorkflowRefs(t *testing.T, newRepo func() repositori
 }
 
 func TestMemoryWorkflowRepository_Contract(t *testing.T) {
-	contractTestWorkflowRepository(t, repositories.NewMemoryWorkflowRepository)
+	contractTestWorkflowRepository(t, repositories.NewMemoryWorkflowRepository, nil)
 }
 
 func TestMemoryWorkflowRepository_SubWorkflow_Contract(t *testing.T) {
-	contractTestWorkflowSubWorkflowRefs(t, repositories.NewMemoryWorkflowRepository)
+	contractTestWorkflowSubWorkflowRefs(t, repositories.NewMemoryWorkflowRepository, nil)
 }

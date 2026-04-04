@@ -11,12 +11,26 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func contractTestJournalRepository(t *testing.T, newRepo func() repositories.JournalRepository) {
+// ensureWorkflowFn is an optional callback that ensures a workflow exists in the DB (for FK constraints).
+// For memory repos this is nil; for Postgres it inserts a stub workflow row.
+type ensureWorkflowFn func(t *testing.T, workflowID string)
+
+func contractTestJournalRepository(t *testing.T, newRepo func() repositories.JournalRepository, ensureWf ensureWorkflowFn) {
 	t.Helper()
+
+	// seedWf calls ensureWf if non-nil (Postgres FK requirement).
+	seedWf := func(t *testing.T, wfID string) {
+		t.Helper()
+		if ensureWf != nil {
+			ensureWf(t, wfID)
+		}
+	}
 
 	t.Run("Append and LoadAll returns entries in sequence order", func(t *testing.T) {
 		repo := newRepo()
 		wfID := workflow.NewID().String()
+		seedWf(t, wfID)
+
 		entries := []internalworkflow.JournalEntry{
 			{Sequence: 1, Type: internalworkflow.JournalThreadCreated, ThreadID: 0},
 			{Sequence: 2, Type: internalworkflow.JournalStepStarted, ThreadID: 0, FunctionNodeID: "node-1", ExecID: "exec-1"},
@@ -47,6 +61,8 @@ func contractTestJournalRepository(t *testing.T, newRepo func() repositories.Jou
 	t.Run("LoadAll sorts by sequence even if appended out of order", func(t *testing.T) {
 		repo := newRepo()
 		wfID := workflow.NewID().String()
+		seedWf(t, wfID)
+
 		require.NoError(t, repo.Append(wfID, internalworkflow.JournalEntry{Sequence: 3, Type: internalworkflow.JournalStepCompleted}))
 		require.NoError(t, repo.Append(wfID, internalworkflow.JournalEntry{Sequence: 1, Type: internalworkflow.JournalThreadCreated}))
 		require.NoError(t, repo.Append(wfID, internalworkflow.JournalEntry{Sequence: 2, Type: internalworkflow.JournalStepStarted}))
@@ -69,10 +85,12 @@ func contractTestJournalRepository(t *testing.T, newRepo func() repositories.Jou
 	t.Run("LastSequence returns highest sequence", func(t *testing.T) {
 		repo := newRepo()
 		wfID := workflow.NewID().String()
+		seedWf(t, wfID)
+
 		require.NoError(t, repo.Append(wfID,
-			internalworkflow.JournalEntry{Sequence: 1},
-			internalworkflow.JournalEntry{Sequence: 5},
-			internalworkflow.JournalEntry{Sequence: 3},
+			internalworkflow.JournalEntry{Sequence: 1, Type: internalworkflow.JournalStepStarted},
+			internalworkflow.JournalEntry{Sequence: 5, Type: internalworkflow.JournalStepCompleted},
+			internalworkflow.JournalEntry{Sequence: 3, Type: internalworkflow.JournalStepStarted},
 		))
 
 		seq, err := repo.LastSequence(wfID)
@@ -84,6 +102,9 @@ func contractTestJournalRepository(t *testing.T, newRepo func() repositories.Jou
 		repo := newRepo()
 		wf1 := workflow.NewID().String()
 		wf2 := workflow.NewID().String()
+		seedWf(t, wf1)
+		seedWf(t, wf2)
+
 		require.NoError(t, repo.Append(wf1, internalworkflow.JournalEntry{Sequence: 1, Type: internalworkflow.JournalThreadCreated}))
 		require.NoError(t, repo.Append(wf2, internalworkflow.JournalEntry{Sequence: 1, Type: internalworkflow.JournalStepStarted}))
 
@@ -101,6 +122,8 @@ func contractTestJournalRepository(t *testing.T, newRepo func() repositories.Jou
 	t.Run("Preserves entry fields through round-trip", func(t *testing.T) {
 		repo := newRepo()
 		wfID := workflow.NewID().String()
+		seedWf(t, wfID)
+
 		result := workflow.NewFunctionResultSuccessWith(map[string]any{"value": 42})
 		entry := internalworkflow.JournalEntry{
 			Sequence:       1,
@@ -130,6 +153,8 @@ func contractTestJournalRepository(t *testing.T, newRepo func() repositories.Jou
 	t.Run("Handles entries with state changes", func(t *testing.T) {
 		repo := newRepo()
 		wfID := workflow.NewID().String()
+		seedWf(t, wfID)
+
 		entry := internalworkflow.JournalEntry{
 			Sequence: 1,
 			Type:     internalworkflow.JournalStateChanged,
@@ -147,6 +172,8 @@ func contractTestJournalRepository(t *testing.T, newRepo func() repositories.Jou
 	t.Run("Handles entries with parent threads", func(t *testing.T) {
 		repo := newRepo()
 		wfID := workflow.NewID().String()
+		seedWf(t, wfID)
+
 		entry := internalworkflow.JournalEntry{
 			Sequence:      1,
 			Type:          internalworkflow.JournalThreadCreated,
@@ -164,6 +191,8 @@ func contractTestJournalRepository(t *testing.T, newRepo func() repositories.Jou
 	t.Run("Handles entries with data map", func(t *testing.T) {
 		repo := newRepo()
 		wfID := workflow.NewID().String()
+		seedWf(t, wfID)
+
 		entry := internalworkflow.JournalEntry{
 			Sequence: 1,
 			Type:     internalworkflow.JournalSleepStarted,
@@ -180,5 +209,5 @@ func contractTestJournalRepository(t *testing.T, newRepo func() repositories.Jou
 }
 
 func TestMemoryJournalRepository_Contract(t *testing.T) {
-	contractTestJournalRepository(t, repositories.NewMemoryJournalRepository)
+	contractTestJournalRepository(t, repositories.NewMemoryJournalRepository, nil)
 }
