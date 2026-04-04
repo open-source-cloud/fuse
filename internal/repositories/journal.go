@@ -14,4 +14,7 @@ type JournalRepository interface {
 
 	// LastSequence returns the highest sequence number for a workflow
 	LastSequence(workflowID string) (uint64, error)
+
+	// FindFailed returns all step:failed journal entries for the given workflow
+	FindFailed(workflowID string) ([]workflow.JournalEntry, error)
 }

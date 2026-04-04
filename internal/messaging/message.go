@@ -31,6 +31,8 @@ const (
 	SubWorkflowCompleted MessageType = "workflow:subworkflow:completed"
 	// PublishGraphSchemaUpsert message type - local schema saved; replication actor should SendEvent
 	PublishGraphSchemaUpsert MessageType = "schema:publish-upsert"
+	// RetryNode message type - manually retry a specific failed node
+	RetryNode MessageType = "workflow:retry-node"
 )
 
 // Message defines the basic Message

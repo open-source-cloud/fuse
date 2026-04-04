@@ -246,6 +246,42 @@ func (r *JournalRepository) getJSON(ctx context.Context, key string, dst any) er
 	return json.Unmarshal(data, dst)
 }
 
+// FindFailed returns all step:failed journal entries for the given workflow.
+func (r *JournalRepository) FindFailed(workflowID string) ([]workflow.JournalEntry, error) {
+	ctx := context.Background()
+	rows, err := r.pool.Query(ctx, `
+		SELECT sequence, entry_type::TEXT, thread_id, function_node_id, exec_id, created_at
+		FROM journal_entries
+		WHERE workflow_id = $1 AND entry_type = 'step:failed'
+		ORDER BY sequence
+	`, workflowID)
+	if err != nil {
+		return nil, fmt.Errorf("postgres/journal: find failed: %w", err)
+	}
+	defer rows.Close()
+
+	var entries []workflow.JournalEntry
+	for rows.Next() {
+		var e workflow.JournalEntry
+		var seq int64
+		var threadID int16
+		var nodeID, execID *string
+		if scanErr := rows.Scan(&seq, &e.Type, &threadID, &nodeID, &execID, &e.Timestamp); scanErr != nil {
+			return nil, fmt.Errorf("postgres/journal: scan failed entry: %w", scanErr)
+		}
+		e.Sequence = safeInt64ToUint64(seq)
+		e.ThreadID = safeInt16ToUint16(threadID)
+		if nodeID != nil {
+			e.FunctionNodeID = *nodeID
+		}
+		if execID != nil {
+			e.ExecID = *execID
+		}
+		entries = append(entries, e)
+	}
+	return entries, rows.Err()
+}
+
 // nullIfEmpty returns nil for empty strings, for nullable VARCHAR columns.
 func nullIfEmpty(s string) *string {
 	if s == "" {

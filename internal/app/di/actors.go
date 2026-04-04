@@ -10,15 +10,18 @@ import (
 type workerHandlerRegistrationParams struct {
 	fx.In
 
-	HealthCheckHandlerFactory         *handlers.HealthCheckHandlerFactory
-	AsyncFunctionResultHandlerFactory *handlers.AsyncFunctionResultHandlerFactory
-	WorkflowSchemaHandlerFactory      *handlers.WorkflowSchemaHandlerFactory
-	TriggerWorkflowHandlerFactory     *handlers.TriggerWorkflowHandlerFactory
-	PackagesHandlerFactory            *handlers.PackagesHandlerFactory
-	RegisterPackageHandlerFactory     *handlers.RegisterPackageHandlerFactory
-	GetWorkflowHandlerFactory         *handlers.GetWorkflowHandlerFactory
-	CancelWorkflowHandlerFactory      *handlers.CancelWorkflowHandlerFactory
-	ResolveAwakeableHandlerFactory    *handlers.ResolveAwakeableHandlerFactory
+	HealthCheckHandlerFactory             *handlers.HealthCheckHandlerFactory
+	AsyncFunctionResultHandlerFactory     *handlers.AsyncFunctionResultHandlerFactory
+	WorkflowSchemaHandlerFactory          *handlers.WorkflowSchemaHandlerFactory
+	TriggerWorkflowHandlerFactory         *handlers.TriggerWorkflowHandlerFactory
+	PackagesHandlerFactory                *handlers.PackagesHandlerFactory
+	RegisterPackageHandlerFactory         *handlers.RegisterPackageHandlerFactory
+	GetWorkflowHandlerFactory             *handlers.GetWorkflowHandlerFactory
+	CancelWorkflowHandlerFactory          *handlers.CancelWorkflowHandlerFactory
+	ResolveAwakeableHandlerFactory        *handlers.ResolveAwakeableHandlerFactory
+	GetWorkflowSnapshotHandlerFactory     *handlers.GetWorkflowSnapshotHandlerFactory
+	RetryNodeHandlerFactory               *handlers.RetryNodeHandlerFactory
+	RetryWorkflowHandlerFactory           *handlers.RetryWorkflowHandlerFactory
 }
 
 // newWorkers builds the HTTP worker registry with all handler factories registered.
@@ -35,6 +38,9 @@ func newWorkers(p workerHandlerRegistrationParams) *actors.Workers {
 	w.AddFactory(handlers.GetWorkflowHandlerName, p.GetWorkflowHandlerFactory.Factory)
 	w.AddFactory(handlers.CancelWorkflowHandlerName, p.CancelWorkflowHandlerFactory.Factory)
 	w.AddFactory(handlers.ResolveAwakeableHandlerName, p.ResolveAwakeableHandlerFactory.Factory)
+	w.AddFactory(handlers.GetWorkflowSnapshotHandlerName, p.GetWorkflowSnapshotHandlerFactory.Factory)
+	w.AddFactory(handlers.RetryNodeHandlerName, p.RetryNodeHandlerFactory.Factory)
+	w.AddFactory(handlers.RetryWorkflowHandlerName, p.RetryWorkflowHandlerFactory.Factory)
 	return w
 }
 
@@ -51,6 +57,9 @@ var WorkerModule = fx.Module(
 		handlers.NewGetWorkflowHandlerFactory,
 		handlers.NewCancelWorkflowHandlerFactory,
 		handlers.NewResolveAwakeableHandlerFactory,
+		handlers.NewGetWorkflowSnapshotHandlerFactory,
+		handlers.NewRetryNodeHandlerFactory,
+		handlers.NewRetryWorkflowHandlerFactory,
 		newWorkers,
 	),
 )

@@ -44,6 +44,19 @@ func (m *MemoryJournalRepository) LoadAll(workflowID string) ([]workflow.Journal
 	return cp, nil
 }
 
+// FindFailed returns all step:failed journal entries for the given workflow.
+func (m *MemoryJournalRepository) FindFailed(workflowID string) ([]workflow.JournalEntry, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	var failed []workflow.JournalEntry
+	for _, e := range m.journals[workflowID] {
+		if e.Type == workflow.JournalStepFailed {
+			failed = append(failed, e)
+		}
+	}
+	return failed, nil
+}
+
 // LastSequence returns the highest sequence number for a workflow
 func (m *MemoryJournalRepository) LastSequence(workflowID string) (uint64, error) {
 	m.mu.RLock()

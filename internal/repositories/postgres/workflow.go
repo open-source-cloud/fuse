@@ -261,6 +261,35 @@ func (r *WorkflowRepository) loadGraph(ctx context.Context, schemaID string) (*w
 	return workflow.NewGraph(schema)
 }
 
+// GetSnapshotRef returns the object store key of the execution snapshot.
+func (r *WorkflowRepository) GetSnapshotRef(workflowID string) (string, error) {
+	ctx := context.Background()
+	var ref *string
+	err := r.pool.QueryRow(ctx,
+		`SELECT snapshot_ref FROM workflows WHERE workflow_id = $1`, workflowID,
+	).Scan(&ref)
+	if err != nil {
+		return "", fmt.Errorf("postgres/workflow: get snapshot ref: %w", err)
+	}
+	if ref == nil {
+		return "", nil
+	}
+	return *ref, nil
+}
+
+// SetSnapshotRef records the object store key of the execution snapshot.
+func (r *WorkflowRepository) SetSnapshotRef(workflowID string, snapshotRef string) error {
+	ctx := context.Background()
+	_, err := r.pool.Exec(ctx,
+		`UPDATE workflows SET snapshot_ref = $2, updated_at = NOW() WHERE workflow_id = $1`,
+		workflowID, snapshotRef,
+	)
+	if err != nil {
+		return fmt.Errorf("postgres/workflow: set snapshot ref: %w", err)
+	}
+	return nil
+}
+
 // restoreState sets the workflow state directly without appending a journal entry.
 // This is used during reconstruction from the database.
 func (r *WorkflowRepository) restoreState(wf *workflow.Workflow, state workflow.State) {

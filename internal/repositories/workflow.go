@@ -18,5 +18,9 @@ type (
 		FindSubWorkflowRef(childID string) (*workflow.SubWorkflowRef, error)
 		// FindActiveSubWorkflows finds all sub-workflow references for a parent
 		FindActiveSubWorkflows(parentID string) ([]*workflow.SubWorkflowRef, error)
+		// GetSnapshotRef returns the object store key of the execution snapshot (empty if not set)
+		GetSnapshotRef(workflowID string) (string, error)
+		// SetSnapshotRef records the object store key of the execution snapshot
+		SetSnapshotRef(workflowID string, snapshotRef string) error
 	}
 )

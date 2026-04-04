@@ -1,6 +1,8 @@
 package actors
 
 import (
+	"time"
+
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
 	"github.com/open-source-cloud/fuse/internal/actors/actornames"
@@ -105,6 +107,31 @@ func (a *WorkflowSupervisor) HandleMessage(from gen.PID, message any) error {
 		handlerName := actornames.WorkflowHandlerName(cancelMsg.WorkflowID)
 		if sendErr := a.Send(gen.Atom(handlerName), message); sendErr != nil {
 			a.Log().Warning("cancel requested for unknown/finished workflow %s: %s", cancelMsg.WorkflowID, sendErr)
+		}
+	case messaging.RetryNode:
+		retryMsg, err := msg.RetryNodeMessage()
+		if err != nil {
+			a.Log().Error("failed to get retry node message: %s", err)
+			return nil
+		}
+		// The handler may have terminated (workflow reached error state).
+		// Try to send; if the handler doesn't exist, respawn it from the persisted state.
+		handlerName := actornames.WorkflowHandlerName(retryMsg.WorkflowID)
+		if sendErr := a.Send(gen.Atom(handlerName), message); sendErr != nil {
+			a.Log().Info("respawning workflow actor for retry of %s", retryMsg.WorkflowID)
+			wf, getErr := a.workflowRepository.Get(retryMsg.WorkflowID.String())
+			if getErr != nil {
+				a.Log().Error("failed to get workflow %s for retry: %s", retryMsg.WorkflowID, getErr)
+				return nil
+			}
+			if spawnErr := a.spawnWorkflowActor(wf.Graph().ID(), retryMsg.WorkflowID); spawnErr != nil {
+				a.Log().Error("failed to respawn workflow %s for retry: %s", retryMsg.WorkflowID, spawnErr)
+				return nil
+			}
+			// Re-send the retry message after a short delay to let the actor initialize
+			if _, resendErr := a.SendAfter(gen.Atom(handlerName), message, 500*time.Millisecond); resendErr != nil {
+				a.Log().Error("failed to re-send retry message to %s: %s", retryMsg.WorkflowID, resendErr)
+			}
 		}
 	}
 

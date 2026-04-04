@@ -2,6 +2,7 @@
 package workflow
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 	"sync"
@@ -371,6 +372,84 @@ func (w *Workflow) SetResultFor(functionExecID workflow.ExecID, result *workflow
 // AggregatedOutputSnapshot returns a shallow copy of per-node outputs accumulated during execution.
 func (w *Workflow) AggregatedOutputSnapshot() map[string]any {
 	return w.aggregatedOutput.Snapshot()
+}
+
+// RetryNode manually retries a failed node by creating a new exec_id.
+// Preconditions: workflow is in StateError, the target execID has step:failed in journal.
+// Returns the action to execute, or an error if preconditions are not met.
+func (w *Workflow) RetryNode(failedExecID workflow.ExecID) (workflowactions.Action, error) {
+	if w.State() != StateError {
+		return nil, fmt.Errorf("cannot retry node: workflow is in state %s, expected error", w.State())
+	}
+
+	// Look up the failed exec in the audit log
+	entry, ok := w.auditLog.Get(failedExecID.String())
+	if !ok {
+		return nil, fmt.Errorf("exec %s not found in audit log", failedExecID)
+	}
+
+	// Verify the exec actually failed in the journal
+	if !w.hasJournalEntryType(failedExecID.String(), JournalStepFailed) {
+		return nil, fmt.Errorf("exec %s does not have a step:failed journal entry", failedExecID)
+	}
+
+	// Look up the node in the graph to get the function ID
+	node, nodeErr := w.graph.FindNode(entry.FunctionNodeID)
+	if nodeErr != nil {
+		return nil, fmt.Errorf("node %s not found in graph: %w", entry.FunctionNodeID, nodeErr)
+	}
+
+	// Generate a new exec ID for the retry
+	newExecID := workflow.NewExecID(entry.ThreadID)
+
+	// Record the manual retry link in the journal
+	w.journal.Append(JournalEntry{
+		Type:           JournalStepManualRetry,
+		ThreadID:       entry.ThreadID,
+		FunctionNodeID: entry.FunctionNodeID,
+		ExecID:         newExecID.String(),
+		Data:           map[string]any{"previousExecId": failedExecID.String()},
+	})
+
+	// Create new audit log entry and step:started for the retry
+	w.auditLog.NewEntry(entry.ThreadID, entry.FunctionNodeID, newExecID.String(), entry.Input)
+	w.journal.Append(JournalEntry{
+		Type:           JournalStepStarted,
+		ThreadID:       entry.ThreadID,
+		FunctionNodeID: entry.FunctionNodeID,
+		ExecID:         newExecID.String(),
+		Input:          entry.Input,
+	})
+
+	// Reset workflow state to running
+	w.SetState(StateRunning)
+
+	// Reset thread state to running
+	th := w.threads.Get(entry.ThreadID)
+	if th != nil {
+		th.state = StateRunning
+		th.currentExecID = newExecID
+	}
+
+	// Clear retry tracker for the failed exec
+	w.retryTracker.Clear(failedExecID.String())
+
+	return &workflowactions.RunFunctionAction{
+		ThreadID:       entry.ThreadID,
+		FunctionID:     node.FunctionID(),
+		FunctionExecID: newExecID,
+		Args:           entry.Input,
+	}, nil
+}
+
+// hasJournalEntryType checks if the journal has an entry of the given type for the given execID.
+func (w *Workflow) hasJournalEntryType(execID string, entryType JournalEntryType) bool {
+	for _, e := range w.journal.Entries() {
+		if e.ExecID == execID && e.Type == entryType {
+			return true
+		}
+	}
+	return false
 }
 
 // ID Workflow ID

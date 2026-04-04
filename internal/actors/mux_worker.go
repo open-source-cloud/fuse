@@ -116,6 +116,36 @@ func NewWorkers() *Workers {
 				},
 			},
 			{
+				Name:    handlers.GetWorkflowSnapshotHandlerName,
+				Pattern: "/v1/workflows/{workflowID}/snapshot",
+				Methods: []string{"GET"},
+				Timeout: 10 * time.Second,
+				PoolConfig: WorkerPoolConfig{
+					Name:     handlers.GetWorkflowSnapshotHandlerPoolName,
+					PoolSize: 3,
+				},
+			},
+			{
+				Name:    handlers.RetryNodeHandlerName,
+				Pattern: "/v1/workflows/{workflowID}/retry-node",
+				Methods: []string{"POST"},
+				Timeout: 10 * time.Second,
+				PoolConfig: WorkerPoolConfig{
+					Name:     handlers.RetryNodeHandlerPoolName,
+					PoolSize: 3,
+				},
+			},
+			{
+				Name:    handlers.RetryWorkflowHandlerName,
+				Pattern: "/v1/workflows/{workflowID}/retry",
+				Methods: []string{"POST"},
+				Timeout: 10 * time.Second,
+				PoolConfig: WorkerPoolConfig{
+					Name:     handlers.RetryWorkflowHandlerPoolName,
+					PoolSize: 3,
+				},
+			},
+			{
 				Name:    handlers.ResolveAwakeableHandlerName,
 				Pattern: "/v1/awakeables/{awakeableID}/resolve",
 				Methods: []string{"POST"},
