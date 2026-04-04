@@ -15,3 +15,6 @@ const WorkflowInstanceSupervisor = "workflow_instance_sup"
 
 // SchemaReplicationActorName is the schema cluster-replication actor (ergo Events producer/consumer).
 const SchemaReplicationActorName = "schema_replication"
+
+// WorkflowClaimActorName is the HA workflow claim actor name.
+const WorkflowClaimActorName = "workflow_claim"
