@@ -1,8 +1,38 @@
 package repositories
 
 import (
+	"time"
+
 	"github.com/open-source-cloud/fuse/internal/workflow"
 )
+
+// ExecutionListItem is a lightweight projection of a workflow for list endpoints.
+type ExecutionListItem struct {
+	WorkflowID string    `json:"workflowId"`
+	SchemaID   string    `json:"schemaId"`
+	State      string    `json:"state"`
+	CreatedAt  time.Time `json:"createdAt"`
+	UpdatedAt  time.Time `json:"updatedAt"`
+}
+
+// ExecutionListFilter defines the query parameters for listing executions.
+type ExecutionListFilter struct {
+	SchemaID string
+	Status   string    // optional filter by state
+	From     time.Time // optional: created_at >= from
+	To       time.Time // optional: created_at <= to
+	Page     int
+	Size     int
+}
+
+// ExecutionListResult is a paginated result for listing executions.
+type ExecutionListResult struct {
+	Items    []ExecutionListItem `json:"items"`
+	Total    int                 `json:"total"`
+	Page     int                 `json:"page"`
+	Size     int                 `json:"size"`
+	LastPage int                 `json:"lastPage"`
+}
 
 type (
 	// WorkflowRepository defines the interface o a WorkflowRepository repository
@@ -22,5 +52,7 @@ type (
 		GetSnapshotRef(workflowID string) (string, error)
 		// SetSnapshotRef records the object store key of the execution snapshot
 		SetSnapshotRef(workflowID string, snapshotRef string) error
+		// FindExecutions returns a paginated list of workflow executions filtered by schema, status, and time range.
+		FindExecutions(filter ExecutionListFilter) (*ExecutionListResult, error)
 	}
 )

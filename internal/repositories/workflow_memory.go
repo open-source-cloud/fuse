@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"fmt"
+	"sort"
 	"sync"
 
 	"github.com/open-source-cloud/fuse/internal/workflow"
@@ -105,6 +106,62 @@ func (m *MemoryWorkflowRepository) SetSnapshotRef(workflowID string, snapshotRef
 	defer m.mu.Unlock()
 	m.snapshotRefs[workflowID] = snapshotRef
 	return nil
+}
+
+// FindExecutions returns a paginated list of workflow executions for the given filter.
+func (m *MemoryWorkflowRepository) FindExecutions(filter ExecutionListFilter) (*ExecutionListResult, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	matching := make([]ExecutionListItem, 0, len(m.workflows))
+	for id, wf := range m.workflows {
+		if filter.SchemaID != "" && wf.Graph().ID() != filter.SchemaID {
+			continue
+		}
+		if filter.Status != "" && wf.State().String() != filter.Status {
+			continue
+		}
+		matching = append(matching, ExecutionListItem{
+			WorkflowID: id,
+			SchemaID:   wf.Graph().ID(),
+			State:      wf.State().String(),
+		})
+	}
+
+	// Sort by workflow ID (deterministic order)
+	sort.Slice(matching, func(i, j int) bool {
+		return matching[i].WorkflowID < matching[j].WorkflowID
+	})
+
+	total := len(matching)
+	page := filter.Page
+	if page < 1 {
+		page = 1
+	}
+	size := filter.Size
+	if size < 1 {
+		size = 20
+	}
+	offset := (page - 1) * size
+	if offset > total {
+		offset = total
+	}
+	end := offset + size
+	if end > total {
+		end = total
+	}
+	lastPage := (total + size - 1) / size
+	if lastPage < 1 {
+		lastPage = 1
+	}
+
+	return &ExecutionListResult{
+		Items:    matching[offset:end],
+		Total:    total,
+		Page:     page,
+		Size:     size,
+		LastPage: lastPage,
+	}, nil
 }
 
 // FindActiveSubWorkflows finds all sub-workflow references for a parent

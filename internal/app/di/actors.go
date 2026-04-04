@@ -22,6 +22,7 @@ type workerHandlerRegistrationParams struct {
 	GetWorkflowSnapshotHandlerFactory     *handlers.GetWorkflowSnapshotHandlerFactory
 	RetryNodeHandlerFactory               *handlers.RetryNodeHandlerFactory
 	RetryWorkflowHandlerFactory           *handlers.RetryWorkflowHandlerFactory
+	ListExecutionsHandlerFactory          *handlers.ListExecutionsHandlerFactory
 }
 
 // newWorkers builds the HTTP worker registry with all handler factories registered.
@@ -41,6 +42,7 @@ func newWorkers(p workerHandlerRegistrationParams) *actors.Workers {
 	w.AddFactory(handlers.GetWorkflowSnapshotHandlerName, p.GetWorkflowSnapshotHandlerFactory.Factory)
 	w.AddFactory(handlers.RetryNodeHandlerName, p.RetryNodeHandlerFactory.Factory)
 	w.AddFactory(handlers.RetryWorkflowHandlerName, p.RetryWorkflowHandlerFactory.Factory)
+	w.AddFactory(handlers.ListExecutionsHandlerName, p.ListExecutionsHandlerFactory.Factory)
 	return w
 }
 
@@ -60,6 +62,7 @@ var WorkerModule = fx.Module(
 		handlers.NewGetWorkflowSnapshotHandlerFactory,
 		handlers.NewRetryNodeHandlerFactory,
 		handlers.NewRetryWorkflowHandlerFactory,
+		handlers.NewListExecutionsHandlerFactory,
 		newWorkers,
 	),
 )

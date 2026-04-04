@@ -290,6 +290,89 @@ func (r *WorkflowRepository) SetSnapshotRef(workflowID string, snapshotRef strin
 	return nil
 }
 
+// FindExecutions returns a paginated list of workflow executions filtered by schema, status, and time range.
+func (r *WorkflowRepository) FindExecutions(filter repositories.ExecutionListFilter) (*repositories.ExecutionListResult, error) {
+	ctx := context.Background()
+
+	page := filter.Page
+	if page < 1 {
+		page = 1
+	}
+	size := filter.Size
+	if size < 1 {
+		size = 20
+	}
+	offset := (page - 1) * size
+
+	// Build WHERE clause dynamically
+	where := "WHERE schema_id = $1"
+	args := []any{filter.SchemaID}
+	argIdx := 2
+
+	if filter.Status != "" {
+		where += fmt.Sprintf(" AND state = $%d::workflow_state", argIdx)
+		args = append(args, filter.Status)
+		argIdx++
+	}
+	if !filter.From.IsZero() {
+		where += fmt.Sprintf(" AND created_at >= $%d", argIdx)
+		args = append(args, filter.From)
+		argIdx++
+	}
+	if !filter.To.IsZero() {
+		where += fmt.Sprintf(" AND created_at <= $%d", argIdx)
+		args = append(args, filter.To)
+		argIdx++
+	}
+
+	// Count total
+	var total int
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM workflows %s", where)
+	if err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
+		return nil, fmt.Errorf("postgres/workflow: count executions: %w", err)
+	}
+
+	// Fetch page
+	dataQuery := fmt.Sprintf(`
+		SELECT workflow_id, schema_id, state::TEXT, created_at, updated_at
+		FROM workflows %s
+		ORDER BY id DESC
+		LIMIT $%d OFFSET $%d
+	`, where, argIdx, argIdx+1)
+	args = append(args, size, offset)
+
+	rows, err := r.pool.Query(ctx, dataQuery, args...)
+	if err != nil {
+		return nil, fmt.Errorf("postgres/workflow: find executions: %w", err)
+	}
+	defer rows.Close()
+
+	var items []repositories.ExecutionListItem
+	for rows.Next() {
+		var item repositories.ExecutionListItem
+		if scanErr := rows.Scan(&item.WorkflowID, &item.SchemaID, &item.State, &item.CreatedAt, &item.UpdatedAt); scanErr != nil {
+			return nil, fmt.Errorf("postgres/workflow: scan execution: %w", scanErr)
+		}
+		items = append(items, item)
+	}
+	if items == nil {
+		items = []repositories.ExecutionListItem{}
+	}
+
+	lastPage := (total + size - 1) / size
+	if lastPage < 1 {
+		lastPage = 1
+	}
+
+	return &repositories.ExecutionListResult{
+		Items:    items,
+		Total:    total,
+		Page:     page,
+		Size:     size,
+		LastPage: lastPage,
+	}, rows.Err()
+}
+
 // restoreState sets the workflow state directly without appending a journal entry.
 // This is used during reconstruction from the database.
 func (r *WorkflowRepository) restoreState(wf *workflow.Workflow, state workflow.State) {
