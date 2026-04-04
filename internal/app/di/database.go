@@ -47,15 +47,20 @@ func providePgxPool(lc fx.Lifecycle, cfg *config.Config) (pgxPoolResult, error) 
 		return pgxPoolResult{}, err
 	}
 
+	// Run migrations eagerly (during Provide phase) so tables exist before
+	// fx.Invoke calls that register internal packages.
+	log.Info().Msg("pinging PostgreSQL...")
+	if err := pool.Ping(context.Background()); err != nil {
+		pool.Close()
+		return pgxPoolResult{}, err
+	}
+	log.Info().Msg("running database migrations...")
+	if err := postgres.RunMigrations(cfg.Database.PostgresDSN); err != nil {
+		pool.Close()
+		return pgxPoolResult{}, err
+	}
+
 	lc.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error {
-			log.Info().Msg("pinging PostgreSQL...")
-			if err := pool.Ping(ctx); err != nil {
-				return err
-			}
-			log.Info().Msg("running database migrations...")
-			return postgres.RunMigrations(cfg.Database.PostgresDSN)
-		},
 		OnStop: func(_ context.Context) error {
 			log.Info().Msg("closing PostgreSQL connection pool")
 			pool.Close()

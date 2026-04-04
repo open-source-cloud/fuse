@@ -252,6 +252,15 @@ func (a *WorkflowHandler) handleMsgAsyncFunctionResult(msg messaging.Message) er
 	return nil
 }
 
+// persistWorkflowState persists both the journal and the workflow state to the repository.
+// Call this after any state transition that should be visible to external queries (e.g. running → sleeping).
+func (a *WorkflowHandler) persistWorkflowState() {
+	a.persistJournal()
+	if err := a.workflowRepository.Save(a.workflow); err != nil {
+		a.Log().Error("failed to persist workflow state for %s: %s", a.workflow.ID(), err)
+	}
+}
+
 func (a *WorkflowHandler) persistJournal() {
 	newEntries := a.workflow.Journal().NewEntries()
 	if len(newEntries) == 0 {
@@ -286,6 +295,14 @@ func (a *WorkflowHandler) isTerminalState() bool {
 
 func (a *WorkflowHandler) sendWorkflowCompleted() {
 	a.Log().Info("workflow %s completed with state %s", a.workflow.ID(), a.workflow.State())
+
+	// Persist the terminal state to the repository so GET /workflows/{id} returns
+	// the correct status. With in-memory repos the pointer is already updated, but
+	// PG-backed repos need an explicit Save to write the state column.
+	a.persistJournal()
+	if err := a.workflowRepository.Save(a.workflow); err != nil {
+		a.Log().Error("failed to persist terminal state for workflow %s: %s", a.workflow.ID(), err)
+	}
 
 	completedMsg := messaging.NewWorkflowCompletedMessage(a.workflow.ID(), a.workflow.State().String())
 	if err := a.Send(a.Parent(), completedMsg); err != nil {
@@ -499,7 +516,7 @@ func (a *WorkflowHandler) handleSleepAction(action *workflowactions.SleepAction)
 		ExecID:   action.ExecID.String(),
 		Data:     map[string]any{"duration": action.Duration.String(), "reason": action.Reason},
 	})
-	a.persistJournal()
+	a.persistWorkflowState()
 
 	msg := messaging.NewSleepWakeUpMessage(a.workflow.ID(), action.ExecID, action.ThreadID)
 	if _, err := a.SendAfter(a.PID(), msg, action.Duration); err != nil {
@@ -529,7 +546,7 @@ func (a *WorkflowHandler) handleWaitForEventAction(action *workflowactions.WaitF
 		ExecID:   action.ExecID.String(),
 		Data:     map[string]any{"awakeableId": action.AwakeableID, "timeout": action.Timeout.String()},
 	})
-	a.persistJournal()
+	a.persistWorkflowState()
 
 	if action.Timeout > 0 {
 		timeoutMsg := messaging.NewTimeoutMessage(action.ExecID.String())
@@ -693,7 +710,7 @@ func (a *WorkflowHandler) handleSubWorkflowAction(action *workflowactions.RunSub
 		a.handleWorkflowAction(nextAction)
 	} else {
 		a.workflow.SetState(internalworkflow.StateSleeping)
-		a.persistJournal()
+		a.persistWorkflowState()
 	}
 }
 
