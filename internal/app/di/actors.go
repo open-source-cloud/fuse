@@ -66,5 +66,6 @@ var ActorModule = fx.Module(
 		actors.NewWorkflowFuncPoolFactory,
 		actors.NewWorkflowFuncFactory,
 		actors.NewSchemaReplicationActorFactory,
+		actors.NewWorkflowClaimActorFactory,
 	),
 )

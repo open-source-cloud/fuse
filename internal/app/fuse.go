@@ -24,6 +24,7 @@ func NewApp(
 	workflowSup *actors.WorkflowSupervisorFactory,
 	serverSup *actors.MuxServerSupFactory,
 	schemaReplicationSup *actors.SchemaReplicationActorFactory,
+	claimActor *actors.WorkflowClaimActorFactory,
 ) (gen.Node, error) {
 	var options gen.NodeOptions
 	options.ShutdownTimeout = config.Params.ShutdownTimeout
@@ -34,6 +35,7 @@ func NewApp(
 		workflowSup:          workflowSup,
 		serverSup:            serverSup,
 		schemaReplicationSup: schemaReplicationSup,
+		claimActor:           claimActor,
 	})
 	if config.Params.ActorObserver {
 		apps = append(apps, observer.CreateApp(observer.Options{}))
@@ -107,32 +109,41 @@ type Fuse struct {
 	workflowSup          *actors.WorkflowSupervisorFactory
 	serverSup            *actors.MuxServerSupFactory
 	schemaReplicationSup *actors.SchemaReplicationActorFactory
+	claimActor           *actors.WorkflowClaimActorFactory
 	node                 gen.Node
 }
 
 // Load invoked on loading application using the method ApplicationLoad of gen.Node interface.
 func (app *Fuse) Load(node gen.Node, _ ...any) (gen.ApplicationSpec, error) {
 	app.node = node
+	group := []gen.ApplicationMemberSpec{
+		{
+			Name:    actornames.WorkflowSupervisorName,
+			Factory: app.workflowSup.Factory,
+		},
+		{
+			Name:    actornames.MuxServerSupName,
+			Factory: app.serverSup.Factory,
+		},
+		{
+			Name:    actornames.SchemaReplicationActorName,
+			Factory: app.schemaReplicationSup.Factory,
+		},
+	}
+	if app.config.HA.Enabled {
+		group = append(group, gen.ApplicationMemberSpec{
+			Name:    actornames.WorkflowClaimActorName,
+			Factory: app.claimActor.Factory,
+		})
+	}
+
 	return gen.ApplicationSpec{
 		Name:        "fuse_app",
 		Description: "FUSE application",
-		Group: []gen.ApplicationMemberSpec{
-			{
-				Name:    actornames.WorkflowSupervisorName,
-				Factory: app.workflowSup.Factory,
-			},
-			{
-				Name:    actornames.MuxServerSupName,
-				Factory: app.serverSup.Factory,
-			},
-			{
-				Name:    actornames.SchemaReplicationActorName,
-				Factory: app.schemaReplicationSup.Factory,
-			},
-		},
-		Mode:     gen.ApplicationModeTemporary,
-		Tags:     []gen.Atom{"v0.1.0"},
-		LogLevel: parseLogLevel(app.config.Params.LogLevel),
+		Group:       group,
+		Mode:        gen.ApplicationModeTemporary,
+		Tags:        []gen.Atom{"v0.1.0"},
+		LogLevel:    parseLogLevel(app.config.Params.LogLevel),
 	}, nil
 }
 

@@ -10,7 +10,7 @@ import (
 	"go.uber.org/fx"
 )
 
-// RepoModule provides all five repository interfaces, selecting implementations
+// RepoModule provides all repository interfaces, selecting implementations
 // based on the DB_DRIVER config (memory or postgres).
 var RepoModule = fx.Module(
 	"repo",
@@ -20,13 +20,14 @@ var RepoModule = fx.Module(
 		providePackageRepository,
 		provideJournalRepository,
 		provideAwakeableRepository,
+		provideClaimRepository,
 	),
 )
 
 type repoParams struct {
 	fx.In
 	Config *config.Config
-	Pool   *pgxpool.Pool       `optional:"true"`
+	Pool   *pgxpool.Pool `optional:"true"`
 	Store  objectstore.ObjectStore
 }
 
@@ -73,4 +74,13 @@ func provideAwakeableRepository(p repoParams) repositories.AwakeableRepository {
 	}
 	log.Debug().Msg("using memory awakeable repository")
 	return repositories.NewMemoryAwakeableRepository()
+}
+
+func provideClaimRepository(p repoParams) repositories.ClaimRepository {
+	if p.Config.Database.Driver == config.DBDriverPostgres && p.Pool != nil {
+		log.Debug().Msg("using postgres claim repository")
+		return postgres.NewClaimRepository(p.Pool)
+	}
+	log.Debug().Msg("using memory claim repository (no-op)")
+	return repositories.NewMemoryClaimRepository()
 }
