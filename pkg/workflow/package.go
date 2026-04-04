@@ -1,10 +1,16 @@
 package workflow
 
-import "github.com/go-playground/validator/v10"
+import (
+	"encoding/json"
+	"sync"
+
+	"github.com/go-playground/validator/v10"
+)
 
 type (
 	// Package workflow function Package
 	Package struct {
+		mu        sync.RWMutex        `json:"-"`
 		ID        string              `json:"id" validate:"required"`
 		Functions []*PackagedFunction `json:"functions" validate:"required,dive"`
 		Tags      map[string]string   `json:"tags,omitempty"`
@@ -27,8 +33,34 @@ func NewPackage(id string, functions ...*PackagedFunction) *Package {
 	}
 }
 
+// Encode encodes a package to a JSON byte array
+func (p *Package) Encode() ([]byte, error) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	if err := p.Validate(); err != nil {
+		return nil, err
+	}
+	return json.Marshal(p)
+}
+
+// DecodePackage decodes a package from a JSON byte array
+func DecodePackage(data []byte) (*Package, error) {
+	var pkg Package
+	err := json.Unmarshal(data, &pkg)
+	if err != nil {
+		return nil, err
+	}
+	// Validate the package after decoding
+	if err := pkg.Validate(); err != nil {
+		return nil, err
+	}
+	return &pkg, nil
+}
+
 // Validate validates the package and its functions
 func (p *Package) Validate() error {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
 	validate := validator.New(validator.WithRequiredStructEnabled())
 	return validate.Struct(p)
 }

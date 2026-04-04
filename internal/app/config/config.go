@@ -8,6 +8,9 @@ import (
 	"github.com/caarlos0/env/v11"
 )
 
+// DBDriverPostgres is the driver value for PostgreSQL persistence.
+const DBDriverPostgres = "postgres"
+
 var config *Config
 
 type (
@@ -58,7 +61,7 @@ type (
 	ObjectStoreConfig struct {
 		Driver      string `env:"OBJECT_STORE_DRIVER" envDefault:"memory"`
 		KeyPrefix   string `env:"OBJECT_STORE_KEY_PREFIX"`
-		FSBasePath  string `env:"OBJECT_STORE_FS_BASE_PATH" envDefault:"/data/fuse"`
+		FSBasePath  string `env:"OBJECT_STORE_FS_BASE_PATH" envDefault:"./data/fuse"`
 		S3Bucket    string `env:"OBJECT_STORE_S3_BUCKET" envDefault:"fuse-data"`
 		S3Endpoint  string `env:"OBJECT_STORE_S3_ENDPOINT"`
 		S3Region    string `env:"OBJECT_STORE_S3_REGION" envDefault:"us-east-1"`

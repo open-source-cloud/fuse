@@ -5,6 +5,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-source-cloud/fuse/internal/app/config"
+	"github.com/open-source-cloud/fuse/internal/repositories/postgres"
 	"github.com/rs/zerolog/log"
 	"go.uber.org/fx"
 )
@@ -22,7 +23,7 @@ type pgxPoolResult struct {
 }
 
 func providePgxPool(lc fx.Lifecycle, cfg *config.Config) (pgxPoolResult, error) {
-	if cfg.Database.Driver != "postgres" {
+	if cfg.Database.Driver != config.DBDriverPostgres {
 		log.Debug().Msg("database driver is not postgres, skipping pool creation")
 		return pgxPoolResult{}, nil
 	}
@@ -48,7 +49,11 @@ func providePgxPool(lc fx.Lifecycle, cfg *config.Config) (pgxPoolResult, error) 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			log.Info().Msg("pinging PostgreSQL...")
-			return pool.Ping(ctx)
+			if err := pool.Ping(ctx); err != nil {
+				return err
+			}
+			log.Info().Msg("running database migrations...")
+			return postgres.RunMigrations(cfg.Database.PostgresDSN)
 		},
 		OnStop: func(_ context.Context) error {
 			log.Info().Msg("closing PostgreSQL connection pool")
