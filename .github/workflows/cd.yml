@@ -1,11 +1,16 @@
 name: CD
 
+# Runs after E2E succeeds on main so the release pipeline is CI → E2E → CD (never parallel with E2E).
 on:
   workflow_run:
-    workflows: ["CI"]
+    workflows: ["E2E"]
     types:
       - completed
     branches: [main]
+
+concurrency:
+  group: cd-release-${{ github.repository }}
+  cancel-in-progress: false
 
 env:
   REGISTRY: ghcr.io

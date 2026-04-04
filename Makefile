@@ -19,7 +19,12 @@ install-gotestsum:
 	go install gotest.tools/gotestsum@latest
 
 test: install-gotestsum
-	$(GOTESTSUM) --junitfile test-report.xml --format testdox -- ./pkg/... ./internal/... ./tests/e2e
+	$(GOTESTSUM) --junitfile test-report.xml --format testdox -- ./pkg/... ./internal/... ./tests/...
+
+# Functional tests against a real PostgreSQL instance (requires DB_POSTGRES_DSN).
+# Pipeline order: CI (lint+build+test) → Functional → E2E → Load Testing → Release
+test-functional: install-gotestsum
+	$(GOTESTSUM) --junitfile functional-report.xml --format testdox -- -tags=functional -count=1 ./tests/functional/...
 
 test-benchmark:
 	go test -bench=. -benchmem ./...

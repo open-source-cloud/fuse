@@ -7,6 +7,7 @@ on:
     branches: [main]
 
 jobs:
+  # Stage 1: Lint, build, unit tests (no external dependencies)
   build:
     runs-on: ubuntu-latest
     steps:
@@ -40,17 +41,17 @@ jobs:
       - name: Generate swagger docs
         run: make swagger
 
-      - name: Run tests
-        run: make test
-
-      - name: Run tests benchmark
-        run: make test-benchmark
-
       - name: Run linter
         run: make lint
 
       - name: Build
         run: make build
+
+      - name: Run tests
+        run: make test
+
+      - name: Run tests benchmark
+        run: make test-benchmark
 
       - name: Install Helm
         # Pinned to v4.3.1 (same commit as the @v4 major tag).
@@ -61,3 +62,44 @@ jobs:
 
       - name: Helm template validation
         run: helm template fuse deploy/helm/fuse/ --values deploy/helm/fuse/values.yaml > /dev/null
+
+  # Stage 2: Functional tests (contract tests against real PostgreSQL)
+  functional:
+    needs: build
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: fuse
+          POSTGRES_PASSWORD: fuse
+          POSTGRES_DB: fuse
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fuse"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+    env:
+      DB_POSTGRES_DSN: postgres://fuse:fuse@localhost:5432/fuse?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          check-latest: true
+          cache: true
+          cache-dependency-path: |
+            **/go.sum
+            **/go.mod
+
+      - name: Install gotestsum
+        run: |
+          go install gotest.tools/gotestsum@latest
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+
+      - name: Run functional tests
+        run: make test-functional
