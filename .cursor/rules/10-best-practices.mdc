@@ -209,7 +209,6 @@ import "github.com/go-playground/validator/v10"
 type NodeSchema struct {
     ID       string `json:"id" validate:"required,min=1,max=100"`
     Function string `json:"function" validate:"required"`
-    Config   map[string]any `json:"config" validate:"omitempty"`
 }
 
 type EdgeSchema struct {
@@ -641,7 +640,6 @@ import "github.com/go-playground/validator/v10"
 type NodeSchema struct {
     ID       string `json:"id" validate:"required,min=1,max=100"`
     Function string `json:"function" validate:"required"`
-    Config   map[string]any `json:"config" validate:"omitempty"`
 }
 
 type EdgeSchema struct {

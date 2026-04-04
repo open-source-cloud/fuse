@@ -10,19 +10,16 @@ Nodes are defined through schemas with unique IDs and function references:
 
 ```go
 type NodeSchema struct {
-    ID       string      `json:"id" yaml:"id" validate:"required"`
-    Function string      `json:"function" yaml:"function" validate:"required"`
-    Config   *NodeConfig `json:"config,omitempty" yaml:"config,omitempty"`
+    ID       string         `json:"id" yaml:"id" validate:"required"`
+    Function string         `json:"function" yaml:"function" validate:"required"`
+    Retry    *RetryPolicy   `json:"retry,omitempty" yaml:"retry,omitempty"`
+    Timeout  *TimeoutConfig `json:"timeout,omitempty" yaml:"timeout,omitempty"`
+    Merge    *MergeConfig   `json:"merge,omitempty" yaml:"merge,omitempty"`
 }
 
-// Clone creates a deep copy of the NodeSchema
-func (n *NodeSchema) Clone() *NodeSchema {
-    return &NodeSchema{
-        ID:       n.ID,
-        Function: n.Function,
-        Config:   n.Config,
-    }
-}
+// Clone creates a deep copy of the NodeSchema (including optional pointer fields).
+// See internal/workflow/node_schema.go for the full implementation.
+func (n *NodeSchema) Clone() *NodeSchema { /* ... */ }
 ```
 
 ## Graph Structure
@@ -356,19 +353,16 @@ Nodes are defined through schemas with unique IDs and function references:
 
 ```go
 type NodeSchema struct {
-    ID       string      `json:"id" yaml:"id" validate:"required"`
-    Function string      `json:"function" yaml:"function" validate:"required"`
-    Config   *NodeConfig `json:"config,omitempty" yaml:"config,omitempty"`
+    ID       string         `json:"id" yaml:"id" validate:"required"`
+    Function string         `json:"function" yaml:"function" validate:"required"`
+    Retry    *RetryPolicy   `json:"retry,omitempty" yaml:"retry,omitempty"`
+    Timeout  *TimeoutConfig `json:"timeout,omitempty" yaml:"timeout,omitempty"`
+    Merge    *MergeConfig   `json:"merge,omitempty" yaml:"merge,omitempty"`
 }
 
-// Clone creates a deep copy of the NodeSchema
-func (n *NodeSchema) Clone() *NodeSchema {
-    return &NodeSchema{
-        ID:       n.ID,
-        Function: n.Function,
-        Config:   n.Config,
-    }
-}
+// Clone creates a deep copy of the NodeSchema (including optional pointer fields).
+// See internal/workflow/node_schema.go for the full implementation.
+func (n *NodeSchema) Clone() *NodeSchema { /* ... */ }
 ```
 
 ## Graph Structure
