@@ -11,6 +11,7 @@
 The `StateSleeping` state already exists in `internal/workflow/workflow.go:36` but is **never used** anywhere in the codebase. There is no mechanism for a workflow to pause execution for a duration or until an external event occurs.
 
 Use cases that require this:
+
 - **Rate limiting**: Wait 1 second between API calls to respect rate limits
 - **Polling**: Check external status every 30 seconds until complete
 - **Scheduled actions**: Send a reminder email 24 hours after signup
@@ -22,14 +23,17 @@ The current async function pattern (`internal/actors/workflow_handler.go:202-252
 ### Prior Art
 
 **Inngest** provides two primitives:
+
 - `step.sleep("wait-period", "1h")` — Durable sleep that survives restarts. The function execution is paused and resumed by the platform after the duration.
 - `step.waitForEvent("wait-approval", { event: "approval/received", timeout: "24h", match: "data.userId" })` — Waits for a matching event with timeout. If the event arrives, execution continues with the event data. If timeout fires, the step fails.
 
 **Restate** provides:
+
 - `ctx.sleep(duration)` — Journaled sleep. Timer is persisted; if the process restarts, the sleep resumes from the correct time.
 - Awakeables (`ctx.awakeable()`) — Returns a durable promise + external handle. External systems resolve the awakeable by ID, which unblocks the waiting handler. Supports timeout.
 
 **n8n** provides:
+
 - **Wait node** — Pauses workflow execution for a specified time, until a specific date, or until a webhook is received.
 
 **What Fuse should adopt:** Two distinct action types — `SleepAction` for durable timers and `WaitForEventAction` (Awakeable) for external signal waiting. Both should integrate with the journal (Phase 1.1) for durability.
@@ -233,6 +237,7 @@ func (a *WorkflowHandler) handleSleepAction(action *workflowactions.SleepAction)
 #### 2.1.8 Durability (Journal Integration)
 
 On restart/resume (Phase 1.1), sleep entries in the journal are replayed:
+
 - If the sleep deadline is in the past → immediately continue (fire wake-up)
 - If the sleep deadline is in the future → schedule a new timer for the remaining duration
 
@@ -253,9 +258,7 @@ case JournalSleepStarted:
 ### Alternatives Considered
 
 1. **Implement sleep as a regular async function**: The function would start a goroutine with `time.Sleep`, then call the async callback. This works but isn't durable — if the process restarts, the timer is lost.
-
 2. **External scheduler (cron, Redis delayed queues)**: Adds infrastructure dependency. Ergo's `SendAfter` combined with journaling provides the same functionality without external systems.
-
 3. **Combined sleep + wait-for-event into a single primitive**: Conceptually simpler but less flexible. Sleep and wait-for-event have different use cases and different timeout semantics.
 
 ### Migration Plan
@@ -282,6 +285,7 @@ case JournalSleepStarted:
 There is currently **no way to cancel a running workflow**. Once triggered, a workflow runs until completion or error. There is no cancellation API, no `StateCancelled` state, and no mechanism to interrupt in-flight function executions.
 
 Use cases:
+
 - User triggers a workflow by mistake and wants to stop it
 - A long-running workflow becomes irrelevant (e.g., an order is cancelled)
 - Operational need to stop a misbehaving workflow
@@ -495,9 +499,7 @@ func (a *WorkflowHandler) handleMsgFunctionResult(msg messaging.Message) error {
 ### Alternatives Considered
 
 1. **Kill actor immediately** (terminate actor without cleanup): Fast but loses state. Better to transition through a clean `StateCancelled` state that persists the reason.
-
 2. **Cancel via event system** (Inngest-style event-triggered cancellation): More flexible but requires the event system (Phase 3.1) to be built first. HTTP API is the simplest initial approach.
-
 3. **Soft cancel (just prevent new steps from starting)**: Simpler but doesn't interrupt sleeping/waiting workflows. Need the ability to wake up sleeping workflows immediately for responsive cancellation.
 
 ### Migration Plan
@@ -522,6 +524,7 @@ func (a *WorkflowHandler) handleMsgFunctionResult(msg messaging.Message) error {
 The project vision ([#1](https://github.com/open-source-cloud/fuse/issues/1)) explicitly calls for "multi-level, nodes can also be other workflows (Reusable workflows)." This is not yet implemented.
 
 Sub-workflows enable:
+
 - **Reusability**: Common patterns (e.g., "send notification + wait for acknowledgement") defined once, used in many workflows
 - **Modularity**: Complex workflows decomposed into manageable sub-graphs
 - **Isolation**: Sub-workflow failures contained without affecting the parent
@@ -530,6 +533,7 @@ Sub-workflows enable:
 ### Prior Art
 
 **n8n** provides an "Execute Sub-workflow" node that:
+
 - Triggers another workflow by ID
 - Passes input data to the sub-workflow's trigger node
 - Waits for the sub-workflow to complete
@@ -692,9 +696,7 @@ for _, child := range activeChildren {
 ### Alternatives Considered
 
 1. **Inline sub-graph expansion** (copy sub-workflow nodes into parent graph): Simpler execution model but loses isolation. A failure in the sub-graph directly affects the parent. Also makes the graph unwieldy for complex compositions.
-
 2. **Event-based decoupling** (parent emits event, sub-workflow triggered by event, result emitted as event): More loosely coupled but harder to implement synchronous waiting. Better suited for fire-and-forget patterns (which we support via the `async` parameter).
-
 3. **Dedicated SubWorkflowSupervisor**: Unnecessary complexity. The existing `WorkflowSupervisor` can manage both parent and child workflows; the only addition is the parent-child relationship tracking.
 
 ### Migration Plan
@@ -730,6 +732,7 @@ for _, edge := range currentNode.OutputEdges() {
 ```
 
 This limits branching to simple scenarios. Real-world workflows need:
+
 - Range checks: `amount > 1000`
 - Pattern matching: `email matches "*@company.com"`
 - Multiple conditions: `status == "active" && tier == "premium"`
@@ -741,6 +744,7 @@ The project already depends on `expr-lang/expr` (noted in the codebase's tech st
 ### Prior Art
 
 **n8n** provides:
+
 - **IF node**: Two outputs (true/false) with expression-based conditions supporting comparison, string, number, boolean, and date operators
 - **Switch node**: Multiple named outputs, each with its own condition rule. Supports fallback output when no conditions match.
 
@@ -914,9 +918,7 @@ program, err := expr.Compile(expression,
 ### Alternatives Considered
 
 1. **JavaScript/Lua embedded expressions**: More powerful but heavier dependency and larger attack surface. `expr-lang/expr` is Go-native, fast, and designed for exactly this use case.
-
 2. **DSL for conditions**: Building a custom condition DSL is redundant when `expr-lang/expr` already exists and is a Go standard for expression evaluation.
-
 3. **Keep exact matching only, with more comparison operators**: Would require building a custom comparison engine. Using `expr` is more flexible and handles complex conditions naturally.
 
 ### Migration Plan
@@ -952,6 +954,7 @@ if currentThread.ID() != node.thread {
 ```
 
 The `inputMapping` method handles array accumulation (`strings.HasPrefix(inputParamSchema.Type, "[]")` at line 325) but this is the only "merge strategy" — append to arrays. There's no way to:
+
 - Merge maps from parallel branches
 - Pick the first/last result
 - Combine results into a structured object
@@ -960,6 +963,7 @@ The `inputMapping` method handles array accumulation (`strings.HasPrefix(inputPa
 ### Prior Art
 
 **n8n** provides a **Merge node** with multiple strategies:
+
 - **Append**: Combine all items from all inputs into one list
 - **Combine by Position**: Pair items from each input by index
 - **Combine by Field**: Join items from different inputs by a matching field (like SQL JOIN)
@@ -1010,7 +1014,6 @@ func DefaultMergeConfig() MergeConfig {
 type NodeSchema struct {
     ID         string         `json:"id" bson:"id"`
     FunctionID string         `json:"functionId" bson:"functionId"`
-    Config     NodeConfig     `json:"config,omitempty" bson:"config,omitempty"`
     Retry      *RetryPolicy   `json:"retry,omitempty" bson:"retry,omitempty"`
     Timeout    *TimeoutConfig `json:"timeout,omitempty" bson:"timeout,omitempty"`
     Merge      *MergeConfig   `json:"merge,omitempty" bson:"merge,omitempty"` // NEW
@@ -1134,9 +1137,7 @@ if currentThread.ID() != node.thread {
 ### Alternatives Considered
 
 1. **Custom merge function (user-provided code)**: Maximum flexibility but introduces code execution security concerns. Expression-based merging (using `expr`) could be a future extension.
-
 2. **Merge as a separate node type**: Like n8n's Merge node. This would require inserting a synthetic merge node at every join point, complicating the graph. Configuring merge strategy on the join node itself is simpler.
-
 3. **No merge configuration — always append**: Simplest approach and matches current behavior, but insufficient for workflows that need structured output from parallel branches.
 
 ### Migration Plan
@@ -1150,3 +1151,4 @@ if currentThread.ID() != node.thread {
 2. Should `MergeKeyed` use edge IDs or edge names as keys?
 3. How should merge interact with conditional edges — should only the "taken" branches contribute to the merge?
 4. Should there be a `MergeCustomExpression` strategy that uses `expr-lang/expr` for custom merge logic?
+

@@ -368,7 +368,6 @@ Add `RetryPolicy` and `ErrorEdge` to the node/edge schemas:
 type NodeSchema struct {
     ID         string       `json:"id" bson:"id"`
     FunctionID string       `json:"functionId" bson:"functionId"`
-    Config     NodeConfig   `json:"config,omitempty" bson:"config,omitempty"`
     Retry      *RetryPolicy `json:"retry,omitempty" bson:"retry,omitempty"` // NEW
 }
 
@@ -579,7 +578,6 @@ type WorkflowTimeoutConfig struct {
 type NodeSchema struct {
     ID         string         `json:"id" bson:"id"`
     FunctionID string         `json:"functionId" bson:"functionId"`
-    Config     NodeConfig     `json:"config,omitempty" bson:"config,omitempty"`
     Retry      *RetryPolicy   `json:"retry,omitempty" bson:"retry,omitempty"`
     Timeout    *TimeoutConfig `json:"timeout,omitempty" bson:"timeout,omitempty"` // NEW
 }
