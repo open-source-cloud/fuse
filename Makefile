@@ -37,6 +37,11 @@ e2e-workflows:
 	go test -tags=e2e ./tests/e2e -v -count=1 -timeout 15m
 	docker compose --profile fuse-e2e -f docker-compose.e2e.yml down -v
 
+# E2E against a Kubernetes cluster with PG (requires: Kind/k3d cluster, kubectl, helm).
+# Pipeline order: CI → Functional → E2E → Load Testing → Release
+e2e-k8s:
+	E2E_API_URL=http://localhost:9091 go test -tags=e2e ./tests/e2e -v -count=1 -timeout 5m
+
 build:
 	go build -o bin/fuse cmd/fuse/main.go
 
