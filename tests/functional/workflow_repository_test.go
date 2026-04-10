@@ -14,7 +14,7 @@ import (
 // For memory repos this is nil; for Postgres it saves the schema so Get() can reconstruct.
 type ensureGraphFn func(t *testing.T, wf *internalworkflow.Workflow)
 
-func contractTestWorkflowRepository(t *testing.T, newRepo func() repositories.WorkflowRepository, ensureGraph ensureGraphFn) {
+func contractTestWorkflowRepository(t *testing.T, newRepo func() repositories.WorkflowRepository, ensureGraph ensureGraphFn, reset func()) {
 	t.Helper()
 
 	saveWf := func(t *testing.T, repo repositories.WorkflowRepository, wf *internalworkflow.Workflow) {
@@ -26,6 +26,7 @@ func contractTestWorkflowRepository(t *testing.T, newRepo func() repositories.Wo
 	}
 
 	t.Run("Save and Get returns workflow with same ID and state", func(t *testing.T) {
+		reset()
 		repo := newRepo()
 		wf := newTestWorkflow(t)
 		wf.SetState(internalworkflow.StateRunning)
@@ -39,6 +40,7 @@ func contractTestWorkflowRepository(t *testing.T, newRepo func() repositories.Wo
 	})
 
 	t.Run("Exists returns true for saved workflow", func(t *testing.T) {
+		reset()
 		repo := newRepo()
 		wf := newTestWorkflow(t)
 		saveWf(t, repo, wf)
@@ -47,11 +49,13 @@ func contractTestWorkflowRepository(t *testing.T, newRepo func() repositories.Wo
 	})
 
 	t.Run("Exists returns false for unknown workflow", func(t *testing.T) {
+		reset()
 		repo := newRepo()
 		assert.False(t, repo.Exists("nonexistent-wf"))
 	})
 
 	t.Run("FindByState returns matching workflows", func(t *testing.T) {
+		reset()
 		repo := newRepo()
 
 		wf1 := newTestWorkflow(t)
@@ -74,6 +78,7 @@ func contractTestWorkflowRepository(t *testing.T, newRepo func() repositories.Wo
 	})
 
 	t.Run("FindByState returns empty for no matches", func(t *testing.T) {
+		reset()
 		repo := newRepo()
 		ids, err := repo.FindByState(internalworkflow.StateCancelled)
 		require.NoError(t, err)
@@ -81,6 +86,7 @@ func contractTestWorkflowRepository(t *testing.T, newRepo func() repositories.Wo
 	})
 
 	t.Run("Save overwrites existing workflow state", func(t *testing.T) {
+		reset()
 		repo := newRepo()
 		wf := newTestWorkflow(t)
 		wf.SetState(internalworkflow.StateRunning)
@@ -97,6 +103,7 @@ func contractTestWorkflowRepository(t *testing.T, newRepo func() repositories.Wo
 	// --- Snapshot Ref ---
 
 	t.Run("GetSnapshotRef returns empty for new workflow", func(t *testing.T) {
+		reset()
 		repo := newRepo()
 		wf := newTestWorkflow(t)
 		saveWf(t, repo, wf)
@@ -107,6 +114,7 @@ func contractTestWorkflowRepository(t *testing.T, newRepo func() repositories.Wo
 	})
 
 	t.Run("SetSnapshotRef and GetSnapshotRef round-trip", func(t *testing.T) {
+		reset()
 		repo := newRepo()
 		wf := newTestWorkflow(t)
 		saveWf(t, repo, wf)
@@ -119,6 +127,7 @@ func contractTestWorkflowRepository(t *testing.T, newRepo func() repositories.Wo
 	})
 
 	t.Run("SetSnapshotRef overwrites previous ref", func(t *testing.T) {
+		reset()
 		repo := newRepo()
 		wf := newTestWorkflow(t)
 		saveWf(t, repo, wf)
@@ -134,6 +143,7 @@ func contractTestWorkflowRepository(t *testing.T, newRepo func() repositories.Wo
 	// --- FindExecutions ---
 
 	t.Run("FindExecutions returns paginated results", func(t *testing.T) {
+		reset()
 		repo := newRepo()
 
 		for i := range 3 {
@@ -157,6 +167,7 @@ func contractTestWorkflowRepository(t *testing.T, newRepo func() repositories.Wo
 	})
 
 	t.Run("FindExecutions filters by status", func(t *testing.T) {
+		reset()
 		repo := newRepo()
 
 		wf1 := newTestWorkflow(t)
@@ -179,6 +190,7 @@ func contractTestWorkflowRepository(t *testing.T, newRepo func() repositories.Wo
 	})
 
 	t.Run("FindExecutions returns empty for nonexistent schema", func(t *testing.T) {
+		reset()
 		repo := newRepo()
 
 		result, err := repo.FindExecutions(repositories.ExecutionListFilter{
@@ -192,6 +204,7 @@ func contractTestWorkflowRepository(t *testing.T, newRepo func() repositories.Wo
 	})
 
 	t.Run("FindExecutions defaults page and size", func(t *testing.T) {
+		reset()
 		repo := newRepo()
 		wf := newTestWorkflow(t)
 		saveWf(t, repo, wf)
@@ -285,7 +298,7 @@ func contractTestWorkflowSubWorkflowRefs(t *testing.T, newRepo func() repositori
 }
 
 func TestMemoryWorkflowRepository_Contract(t *testing.T) {
-	contractTestWorkflowRepository(t, repositories.NewMemoryWorkflowRepository, nil)
+	contractTestWorkflowRepository(t, repositories.NewMemoryWorkflowRepository, nil, func() {})
 }
 
 func TestMemoryWorkflowRepository_SubWorkflow_Contract(t *testing.T) {

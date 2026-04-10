@@ -148,7 +148,14 @@ func TestPostgresWorkflowRepository_Contract(t *testing.T) {
 	graphRepo := postgres.NewGraphRepository(pool, store)
 	contractTestWorkflowRepository(t, func() repositories.WorkflowRepository {
 		return postgres.NewWorkflowRepository(pool, store)
-	}, pgEnsureGraph(graphRepo))
+	}, pgEnsureGraph(graphRepo), func() {
+		// Per-subtest reset: newRepo() shares one DB, unlike MemoryWorkflowRepository.
+		_, err := pool.Exec(context.Background(),
+			`TRUNCATE TABLE journal_entries, sub_workflow_refs, awakeables, node_heartbeats,
+			 graph_schema_nodes, graph_schema_metadata, graph_schema_tags,
+			 workflows, graph_schemas CASCADE`)
+		require.NoError(t, err)
+	})
 }
 
 func TestPostgresWorkflowRepository_SubWorkflow_Contract(t *testing.T) {
