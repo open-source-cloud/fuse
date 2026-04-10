@@ -13,6 +13,31 @@ data:
   {{- range $key, $value := .Values.env }}
   {{ $key }}: {{ $value | quote }}
   {{- end }}
+  # Database
+  DB_DRIVER: {{ .Values.database.driver | quote }}
+  DB_MAX_OPEN_CONNS: {{ .Values.database.maxOpenConns | quote }}
+  DB_MAX_IDLE_CONNS: {{ .Values.database.maxIdleConns | quote }}
+  DB_CONN_MAX_LIFETIME: {{ .Values.database.connMaxLifetime | quote }}
+  # Object Store
+  OBJECT_STORE_DRIVER: {{ .Values.objectStore.driver | quote }}
+  {{- if .Values.objectStore.keyPrefix }}
+  OBJECT_STORE_KEY_PREFIX: {{ .Values.objectStore.keyPrefix | quote }}
+  {{- end }}
+  OBJECT_STORE_FS_BASE_PATH: {{ .Values.objectStore.fsBasePath | quote }}
+  OBJECT_STORE_S3_BUCKET: {{ .Values.objectStore.s3Bucket | quote }}
+  {{- if .Values.objectStore.s3Endpoint }}
+  OBJECT_STORE_S3_ENDPOINT: {{ .Values.objectStore.s3Endpoint | quote }}
+  {{- end }}
+  OBJECT_STORE_S3_REGION: {{ .Values.objectStore.s3Region | quote }}
+  OBJECT_STORE_S3_USE_SSL: {{ .Values.objectStore.s3UseSSL | quote }}
+  # HA
+  HA_ENABLED: {{ .Values.ha.enabled | quote }}
+  {{- if .Values.ha.nodeID }}
+  HA_NODE_ID: {{ .Values.ha.nodeID | quote }}
+  {{- end }}
+  HA_HEARTBEAT_INTERVAL: {{ .Values.ha.heartbeatInterval | quote }}
+  HA_CLAIM_SWEEP_INTERVAL: {{ .Values.ha.claimSweepInterval | quote }}
+  HA_LEASE_TIMEOUT: {{ .Values.ha.leaseTimeout | quote }}
   {{- if eq .Values.mode "cluster" }}
   CLUSTER_ENABLED: "true"
   CLUSTER_ACCEPTOR_PORT: {{ .Values.cluster.acceptorPort | quote }}

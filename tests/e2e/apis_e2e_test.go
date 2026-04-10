@@ -119,6 +119,27 @@ func TestE2E_PUT_GET_v1_schemas_roundTrip(t *testing.T) {
 	assert.Equal(t, schemaID, schema.ID)
 }
 
+func TestE2E_GET_v1_schemas_list(t *testing.T) {
+	client, base := RequireE2E(t)
+
+	code, body, err := GET(client, base+"/v1/schemas")
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, code)
+
+	var resp struct {
+		Items []struct {
+			SchemaID string `json:"schemaID"`
+			Name     string `json:"name"`
+		} `json:"items"`
+		Metadata struct {
+			Total int `json:"total"`
+		} `json:"metadata"`
+	}
+	require.NoError(t, json.Unmarshal(body, &resp))
+	assert.GreaterOrEqual(t, resp.Metadata.Total, 0)
+	assert.Len(t, resp.Items, resp.Metadata.Total)
+}
+
 func TestE2E_PUT_v1_packages_roundTrip(t *testing.T) {
 	client, base := RequireE2E(t)
 

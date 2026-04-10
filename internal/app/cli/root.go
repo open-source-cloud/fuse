@@ -47,6 +47,8 @@ func newRoot() *cobra.Command {
 	setupRootFlags(rootCmd)
 
 	rootCmd.AddCommand(newServerCommand())
+	rootCmd.AddCommand(newMigrateCommand())
+	rootCmd.AddCommand(newSeedCommand())
 	rootCmd.AddCommand(newWorkflowCommand())
 	rootCmd.AddCommand(newMermaidCommand())
 

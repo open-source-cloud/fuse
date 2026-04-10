@@ -1,0 +1,6 @@
+# kind cluster config for Docker Desktop (single control-plane node).
+# Access the API with: kubectl -n fuse port-forward svc/fuse 9090:9090
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane

@@ -65,6 +65,16 @@ func NewWorkers() *Workers {
 				},
 			},
 			{
+				Name:    handlers.ListSchemasHandlerName,
+				Pattern: "/v1/schemas",
+				Methods: []string{"GET"},
+				Timeout: 10 * time.Second,
+				PoolConfig: WorkerPoolConfig{
+					Name:     handlers.ListSchemasHandlerPoolName,
+					PoolSize: 3,
+				},
+			},
+			{
 				Name:    handlers.WorkflowSchemaHandlerName,
 				Pattern: "/v1/schemas/{schemaID}",
 				Methods: []string{"PUT", "GET"},
@@ -96,6 +106,16 @@ func NewWorkers() *Workers {
 				},
 			},
 			{
+				Name:    handlers.ListExecutionsHandlerName,
+				Pattern: "/v1/schemas/{schemaID}/executions",
+				Methods: []string{"GET"},
+				Timeout: 10 * time.Second,
+				PoolConfig: WorkerPoolConfig{
+					Name:     handlers.ListExecutionsHandlerPoolName,
+					PoolSize: 3,
+				},
+			},
+			{
 				Name:    handlers.GetWorkflowHandlerName,
 				Pattern: "/v1/workflows/{workflowID}",
 				Methods: []string{"GET"},
@@ -112,6 +132,36 @@ func NewWorkers() *Workers {
 				Timeout: 10 * time.Second,
 				PoolConfig: WorkerPoolConfig{
 					Name:     handlers.CancelWorkflowHandlerPoolName,
+					PoolSize: 3,
+				},
+			},
+			{
+				Name:    handlers.GetWorkflowSnapshotHandlerName,
+				Pattern: "/v1/workflows/{workflowID}/snapshot",
+				Methods: []string{"GET"},
+				Timeout: 10 * time.Second,
+				PoolConfig: WorkerPoolConfig{
+					Name:     handlers.GetWorkflowSnapshotHandlerPoolName,
+					PoolSize: 3,
+				},
+			},
+			{
+				Name:    handlers.RetryNodeHandlerName,
+				Pattern: "/v1/workflows/{workflowID}/retry-node",
+				Methods: []string{"POST"},
+				Timeout: 10 * time.Second,
+				PoolConfig: WorkerPoolConfig{
+					Name:     handlers.RetryNodeHandlerPoolName,
+					PoolSize: 3,
+				},
+			},
+			{
+				Name:    handlers.RetryWorkflowHandlerName,
+				Pattern: "/v1/workflows/{workflowID}/retry",
+				Methods: []string{"POST"},
+				Timeout: 10 * time.Second,
+				PoolConfig: WorkerPoolConfig{
+					Name:     handlers.RetryWorkflowHandlerPoolName,
 					PoolSize: 3,
 				},
 			},

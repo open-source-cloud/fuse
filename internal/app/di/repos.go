@@ -1,13 +1,17 @@
 package di
 
 import (
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/open-source-cloud/fuse/internal/app/config"
 	"github.com/open-source-cloud/fuse/internal/repositories"
+	"github.com/open-source-cloud/fuse/internal/repositories/postgres"
+	"github.com/open-source-cloud/fuse/pkg/objectstore"
 	"github.com/rs/zerolog/log"
 	"go.uber.org/fx"
 )
 
-// RepoModule wires in-memory repositories only. Workflow, graph, package, and journal
-// state are held in process memory (no external persistence layer).
+// RepoModule provides all repository interfaces, selecting implementations
+// based on the DB_DRIVER config (memory or postgres).
 var RepoModule = fx.Module(
 	"repo",
 	fx.Provide(
@@ -16,30 +20,67 @@ var RepoModule = fx.Module(
 		providePackageRepository,
 		provideJournalRepository,
 		provideAwakeableRepository,
+		provideClaimRepository,
 	),
 )
 
-func provideGraphRepository() repositories.GraphRepository {
+type repoParams struct {
+	fx.In
+	Config *config.Config
+	Pool   *pgxpool.Pool `optional:"true"`
+	Store  objectstore.ObjectStore
+}
+
+func provideGraphRepository(p repoParams) repositories.GraphRepository {
+	if p.Config.Database.Driver == config.DBDriverPostgres && p.Pool != nil {
+		log.Debug().Msg("using postgres graph repository")
+		return postgres.NewGraphRepository(p.Pool, p.Store)
+	}
 	log.Debug().Msg("using memory graph repository")
 	return repositories.NewMemoryGraphRepository()
 }
 
-func provideWorkflowRepository() repositories.WorkflowRepository {
+func provideWorkflowRepository(p repoParams) repositories.WorkflowRepository {
+	if p.Config.Database.Driver == config.DBDriverPostgres && p.Pool != nil {
+		log.Debug().Msg("using postgres workflow repository")
+		return postgres.NewWorkflowRepository(p.Pool, p.Store)
+	}
 	log.Debug().Msg("using memory workflow repository")
 	return repositories.NewMemoryWorkflowRepository()
 }
 
-func provideJournalRepository() repositories.JournalRepository {
+func provideJournalRepository(p repoParams) repositories.JournalRepository {
+	if p.Config.Database.Driver == config.DBDriverPostgres && p.Pool != nil {
+		log.Debug().Msg("using postgres journal repository")
+		return postgres.NewJournalRepository(p.Pool, p.Store)
+	}
 	log.Debug().Msg("using memory journal repository")
 	return repositories.NewMemoryJournalRepository()
 }
 
-func providePackageRepository() repositories.PackageRepository {
+func providePackageRepository(p repoParams) repositories.PackageRepository {
+	if p.Config.Database.Driver == config.DBDriverPostgres && p.Pool != nil {
+		log.Debug().Msg("using postgres package repository")
+		return postgres.NewPackageRepository(p.Pool, p.Store)
+	}
 	log.Debug().Msg("using memory package repository")
 	return repositories.NewMemoryPackageRepository()
 }
 
-func provideAwakeableRepository() repositories.AwakeableRepository {
+func provideAwakeableRepository(p repoParams) repositories.AwakeableRepository {
+	if p.Config.Database.Driver == config.DBDriverPostgres && p.Pool != nil {
+		log.Debug().Msg("using postgres awakeable repository")
+		return postgres.NewAwakeableRepository(p.Pool, p.Store)
+	}
 	log.Debug().Msg("using memory awakeable repository")
 	return repositories.NewMemoryAwakeableRepository()
+}
+
+func provideClaimRepository(p repoParams) repositories.ClaimRepository {
+	if p.Config.Database.Driver == config.DBDriverPostgres && p.Pool != nil {
+		log.Debug().Msg("using postgres claim repository")
+		return postgres.NewClaimRepository(p.Pool)
+	}
+	log.Debug().Msg("using memory claim repository (no-op)")
+	return repositories.NewMemoryClaimRepository()
 }

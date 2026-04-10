@@ -25,3 +25,7 @@ docs/swagger.json
 docs/swagger.yaml
 
 .cursor/hooks/state
+
+# Do not commit data/fuse directory because is the database object store for the engine 
+# Its used to save all the schema, package, workflow definition schemas and state data
+data/fuse

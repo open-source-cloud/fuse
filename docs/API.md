@@ -167,7 +167,7 @@ curl -X POST "http://localhost:9090/v1/workflows/$WF_ID/execs/$EXEC_ID" \
 ## Schema structure (reference)
 
 - **Graph:** `id`, `name`, `nodes[]`, `edges[]`, optional `metadata`, `tags`, `timeout`.
-- **Node:** `id`, `function`, optional `config`, `retry`, `timeout`.
+- **Node:** `id`, `function`, optional `retry`, `timeout`, `merge`.
 - **Edge:** `id`, `from`, `to`, optional `conditional` (`name`, `value`), `input[]` ([`InputMapping`](../internal/workflow/edge_schema.go): `source`, `mapTo`, optional `variable` / `value`), `onError`.
 
 Real examples: [`examples/workflows/`](../examples/workflows/).

@@ -16,6 +16,7 @@ x-fuse-dev-service: &fuse-dev-service
   working_dir: /app
   volumes:
     - .:/app
+    - ./data/fuse:/app/data/fuse
   networks:
     - fuse-network
   healthcheck:
@@ -30,6 +31,10 @@ x-fuse-env-standalone: &fuse-env-standalone
   HOST: "0.0.0.0"
   PORT: "9090"
   CLUSTER_ENABLED: "false"
+  DB_DRIVER: "${DB_DRIVER:-memory}"
+  DB_POSTGRES_DSN: "postgres://fuse:fuse@postgres:5432/fuse?sslmode=disable"
+  OBJECT_STORE_DRIVER: "${OBJECT_STORE_DRIVER:-memory}"
+  OBJECT_STORE_FS_BASE_PATH: "/app/data/fuse"
 
 # Three-node cluster: same peer list on each node (self is skipped for MonitorEvent in code).
 x-fuse-env-cluster: &fuse-env-cluster
@@ -39,6 +44,11 @@ x-fuse-env-cluster: &fuse-env-cluster
   CLUSTER_COOKIE: "${CLUSTER_COOKIE:-fuse-docker-dev}"
   CLUSTER_ACCEPTOR_PORT: "${CLUSTER_ACCEPTOR_PORT:-15000}"
   CLUSTER_PEER_NODES: "fuse@fuse-node-1,fuse@fuse-node-2,fuse@fuse-node-3"
+  DB_DRIVER: "${DB_DRIVER:-memory}"
+  DB_POSTGRES_DSN: "postgres://fuse:fuse@postgres:5432/fuse?sslmode=disable"
+  OBJECT_STORE_DRIVER: "${OBJECT_STORE_DRIVER:-memory}"
+  OBJECT_STORE_FS_BASE_PATH: "/app/data/fuse"
+  HA_ENABLED: "${HA_ENABLED:-false}"
 
 services:
   fuse-dev:
@@ -76,6 +86,29 @@ services:
       - "9093:9090"
     environment:
       <<: *fuse-env-cluster
+
+  postgres:
+    image: postgres:17
+    container_name: fuse-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: fuse
+      POSTGRES_PASSWORD: fuse
+      POSTGRES_DB: fuse
+    volumes:
+      - fuse-postgres-data:/var/lib/postgresql/data
+    networks:
+      - fuse-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fuse"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  fuse-postgres-data:
+    driver: local
 
 networks:
   fuse-network:

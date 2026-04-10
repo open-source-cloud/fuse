@@ -1,6 +1,7 @@
 package actors
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"github.com/open-source-cloud/fuse/internal/app/config"
 	"github.com/open-source-cloud/fuse/internal/messaging"
 	"github.com/open-source-cloud/fuse/internal/repositories"
+	"github.com/open-source-cloud/fuse/pkg/objectstore"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 )
 
@@ -30,6 +32,7 @@ func NewWorkflowHandlerFactory(
 	workflowRepository repositories.WorkflowRepository,
 	journalRepository repositories.JournalRepository,
 	awakeableRepository repositories.AwakeableRepository,
+	store objectstore.ObjectStore,
 ) *WorkflowHandlerFactory {
 	return &WorkflowHandlerFactory{
 		Factory: func() gen.ProcessBehavior {
@@ -39,6 +42,7 @@ func NewWorkflowHandlerFactory(
 				workflowRepository: workflowRepository,
 				journalRepo:        journalRepository,
 				awakeableRepo:      awakeableRepository,
+				objectStore:        store,
 			}
 		},
 	}
@@ -54,6 +58,7 @@ type (
 		workflowRepository repositories.WorkflowRepository
 		journalRepo        repositories.JournalRepository
 		awakeableRepo      repositories.AwakeableRepository
+		objectStore        objectstore.ObjectStore
 
 		workflow       *internalworkflow.Workflow
 		executionTimer *ExecutionTimer
@@ -151,6 +156,8 @@ func (a *WorkflowHandler) HandleMessage(from gen.PID, message any) error {
 		return a.handleMsgAwakeableResolved(msg)
 	case messaging.SubWorkflowCompleted:
 		return a.handleMsgSubWorkflowCompleted(msg)
+	case messaging.RetryNode:
+		return a.handleMsgRetryNode(msg)
 	}
 
 	return nil
@@ -252,6 +259,41 @@ func (a *WorkflowHandler) handleMsgAsyncFunctionResult(msg messaging.Message) er
 	return nil
 }
 
+// persistWorkflowState persists both the journal and the workflow state to the repository.
+// Call this after any state transition that should be visible to external queries (e.g. running → sleeping).
+func (a *WorkflowHandler) persistWorkflowState() {
+	a.persistJournal()
+	if err := a.workflowRepository.Save(a.workflow); err != nil {
+		a.Log().Error("failed to persist workflow state for %s: %s", a.workflow.ID(), err)
+	}
+}
+
+func (a *WorkflowHandler) persistSnapshot() {
+	snap := internalworkflow.BuildExecutionSnapshot(
+		a.workflow.ID().String(),
+		a.workflow.Graph().ID(),
+		a.workflow.State(),
+		a.workflow.Journal().Entries(),
+		a.workflow.AggregatedOutputSnapshot(),
+	)
+
+	data, err := json.Marshal(snap)
+	if err != nil {
+		a.Log().Error("failed to marshal execution snapshot for %s: %s", a.workflow.ID(), err)
+		return
+	}
+
+	key := fmt.Sprintf("workflows/%s/execution-snapshot.json", a.workflow.ID())
+	if putErr := a.objectStore.Put(context.Background(), key, data); putErr != nil {
+		a.Log().Error("failed to write execution snapshot for %s: %s", a.workflow.ID(), putErr)
+		return
+	}
+
+	if refErr := a.workflowRepository.SetSnapshotRef(a.workflow.ID().String(), key); refErr != nil {
+		a.Log().Error("failed to set snapshot ref for %s: %s", a.workflow.ID(), refErr)
+	}
+}
+
 func (a *WorkflowHandler) persistJournal() {
 	newEntries := a.workflow.Journal().NewEntries()
 	if len(newEntries) == 0 {
@@ -287,6 +329,13 @@ func (a *WorkflowHandler) isTerminalState() bool {
 func (a *WorkflowHandler) sendWorkflowCompleted() {
 	a.Log().Info("workflow %s completed with state %s", a.workflow.ID(), a.workflow.State())
 
+	// Persist the terminal state and execution snapshot
+	a.persistJournal()
+	if err := a.workflowRepository.Save(a.workflow); err != nil {
+		a.Log().Error("failed to persist terminal state for workflow %s: %s", a.workflow.ID(), err)
+	}
+	a.persistSnapshot()
+
 	completedMsg := messaging.NewWorkflowCompletedMessage(a.workflow.ID(), a.workflow.State().String())
 	if err := a.Send(a.Parent(), completedMsg); err != nil {
 		a.Log().Error("failed to send workflow completed message: %s", err)
@@ -294,6 +343,26 @@ func (a *WorkflowHandler) sendWorkflowCompleted() {
 
 	// If this is a child workflow, notify the parent
 	a.notifyParentIfSubWorkflow()
+}
+
+func (a *WorkflowHandler) handleMsgRetryNode(msg messaging.Message) error {
+	retryMsg, err := msg.RetryNodeMessage()
+	if err != nil {
+		a.Log().Error("failed to parse retry node message: %s", err)
+		return nil
+	}
+
+	a.Log().Info("manual retry requested for exec %s in workflow %s", retryMsg.ExecID, retryMsg.WorkflowID)
+
+	action, retryErr := a.workflow.RetryNode(retryMsg.ExecID)
+	if retryErr != nil {
+		a.Log().Error("retry node failed for exec %s: %s", retryMsg.ExecID, retryErr)
+		return nil
+	}
+
+	a.persistWorkflowState()
+	a.handleWorkflowAction(action)
+	return nil
 }
 
 func (a *WorkflowHandler) handleMsgTimeout(msg messaging.Message) error {
@@ -499,7 +568,7 @@ func (a *WorkflowHandler) handleSleepAction(action *workflowactions.SleepAction)
 		ExecID:   action.ExecID.String(),
 		Data:     map[string]any{"duration": action.Duration.String(), "reason": action.Reason},
 	})
-	a.persistJournal()
+	a.persistWorkflowState()
 
 	msg := messaging.NewSleepWakeUpMessage(a.workflow.ID(), action.ExecID, action.ThreadID)
 	if _, err := a.SendAfter(a.PID(), msg, action.Duration); err != nil {
@@ -529,7 +598,7 @@ func (a *WorkflowHandler) handleWaitForEventAction(action *workflowactions.WaitF
 		ExecID:   action.ExecID.String(),
 		Data:     map[string]any{"awakeableId": action.AwakeableID, "timeout": action.Timeout.String()},
 	})
-	a.persistJournal()
+	a.persistWorkflowState()
 
 	if action.Timeout > 0 {
 		timeoutMsg := messaging.NewTimeoutMessage(action.ExecID.String())
@@ -693,7 +762,7 @@ func (a *WorkflowHandler) handleSubWorkflowAction(action *workflowactions.RunSub
 		a.handleWorkflowAction(nextAction)
 	} else {
 		a.workflow.SetState(internalworkflow.StateSleeping)
-		a.persistJournal()
+		a.persistWorkflowState()
 	}
 }
 

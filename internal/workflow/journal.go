@@ -37,6 +37,8 @@ const (
 	JournalSubWorkflowStarted JournalEntryType = "subworkflow:started"
 	// JournalSubWorkflowCompleted a sub-workflow completed
 	JournalSubWorkflowCompleted JournalEntryType = "subworkflow:completed"
+	// JournalStepManualRetry a manual retry was requested for a failed node
+	JournalStepManualRetry JournalEntryType = "step:manual-retry"
 )
 
 // JournalEntry is a single recorded event in the execution journal

@@ -1,6 +1,7 @@
 ## Learned User Preferences
 
 - Prefer dev tooling to be installable from the Makefile so `make test` and `make lint` work on fresh machines without manual binary setup.
+- Avoid adding Python to the Makefile or repo scripts for maintenance tasks such as bulk-formatting JSON under `data/`; prefer shell, `jq`, or Go-based tooling.
 
 ## Learned Workspace Facts
 
@@ -15,3 +16,6 @@
 - `MemoryPackageRepository` uses a mutex because internal package registration saves packages from concurrent goroutines.
 - `make dockerfile-lint` runs Hadolint in Docker on `Dockerfile` and `Dockerfile.dev` with `.hadolint.yaml`; it catches consecutive-`RUN` patterns that align with SonarCloud Docker rules (e.g. docker:S7031). `make sonar-local` uses `sonar-project.properties` and Dockerized SonarScanner; set `SONAR_TOKEN` from SonarCloud (analysis-capable token, not a GitHub token). It passes the current git branch and commit; if analysis fails with HTTP 404 on `analysis/analyses`, try `SONAR_REGION=us` for US-hosted SonarCloud orgs.
 - `Dockerfile.dev` runs as non-root `fuse` (UID/GID 1000): module files stay root-owned and readable, `/go` is writable for caches and installs. On Linux, bind-mounted source must suit UID 1000 or use Compose `user` to match the host.
+- Default filesystem object store path is `./data/fuse` (`OBJECT_STORE_FS_BASE_PATH`) so local runs on macOS do not try to create `/data` on the read-only root volume; with Docker and the repo mounted at `/app`, the same default resolves under `/app/data/fuse`. Use an explicit absolute path (for example `/data/fuse`) in production when a volume is mounted there.
+- `fuse migrate` applies embedded PostgreSQL migrations using `DB_POSTGRES_DSN` without starting the HTTP server or actor runtime; `make migrate` builds then runs `./bin/fuse migrate`. After CLI changes, rebuild `bin/fuse`—an older binary will not expose new subcommands.
+- `fuse seed examples` upserts every `examples/workflows/*.json` graph schema through `GraphService` with the same DB and object-store settings as the server, but without HTTP or ergo. Use `--ci` to skip `github-request-example.json` and any file whose JSON references `fuse/pkg/logic/timer`, matching `make examples-ci` / `scripts/run-example-workflows.sh` behavior.

@@ -60,3 +60,30 @@ type ResolveAwakeableResponse struct {
 	AwakeableID string `json:"awakeableId" example:"awk-123"`
 	Status      string `json:"status" example:"resolved"`
 }
+
+// RetryNodeRequest is the request body for retrying a specific failed node
+type RetryNodeRequest struct {
+	ExecID string `json:"execId" validate:"required"`
+}
+
+// RetryNodeResponse represents retry node response
+type RetryNodeResponse struct {
+	WorkflowID string `json:"workflowId" example:"550e8400-e29b-41d4-a716-446655440000"`
+	ExecID     string `json:"execId" example:"exec-123"`
+	Status     string `json:"status" example:"accepted"`
+}
+
+// RetryWorkflowRequest is the request body for retrying an entire workflow
+type RetryWorkflowRequest struct {
+	// Strategy: "from-scratch" or "from-failed" (default: "from-failed")
+	Strategy string `json:"strategy,omitempty" example:"from-failed"`
+	// ExecID: optional specific failed exec to retry (only for from-failed strategy)
+	ExecID string `json:"execId,omitempty"`
+}
+
+// RetryWorkflowResponse represents retry workflow response
+type RetryWorkflowResponse struct {
+	OriginalWorkflowID string `json:"originalWorkflowId" example:"550e8400-e29b-41d4-a716-446655440000"`
+	NewWorkflowID      string `json:"newWorkflowId,omitempty" example:"660e9500-f39c-52e5-b827-557766551111"`
+	Status             string `json:"status" example:"accepted"`
+}

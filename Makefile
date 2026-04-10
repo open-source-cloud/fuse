@@ -1,11 +1,11 @@
-.PHONY: run run-debug install-gotestsum test test-report testdox clean install-lint lint lint-fix install-swag swagger build build-debug dockerfile-lint sonar-local e2e-workflows
+.PHONY: run run-debug install-gotestsum test test-report testdox clean install-lint lint lint-fix install-swag swagger build build-debug dockerfile-lint sonar-local e2e-workflows migrate format-data-json
 
 GOTESTSUM := $(shell go env GOPATH)/bin/gotestsum
 GOLANGCI_LINT := $(shell go env GOPATH)/bin/golangci-lint
 SWAG := $(shell go env GOPATH)/bin/swag
 
-# Keep in sync with github.com/swaggo/swag in go.mod (CLI + runtime types).
-SWAG_VERSION ?= v1.16.6
+# Keep in sync with github.com/swaggo/swag/v2 in go.mod (CLI + runtime types).
+SWAG_VERSION ?= v2.0.0
 
 # Parse API packages explicitly. With multiple -d entries, -g is relative to the first dir (cmd/fuse).
 SWAG_DIRS := ./cmd/fuse,./internal/handlers,./internal/dtos,./internal/workflow,./pkg/workflow
@@ -19,7 +19,12 @@ install-gotestsum:
 	go install gotest.tools/gotestsum@latest
 
 test: install-gotestsum
-	$(GOTESTSUM) --junitfile test-report.xml --format testdox -- ./pkg/... ./internal/... ./tests/e2e
+	$(GOTESTSUM) --junitfile test-report.xml --format testdox -- ./pkg/... ./internal/... ./tests/...
+
+# Functional tests against a real PostgreSQL instance (requires DB_POSTGRES_DSN).
+# Pipeline order: CI (lint+build+test) → Functional → E2E → Load Testing → Release
+test-functional: install-gotestsum
+	$(GOTESTSUM) --junitfile functional-report.xml --format testdox -- -tags=functional -count=1 ./tests/functional/...
 
 test-benchmark:
 	go test -bench=. -benchmem ./...
@@ -31,6 +36,11 @@ e2e-workflows:
 	docker compose --profile fuse-e2e -f docker-compose.e2e.yml up --build -d
 	go test -tags=e2e ./tests/e2e -v -count=1 -timeout 15m
 	docker compose --profile fuse-e2e -f docker-compose.e2e.yml down -v
+
+# E2E against a Kubernetes cluster with PG (requires: Kind/k3d cluster, kubectl, helm).
+# Pipeline order: CI → Functional → E2E → Load Testing → Release
+e2e-k8s:
+	E2E_API_URL=http://localhost:9091 go test -tags=e2e ./tests/e2e -v -count=1 -timeout 5m
 
 build:
 	go build -o bin/fuse cmd/fuse/main.go
@@ -63,11 +73,15 @@ lint-fix: install-lint
 format:
 	go fmt ./...
 
-# Install swag CLI into GOPATH/bin (same path as SWAG)
-install-swag:
-	GOTOOLCHAIN=go$(GOMOD_GOVER).0 go install github.com/swaggo/swag/cmd/swag@$(SWAG_VERSION)
+# Recursively pretty-print JSON under data/ (2-space indent, UTF-8). Requires python3.
+format-data-json:
+	@find data -type f -name '*.json' -print0 | xargs -0 -n1 python3 -c "import json,sys,pathlib; p=pathlib.Path(sys.argv[1]); d=json.loads(p.read_text(encoding='utf-8')); p.write_text(json.dumps(d, indent=2, ensure_ascii=False)+'\n', encoding='utf-8')"
 
-# Generate Swagger documentation (OpenAPI 2.0 under docs/)
+# Install swag CLI v2 into GOPATH/bin (same path as SWAG)
+install-swag:
+	GOTOOLCHAIN=go$(GOMOD_GOVER).0 go install github.com/swaggo/swag/v2/cmd/swag@latest
+
+# Generate Swagger 2.0 docs under docs/ (default swag v2; avoid --v3.1 — OpenAPI 3.1 breaks many UIs/validators)
 swagger: install-swag
 	$(SWAG) init -g main.go -o docs/ -d $(SWAG_DIRS)
 
@@ -113,3 +127,25 @@ dkx:
 	docker stop fuse-local
 	docker rm fuse-local
 	docker run --name fuse-local --env-file .env -p 9090:9090 fuse-app:dev
+
+# Apply PostgreSQL migrations only (requires DB_POSTGRES_DSN, same as server).
+migrate: build
+	./bin/fuse migrate
+
+seed: build
+	./bin/fuse seed examples -l debug
+	make format-data-json
+
+deploy:
+	./scripts/k3s-setup.sh
+
+# Local Kubernetes (Docker Desktop): kind + Helm (same values as k3d script).
+.PHONY: kind-deploy kind-redeploy
+kind-deploy:
+	@chmod +x scripts/kind-setup.sh scripts/kind-redeploy.sh
+	./scripts/kind-setup.sh
+
+# Rebuild image, load into kind, helm upgrade, rollout restart (refreshes /docs from Dockerfile swag).
+kind-redeploy:
+	@chmod +x scripts/kind-redeploy.sh
+	./scripts/kind-redeploy.sh

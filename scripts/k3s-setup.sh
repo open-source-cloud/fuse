@@ -54,5 +54,5 @@ helm upgrade --install "${RELEASE_NAME}" "${CHART_DIR}" \
 echo ""
 echo "==> Done! FUSE is deployed in the '${NAMESPACE}' namespace."
 echo "    To access the API:"
-echo "      kubectl -n ${NAMESPACE} port-forward svc/${RELEASE_NAME}-fuse 9090:9090"
+echo "      kubectl -n ${NAMESPACE} port-forward svc/${RELEASE_NAME} 9090:9090"
 echo "      curl http://127.0.0.1:9090/health"

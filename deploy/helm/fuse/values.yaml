@@ -47,6 +47,50 @@ cluster:
   # -- Port for ergo cluster acceptor (inter-node communication)
   acceptorPort: 15000
 
+database:
+  # -- Database driver: "memory" (default, in-process) or "postgres"
+  driver: memory
+  # -- PostgreSQL connection string (only when driver=postgres)
+  dsn: ""
+  # -- Max open connections
+  maxOpenConns: 25
+  # -- Max idle connections
+  maxIdleConns: 5
+  # -- Connection max lifetime
+  connMaxLifetime: 5m
+
+objectStore:
+  # -- Object store driver: "memory" (default), "filesystem", or "s3"
+  driver: memory
+  # -- Optional key prefix for multi-tenant isolation
+  keyPrefix: ""
+  # -- Base path for filesystem driver
+  fsBasePath: /data/fuse
+  # -- S3 bucket name
+  s3Bucket: fuse-data
+  # -- S3 endpoint (e.g. http://minio:9000)
+  s3Endpoint: ""
+  # -- S3 region
+  s3Region: us-east-1
+  # -- S3 access key
+  s3AccessKey: ""
+  # -- S3 secret key
+  s3SecretKey: ""
+  # -- Use SSL for S3
+  s3UseSSL: false
+
+ha:
+  # -- Enable HA mode (claim-based workflow distribution across nodes)
+  enabled: false
+  # -- Node ID (defaults to hostname if empty)
+  nodeID: ""
+  # -- Heartbeat interval
+  heartbeatInterval: 10s
+  # -- Claim sweep interval
+  claimSweepInterval: 5s
+  # -- Lease timeout for stale node detection
+  leaseTimeout: 30s
+
 # -- Environment variables injected into the FUSE container via ConfigMap
 env:
   LOG_LEVEL: info
