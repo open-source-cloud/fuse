@@ -10,10 +10,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func contractTestGraphRepository(t *testing.T, newRepo func() repositories.GraphRepository) {
+func contractTestGraphRepository(t *testing.T, newRepo func() repositories.GraphRepository, reset func()) {
 	t.Helper()
 
 	t.Run("Save and FindByID returns same graph", func(t *testing.T) {
+		reset()
 		repo := newRepo()
 		schema := mocks.SmallTestGraphSchema()
 		graph, err := internalworkflow.NewGraph(schema)
@@ -28,6 +29,7 @@ func contractTestGraphRepository(t *testing.T, newRepo func() repositories.Graph
 	})
 
 	t.Run("FindByID returns error for nonexistent graph", func(t *testing.T) {
+		reset()
 		repo := newRepo()
 		g, err := repo.FindByID("nonexistent-graph-id")
 		require.Nil(t, g)
@@ -35,6 +37,7 @@ func contractTestGraphRepository(t *testing.T, newRepo func() repositories.Graph
 	})
 
 	t.Run("Save overwrites existing graph", func(t *testing.T) {
+		reset()
 		repo := newRepo()
 		schema := mocks.SmallTestGraphSchema()
 		graph, err := internalworkflow.NewGraph(schema)
@@ -50,6 +53,7 @@ func contractTestGraphRepository(t *testing.T, newRepo func() repositories.Graph
 	})
 
 	t.Run("List returns saved schemas sorted by ID", func(t *testing.T) {
+		reset()
 		repo := newRepo()
 		s1 := mocks.SmallTestGraphSchema()
 		s1.ID = "zebra-schema"
@@ -76,5 +80,5 @@ func contractTestGraphRepository(t *testing.T, newRepo func() repositories.Graph
 }
 
 func TestMemoryGraphRepository_Contract(t *testing.T) {
-	contractTestGraphRepository(t, repositories.NewMemoryGraphRepository)
+	contractTestGraphRepository(t, repositories.NewMemoryGraphRepository, func() {})
 }

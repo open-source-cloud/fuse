@@ -120,6 +120,10 @@ func TestPostgresGraphRepository_Contract(t *testing.T) {
 	store := testObjectStore()
 	contractTestGraphRepository(t, func() repositories.GraphRepository {
 		return postgres.NewGraphRepository(pool, store)
+	}, func() {
+		_, err := pool.Exec(context.Background(),
+			"TRUNCATE TABLE graph_schema_nodes, graph_schema_metadata, graph_schema_tags, graph_schemas CASCADE")
+		require.NoError(t, err)
 	})
 }
 
@@ -163,7 +167,33 @@ func TestPostgresPackageRepository_Contract(t *testing.T) {
 	store := testObjectStore()
 	contractTestPackageRepository(t, func() repositories.PackageRepository {
 		return postgres.NewPackageRepository(pool, store)
+	}, func() {
+		_, err := pool.Exec(context.Background(),
+			"TRUNCATE TABLE package_functions, package_tags, packages CASCADE")
+		require.NoError(t, err)
 	})
+}
+
+// --- Postgres Claim Repository ---
+
+func TestPostgresClaimRepository_Contract(t *testing.T) {
+	pool := setupTestPool(t)
+	store := testObjectStore()
+	graphRepo := postgres.NewGraphRepository(pool, store)
+	wfRepo := postgres.NewWorkflowRepository(pool, store)
+	contractTestClaimRepository(t,
+		func() repositories.ClaimRepository {
+			return postgres.NewClaimRepository(pool)
+		},
+		wfRepo, graphRepo, pool,
+		func() {
+			_, err := pool.Exec(context.Background(),
+				`TRUNCATE TABLE journal_entries, sub_workflow_refs, awakeables, node_heartbeats,
+				 graph_schema_nodes, graph_schema_metadata, graph_schema_tags,
+				 workflows, graph_schemas CASCADE`)
+			require.NoError(t, err)
+		},
+	)
 }
 
 // --- Postgres Awakeable Repository ---
