@@ -8,7 +8,7 @@ image:
   # -- Container image repository
   repository: ghcr.io/open-source-cloud/fuse
   # -- Container image tag (pin per release; align with Chart appVersion)
-  tag: "0.1.0"
+  tag: "0.3.0"
   # -- Image pull policy
   pullPolicy: IfNotPresent
 

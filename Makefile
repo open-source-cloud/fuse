@@ -1,4 +1,4 @@
-.PHONY: run run-debug install-gotestsum test test-report testdox clean install-lint lint lint-fix install-swag swagger build build-debug dockerfile-lint sonar-local e2e-workflows migrate format-data-json
+.PHONY: run run-debug install-gotestsum test test-report testdox clean install-lint lint lint-fix install-swag swagger build build-debug dockerfile-lint sonar-local e2e-workflows migrate format-data-json bump-version
 
 GOTESTSUM := $(shell go env GOPATH)/bin/gotestsum
 GOLANGCI_LINT := $(shell go env GOPATH)/bin/golangci-lint
@@ -135,6 +135,12 @@ migrate: build
 seed: build
 	./bin/fuse seed examples -l debug
 	make format-data-json
+
+# Bump release version across deploy manifests. Usage: make bump-version VERSION=0.3.0
+bump-version:
+	@test -n "$(VERSION)" || (echo "Usage: make bump-version VERSION=x.y.z" >&2; exit 1)
+	@chmod +x scripts/bump-version.sh
+	./scripts/bump-version.sh $(VERSION)
 
 deploy:
 	./scripts/k3s-setup.sh
