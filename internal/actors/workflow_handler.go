@@ -963,7 +963,7 @@ func (a *WorkflowHandler) spawnForEachBatch(state *internalworkflow.ForEachState
 	a.iterThreadToForEach[iterThreadID] = state.ExecID.String()
 
 	workflowPool := WorkflowFuncPoolName(a.workflow.ID())
-	execFnMsg := messaging.NewExecuteFunctionMessage(a.workflow.ID(), runAction)
+	execFnMsg := messaging.NewExecuteFunctionMessage(a.workflow.ID(), runAction, a.tracingProvider.InjectCarrier(a.spanCtx))
 	if err := a.Send(workflowPool, execFnMsg); err != nil {
 		a.Log().Error("foreach: failed to dispatch iteration %d: %s", batchIndex, err)
 	}
