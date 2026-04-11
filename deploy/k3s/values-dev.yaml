@@ -1,7 +1,6 @@
 # Development overrides for local k3s/k3d cluster and GitHub E2E (helm -f this file).
-# replicaCount > 1 validates Deployment rollout and readiness with multiple pods.
-# Standalone replicas do not share in-memory workflow state: for API tests, port-forward
-# the Deployment (not the Service) so traffic stays on one pod, or use sessionAffinity.
+# Uses PostgreSQL for shared persistence across replicas, S3 (RustFS) for object store,
+# and HA claim-based distribution for multi-replica workflow execution.
 replicaCount: 3
 mode: standalone
 
@@ -10,7 +9,28 @@ image:
   tag: dev
   pullPolicy: Never
 
-# Sticky sessions if you hit Service fuse:9090 instead of port-forwarding the Deployment.
+database:
+  driver: postgres
+  dsn: "postgres://fuse:fuse@fuse-pg:5432/fuse?sslmode=disable&search_path=fuse_e2e"
+  maxOpenConns: 10
+  maxIdleConns: 2
+  connMaxLifetime: 5m
+
+objectStore:
+  driver: s3
+  s3Bucket: fuse-e2e
+  s3Endpoint: "fuse-rustfs:9000"
+  s3Region: us-east-1
+  s3AccessKey: rustfsadmin
+  s3SecretKey: rustfsadmin
+  s3UseSSL: false
+
+ha:
+  enabled: true
+  heartbeatInterval: 5s
+  claimSweepInterval: 3s
+  leaseTimeout: 15s
+
 service:
   sessionAffinity: ClientIP
   sessionAffinityConfig:
@@ -23,9 +43,9 @@ env:
 
 resources:
   requests:
-    cpu: "1"
+    cpu: 2
     memory: 1Gi
     ephemeral-storage: 128Mi
   limits:
-    cpu: "2"
+    cpu: 4
     memory: 2Gi

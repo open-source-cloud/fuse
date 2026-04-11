@@ -105,9 +105,34 @@ jobs:
         with:
           sarif_file: "trivy-results.sarif"
 
-  helm-publish:
+  commit-version:
     runs-on: ubuntu-latest
     needs: release
+    if: needs.release.outputs.released == 'true'
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Bump deploy manifests to release version
+        run: ./scripts/bump-version.sh ${{ needs.release.outputs.version }}
+
+      - name: Commit and push version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add deploy/helm/fuse/Chart.yaml deploy/helm/fuse/values.yaml
+          git commit -m "chore(release): bump deploy manifests to ${{ needs.release.outputs.version_tag }} [skip ci]"
+          git push origin main
+
+  helm-publish:
+    runs-on: ubuntu-latest
+    needs: [release, commit-version]
     if: needs.release.outputs.released == 'true'
     permissions:
       packages: write
@@ -115,15 +140,14 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: main
 
       - name: Install Helm
         uses: azure/setup-helm@v4
 
       - name: Log in to OCI registry
         run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
-
-      - name: Bump deploy manifests to release version
-        run: ./scripts/bump-version.sh ${{ needs.release.outputs.version }}
 
       - name: Package and push Helm chart
         run: |
