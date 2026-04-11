@@ -85,4 +85,5 @@ func TestProvider_startSpanReturnsChildContext(t *testing.T) {
 	// Span from child context must be valid.
 	spanFromCtx := trace.SpanFromContext(childCtx)
 	assert.NotNil(t, spanFromCtx)
+	assert.Equal(t, span, spanFromCtx)
 }
