@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: fuse-pg
+  labels:
+    app: fuse-pg
+spec:
+  containers:
+    - name: postgres
+      image: postgres:16-alpine
+      env:
+        - name: POSTGRES_USER
+          value: fuse
+        - name: POSTGRES_PASSWORD
+          value: fuse
+        - name: POSTGRES_DB
+          value: fuse
+      ports:
+        - containerPort: 5432
+      readinessProbe:
+        exec:
+          command: ["pg_isready", "-U", "fuse"]
+        initialDelaySeconds: 5
+        periodSeconds: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fuse-pg
+spec:
+  selector:
+    app: fuse-pg
+  ports:
+    - port: 5432
+      targetPort: 5432
