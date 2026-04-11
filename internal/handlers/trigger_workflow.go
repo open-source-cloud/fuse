@@ -8,7 +8,9 @@ import (
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 
 	"ergo.services/ergo/gen"
+	"github.com/open-source-cloud/fuse/internal/app/config"
 	"github.com/open-source-cloud/fuse/internal/dtos"
+	"github.com/open-source-cloud/fuse/internal/idempotency"
 	"github.com/open-source-cloud/fuse/internal/messaging"
 )
 
@@ -16,6 +18,8 @@ type (
 	// TriggerWorkflowHandler is the handler for the TriggerWorkflow endpoint
 	TriggerWorkflowHandler struct {
 		Handler
+		idempotencyStore idempotency.Store
+		idempotencyTTL   config.IdempotencyConfig
 	}
 	// TriggerWorkflowHandlerFactory is a factory for creating TriggerWorkflowHandler actors
 	TriggerWorkflowHandlerFactory HandlerFactory[*TriggerWorkflowHandler]
@@ -31,10 +35,13 @@ const (
 )
 
 // NewTriggerWorkflowHandlerFactory creates a new TriggerWorkflowHandlerFactory
-func NewTriggerWorkflowHandlerFactory() *TriggerWorkflowHandlerFactory {
+func NewTriggerWorkflowHandlerFactory(store idempotency.Store, cfg *config.Config) *TriggerWorkflowHandlerFactory {
 	return &TriggerWorkflowHandlerFactory{
 		Factory: func() gen.ProcessBehavior {
-			return &TriggerWorkflowHandler{}
+			return &TriggerWorkflowHandler{
+				idempotencyStore: store,
+				idempotencyTTL:   cfg.Idempotency,
+			}
 		},
 	}
 }
@@ -62,9 +69,28 @@ func (h *TriggerWorkflowHandler) HandlePost(from gen.PID, w http.ResponseWriter,
 		return h.SendBadRequest(w, fmt.Errorf("schemaID is required"), []string{"schemaID"})
 	}
 
+	// Check idempotency key
+	if req.IdempotencyKey != "" {
+		if existingID, exists := h.idempotencyStore.Check(req.IdempotencyKey); exists {
+			return h.SendJSON(w, http.StatusOK, dtos.TriggerWorkflowResponse{
+				SchemaID:     req.SchemaID,
+				WorkflowID:   existingID,
+				Code:         "OK",
+				Deduplicated: true,
+			})
+		}
+	}
+
 	workflowID := workflow.NewID()
 	if err := h.Send(WorkflowSupervisorName, messaging.NewTriggerWorkflowMessage(req.SchemaID, workflowID)); err != nil {
 		return h.SendInternalError(w, err)
+	}
+
+	// Record idempotency key after successful trigger
+	if req.IdempotencyKey != "" {
+		if err := h.idempotencyStore.Set(req.IdempotencyKey, workflowID.String(), h.idempotencyTTL.TTL); err != nil {
+			h.Log().Warning("failed to set idempotency key: %s", err)
+		}
 	}
 
 	return h.SendJSON(w, http.StatusOK, dtos.TriggerWorkflowResponse{
