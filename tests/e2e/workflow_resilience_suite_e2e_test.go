@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
+const errMsgWorkflowShouldReachTerminal = "workflow should reach terminal state"
+
 // WorkflowResilienceSuite verifies error handling, retry mechanisms,
 // and timeout recovery in workflow execution.
 type WorkflowResilienceSuite struct {
