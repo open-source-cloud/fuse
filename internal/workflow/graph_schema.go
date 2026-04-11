@@ -6,6 +6,7 @@ import (
 	"maps"
 
 	"github.com/go-playground/validator/v10"
+	pkgworkflow "github.com/open-source-cloud/fuse/pkg/workflow"
 )
 
 var (
@@ -15,13 +16,15 @@ var (
 
 // GraphSchema represents a data structure containing nodes and edges, identified by a unique ID and optionally named.
 type GraphSchema struct {
-	ID       string              `json:"id" validate:"required"`
-	Name     string              `json:"name" validate:"required,lte=100"`
-	Nodes    []*NodeSchema       `json:"nodes" validate:"required,dive"`
-	Edges    []*EdgeSchema       `json:"edges" validate:"required,dive"`
-	Metadata map[string]string   `json:"metadata,omitempty"`
-	Tags     map[string]string   `json:"tags,omitempty"`
-	Timeout  *GraphTimeoutConfig `json:"timeout,omitempty"`
+	ID            string                         `json:"id" validate:"required"`
+	Name          string                         `json:"name" validate:"required,lte=100"`
+	Nodes         []*NodeSchema                  `json:"nodes" validate:"required,dive"`
+	Edges         []*EdgeSchema                  `json:"edges" validate:"required,dive"`
+	Metadata      map[string]string              `json:"metadata,omitempty"`
+	Tags          map[string]string              `json:"tags,omitempty"`
+	Timeout       *GraphTimeoutConfig            `json:"timeout,omitempty"`
+	Concurrency   *pkgworkflow.ConcurrencyConfig `json:"concurrency,omitempty"`
+	TriggerConfig *TriggerConfig                 `json:"triggerConfig,omitempty"`
 }
 
 // NewGraphSchemaFromJSON creates a new graph schema from a JSON specification
@@ -53,12 +56,22 @@ func (f *GraphSchema) Clone() GraphSchema {
 		edges[i] = edge.Clone()
 	}
 
-	return GraphSchema{
+	clone := GraphSchema{
 		ID:       f.ID,
 		Name:     f.Name,
 		Nodes:    nodes,
 		Edges:    edges,
 		Metadata: maps.Clone(f.Metadata),
 		Tags:     maps.Clone(f.Tags),
+		Timeout:  f.Timeout,
 	}
+	if f.Concurrency != nil {
+		cc := *f.Concurrency
+		clone.Concurrency = &cc
+	}
+	if f.TriggerConfig != nil {
+		tc := *f.TriggerConfig
+		clone.TriggerConfig = &tc
+	}
+	return clone
 }

@@ -8,9 +8,11 @@ import (
 type (
 	// FunctionMetadata metadata for a registered function
 	FunctionMetadata struct {
-		Transport transport.Type         `json:"transport"`
-		Input     FunctionInputMetadata  `json:"input"`
-		Output    FunctionOutputMetadata `json:"output"`
+		Transport   transport.Type              `json:"transport"`
+		Input       FunctionInputMetadata       `json:"input"`
+		Output      FunctionOutputMetadata      `json:"output"`
+		Concurrency *workflow.ConcurrencyConfig `json:"concurrency,omitempty"`
+		RateLimit   *workflow.RateLimitConfig   `json:"rateLimit,omitempty"`
 	}
 
 	// FunctionInputMetadata input metadata for a registered function

@@ -21,6 +21,7 @@ var RepoModule = fx.Module(
 		provideJournalRepository,
 		provideAwakeableRepository,
 		provideClaimRepository,
+		provideTraceRepository,
 	),
 )
 
@@ -83,4 +84,9 @@ func provideClaimRepository(p repoParams) repositories.ClaimRepository {
 	}
 	log.Debug().Msg("using memory claim repository (no-op)")
 	return repositories.NewMemoryClaimRepository()
+}
+
+func provideTraceRepository(_ repoParams) repositories.TraceRepository {
+	log.Debug().Msg("using memory trace repository")
+	return repositories.NewMemoryTraceRepository()
 }

@@ -2,8 +2,10 @@ package actors
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/open-source-cloud/fuse/internal/actors/actornames"
+	"github.com/open-source-cloud/fuse/internal/concurrency"
 
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
@@ -16,11 +18,13 @@ import (
 type WorkflowFuncFactory ActorFactory[*WorkflowFunc]
 
 // NewWorkflowFuncFactory creates a dependency injection factory of WorkflowFunc worker actor
-func NewWorkflowFuncFactory(packageRegistry packages.Registry) *WorkflowFuncFactory {
+func NewWorkflowFuncFactory(packageRegistry packages.Registry, concurrencyMgr *concurrency.Manager, rateLimiter *concurrency.RateLimiter) *WorkflowFuncFactory {
 	return &WorkflowFuncFactory{
 		Factory: func() gen.ProcessBehavior {
 			return &WorkflowFunc{
-				packageRegistry: packageRegistry,
+				packageRegistry:    packageRegistry,
+				concurrencyManager: concurrencyMgr,
+				rateLimiter:        rateLimiter,
 			}
 		},
 	}
@@ -32,7 +36,9 @@ func NewWorkflowFuncFactory(packageRegistry packages.Registry) *WorkflowFuncFact
 type WorkflowFunc struct {
 	act.Actor
 
-	packageRegistry packages.Registry
+	packageRegistry    packages.Registry
+	concurrencyManager *concurrency.Manager
+	rateLimiter        *concurrency.RateLimiter
 }
 
 // Init called when a WorkflowFunc worker actor is being initialized
@@ -67,6 +73,30 @@ func (a *WorkflowFunc) HandleMessage(from gen.PID, message any) error {
 		a.Log().Error("LoadedPackage %s is not registered", msgPayload.PackageID)
 		return nil
 	}
+
+	// Acquire concurrency slot if configured
+	metadata, _ := pkg.GetFunctionMetadata(msgPayload.FunctionID)
+	functionID := fmt.Sprintf("%s/%s", msgPayload.PackageID, msgPayload.FunctionID)
+	if metadata != nil && metadata.Concurrency != nil {
+		release := a.concurrencyManager.AcquireFunction(functionID, metadata.Concurrency.Limit)
+		defer release()
+	}
+
+	// Apply rate limiting if configured
+	if metadata != nil && metadata.RateLimit != nil {
+		if rlErr := a.rateLimiter.Acquire(functionID, *metadata.RateLimit, ""); rlErr != nil {
+			// Rate limit exceeded with reject strategy
+			rlResult := workflow.FunctionResult{
+				Output: workflow.FunctionOutput{
+					Status: workflow.FunctionError,
+					Data:   map[string]any{"error": rlErr.Error()},
+				},
+			}
+			resultMsg := messaging.NewFunctionResultMessage(msgPayload.WorkflowID, msgPayload.ThreadID, msgPayload.ExecID, rlResult)
+			return a.Send(actornames.WorkflowHandlerName(msgPayload.WorkflowID), resultMsg)
+		}
+	}
+
 	input, err := workflow.NewFunctionInputWith(msgPayload.Input)
 	if err != nil {
 		a.Log().Error("failed to create function input: %s", err)

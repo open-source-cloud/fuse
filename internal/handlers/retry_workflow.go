@@ -6,9 +6,9 @@ import (
 	"ergo.services/ergo/gen"
 	"github.com/google/uuid"
 	"github.com/open-source-cloud/fuse/internal/dtos"
-	internalworkflow "github.com/open-source-cloud/fuse/internal/workflow"
 	"github.com/open-source-cloud/fuse/internal/messaging"
 	"github.com/open-source-cloud/fuse/internal/repositories"
+	internalworkflow "github.com/open-source-cloud/fuse/internal/workflow"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 )
 

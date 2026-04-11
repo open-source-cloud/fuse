@@ -7,8 +7,10 @@ import (
 	"ergo.services/ergo/gen"
 	"github.com/open-source-cloud/fuse/internal/actors/actornames"
 	"github.com/open-source-cloud/fuse/internal/app/config"
+	"github.com/open-source-cloud/fuse/internal/concurrency"
 	"github.com/open-source-cloud/fuse/internal/messaging"
 	"github.com/open-source-cloud/fuse/internal/repositories"
+	"github.com/open-source-cloud/fuse/internal/services"
 	internalworkflow "github.com/open-source-cloud/fuse/internal/workflow"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 )
@@ -21,6 +23,8 @@ func NewWorkflowSupervisorFactory(
 	cfg *config.Config,
 	workflowRepository repositories.WorkflowRepository,
 	workflowInstanceSup *WorkflowInstanceSupervisorFactory,
+	graphService services.GraphService,
+	concurrencyMgr *concurrency.Manager,
 ) *WorkflowSupervisorFactory {
 	return &WorkflowSupervisorFactory{
 		Factory: func() gen.ProcessBehavior {
@@ -28,7 +32,10 @@ func NewWorkflowSupervisorFactory(
 				config:              cfg,
 				workflowRepository:  workflowRepository,
 				workflowInstanceSup: workflowInstanceSup,
+				graphService:        graphService,
+				concurrencyManager:  concurrencyMgr,
 				workflowActors:      make(map[workflow.ID]gen.PID),
+				releaseMap:          make(map[workflow.ID]func()),
 			}
 		},
 	}
@@ -41,8 +48,11 @@ type WorkflowSupervisor struct {
 	config              *config.Config
 	workflowRepository  repositories.WorkflowRepository
 	workflowInstanceSup *WorkflowInstanceSupervisorFactory
+	graphService        services.GraphService
+	concurrencyManager  *concurrency.Manager
 
 	workflowActors map[workflow.ID]gen.PID
+	releaseMap     map[workflow.ID]func()
 }
 
 // Init invoked on a spawn Supervisor process. This is a mandatory callback for the implementation
@@ -91,9 +101,28 @@ func (a *WorkflowSupervisor) HandleMessage(from gen.PID, message any) error {
 			a.Log().Error("failed to get trigger workflow message from message: %s", msg)
 			return nil
 		}
+
+		// Check workflow-level concurrency limit
+		if graph, gErr := a.graphService.FindByID(triggerMsg.SchemaID); gErr == nil && graph.Schema().Concurrency != nil {
+			release, ok := a.concurrencyManager.TryAcquireWorkflow(triggerMsg.SchemaID, graph.Schema().Concurrency.Limit)
+			if !ok {
+				a.Log().Info("concurrency limit reached for schema %s, requeueing trigger for workflow %s", triggerMsg.SchemaID, triggerMsg.WorkflowID)
+				if _, retryErr := a.SendAfter(a.PID(), message, 500*time.Millisecond); retryErr != nil {
+					a.Log().Error("failed to requeue trigger for workflow %s: %s", triggerMsg.WorkflowID, retryErr)
+				}
+				return nil
+			}
+			a.releaseMap[triggerMsg.WorkflowID] = release
+		}
+
 		err = a.spawnWorkflowActor(triggerMsg.SchemaID, triggerMsg.WorkflowID)
 		if err != nil {
 			a.Log().Error("failed to spawn workflow actor for schema id %s : %s", triggerMsg.SchemaID, err)
+			// Release concurrency slot on spawn failure
+			if release, exists := a.releaseMap[triggerMsg.WorkflowID]; exists {
+				release()
+				delete(a.releaseMap, triggerMsg.WorkflowID)
+			}
 			return nil
 		}
 	case messaging.RecoverWorkflows:
@@ -162,6 +191,11 @@ func (a *WorkflowSupervisor) HandleChildTerminate(name gen.Atom, pid gen.PID, re
 	for wfID, wfPID := range a.workflowActors {
 		if wfPID == pid {
 			delete(a.workflowActors, wfID)
+			// Release concurrency slot if one was acquired
+			if release, exists := a.releaseMap[wfID]; exists {
+				release()
+				delete(a.releaseMap, wfID)
+			}
 			a.Log().Info("cleaned up workflow actor for workflow %s", wfID)
 			break
 		}

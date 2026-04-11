@@ -27,6 +27,9 @@ func NewApp(
 	schemaReplicationSup *actors.SchemaReplicationActorFactory,
 	claimActor *actors.WorkflowClaimActorFactory,
 	pgListenerActor *actors.PgListenerActorFactory,
+	cronScheduler *actors.CronSchedulerFactory,
+	webhookRouter *actors.WebhookRouterFactory,
+	eventTrigger *actors.EventTriggerFactory,
 ) (gen.Node, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
@@ -43,6 +46,9 @@ func NewApp(
 		schemaReplicationSup: schemaReplicationSup,
 		claimActor:           claimActor,
 		pgListenerActor:      pgListenerActor,
+		cronScheduler:        cronScheduler,
+		webhookRouter:        webhookRouter,
+		eventTrigger:         eventTrigger,
 	})
 	if cfg.Params.ActorObserver {
 		apps = append(apps, observer.CreateApp(observer.Options{}))
@@ -140,6 +146,9 @@ type Fuse struct {
 	schemaReplicationSup *actors.SchemaReplicationActorFactory
 	claimActor           *actors.WorkflowClaimActorFactory
 	pgListenerActor      *actors.PgListenerActorFactory
+	cronScheduler        *actors.CronSchedulerFactory
+	webhookRouter        *actors.WebhookRouterFactory
+	eventTrigger         *actors.EventTriggerFactory
 	node                 gen.Node
 }
 
@@ -158,6 +167,18 @@ func (app *Fuse) Load(node gen.Node, _ ...any) (gen.ApplicationSpec, error) {
 		{
 			Name:    actornames.SchemaReplicationActorName,
 			Factory: app.schemaReplicationSup.Factory,
+		},
+		{
+			Name:    actornames.CronSchedulerName,
+			Factory: app.cronScheduler.Factory,
+		},
+		{
+			Name:    actornames.WebhookRouterName,
+			Factory: app.webhookRouter.Factory,
+		},
+		{
+			Name:    actornames.EventTriggerName,
+			Factory: app.eventTrigger.Factory,
 		},
 	}
 	if app.config.HA.Enabled {

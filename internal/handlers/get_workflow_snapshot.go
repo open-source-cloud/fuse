@@ -97,4 +97,3 @@ func (h *GetWorkflowSnapshotHandler) HandleGet(_ gen.PID, w http.ResponseWriter,
 
 	return h.SendJSON(w, http.StatusOK, snap)
 }
-

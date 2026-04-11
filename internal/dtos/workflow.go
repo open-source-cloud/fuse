@@ -9,14 +9,16 @@ type UpsertSchemaResponse struct {
 
 // TriggerWorkflowRequest represents the data structure for triggering a workflow
 type TriggerWorkflowRequest struct {
-	SchemaID string `json:"schemaID" validate:"required"`
+	SchemaID       string `json:"schemaID" validate:"required"`
+	IdempotencyKey string `json:"idempotencyKey,omitempty"`
 }
 
 // TriggerWorkflowResponse represents trigger workflow response
 type TriggerWorkflowResponse struct {
-	SchemaID   string `json:"schemaId" example:"my-schema"`
-	WorkflowID string `json:"workflowId" example:"550e8400-e29b-41d4-a716-446655440000"`
-	Code       string `json:"code" example:"OK"`
+	SchemaID     string `json:"schemaId" example:"my-schema"`
+	WorkflowID   string `json:"workflowId" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Code         string `json:"code" example:"OK"`
+	Deduplicated bool   `json:"deduplicated,omitempty" example:"false"`
 }
 
 // AsyncFunctionRequest is the request body for the AsyncFunctionHandler

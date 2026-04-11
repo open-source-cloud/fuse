@@ -10,20 +10,23 @@ import (
 type workerHandlerRegistrationParams struct {
 	fx.In
 
-	HealthCheckHandlerFactory             *handlers.HealthCheckHandlerFactory
-	AsyncFunctionResultHandlerFactory     *handlers.AsyncFunctionResultHandlerFactory
-	WorkflowSchemaHandlerFactory          *handlers.WorkflowSchemaHandlerFactory
-	ListSchemasHandlerFactory             *handlers.ListSchemasHandlerFactory
-	TriggerWorkflowHandlerFactory         *handlers.TriggerWorkflowHandlerFactory
-	PackagesHandlerFactory                *handlers.PackagesHandlerFactory
-	RegisterPackageHandlerFactory         *handlers.RegisterPackageHandlerFactory
-	GetWorkflowHandlerFactory             *handlers.GetWorkflowHandlerFactory
-	CancelWorkflowHandlerFactory          *handlers.CancelWorkflowHandlerFactory
-	ResolveAwakeableHandlerFactory        *handlers.ResolveAwakeableHandlerFactory
-	GetWorkflowSnapshotHandlerFactory     *handlers.GetWorkflowSnapshotHandlerFactory
-	RetryNodeHandlerFactory               *handlers.RetryNodeHandlerFactory
-	RetryWorkflowHandlerFactory           *handlers.RetryWorkflowHandlerFactory
-	ListExecutionsHandlerFactory          *handlers.ListExecutionsHandlerFactory
+	HealthCheckHandlerFactory         *handlers.HealthCheckHandlerFactory
+	AsyncFunctionResultHandlerFactory *handlers.AsyncFunctionResultHandlerFactory
+	WorkflowSchemaHandlerFactory      *handlers.WorkflowSchemaHandlerFactory
+	ListSchemasHandlerFactory         *handlers.ListSchemasHandlerFactory
+	TriggerWorkflowHandlerFactory     *handlers.TriggerWorkflowHandlerFactory
+	PackagesHandlerFactory            *handlers.PackagesHandlerFactory
+	RegisterPackageHandlerFactory     *handlers.RegisterPackageHandlerFactory
+	GetWorkflowHandlerFactory         *handlers.GetWorkflowHandlerFactory
+	CancelWorkflowHandlerFactory      *handlers.CancelWorkflowHandlerFactory
+	ResolveAwakeableHandlerFactory    *handlers.ResolveAwakeableHandlerFactory
+	GetWorkflowSnapshotHandlerFactory *handlers.GetWorkflowSnapshotHandlerFactory
+	RetryNodeHandlerFactory           *handlers.RetryNodeHandlerFactory
+	RetryWorkflowHandlerFactory       *handlers.RetryWorkflowHandlerFactory
+	ListExecutionsHandlerFactory      *handlers.ListExecutionsHandlerFactory
+	WorkflowTraceHandlerFactory       *handlers.WorkflowTraceHandlerFactory
+	SchemaTracesHandlerFactory        *handlers.SchemaTracesHandlerFactory
+	WebhookHandlerFactory             *handlers.WebhookHandlerFactory
 }
 
 // newWorkers builds the HTTP worker registry with all handler factories registered.
@@ -45,6 +48,9 @@ func newWorkers(p workerHandlerRegistrationParams) *actors.Workers {
 	w.AddFactory(handlers.RetryNodeHandlerName, p.RetryNodeHandlerFactory.Factory)
 	w.AddFactory(handlers.RetryWorkflowHandlerName, p.RetryWorkflowHandlerFactory.Factory)
 	w.AddFactory(handlers.ListExecutionsHandlerName, p.ListExecutionsHandlerFactory.Factory)
+	w.AddFactory(handlers.WorkflowTraceHandlerName, p.WorkflowTraceHandlerFactory.Factory)
+	w.AddFactory(handlers.SchemaTracesHandlerName, p.SchemaTracesHandlerFactory.Factory)
+	w.AddFactory(handlers.WebhookHandlerName, p.WebhookHandlerFactory.Factory)
 	return w
 }
 
@@ -66,6 +72,9 @@ var WorkerModule = fx.Module(
 		handlers.NewRetryNodeHandlerFactory,
 		handlers.NewRetryWorkflowHandlerFactory,
 		handlers.NewListExecutionsHandlerFactory,
+		handlers.NewWorkflowTraceHandlerFactory,
+		handlers.NewSchemaTracesHandlerFactory,
+		handlers.NewWebhookHandlerFactory,
 		newWorkers,
 	),
 )
@@ -83,6 +92,9 @@ var ActorModule = fx.Module(
 		actors.NewWorkflowFuncFactory,
 		actors.NewSchemaReplicationActorFactory,
 		actors.NewWorkflowClaimActorFactory,
+		actors.NewCronSchedulerFactory,
+		actors.NewWebhookRouterFactory,
+		actors.NewEventTriggerFactory,
 		providePgListenerActorFactory,
 	),
 )
