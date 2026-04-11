@@ -1,0 +1,277 @@
+ => => reading from stdin 1.95kB                                                                                                                0.0s
+ => [fuse-dev-2 internal] load build definition from Dockerfile.dev                                                                             0.0s
+ => => transferring dockerfile: 881B                                                                                                            0.0s
+ => [fuse-dev-3 internal] load metadata for docker.io/library/golang:1.26-bookworm                                                              1.1s
+ => [auth] library/golang:pull token for registry-1.docker.io                                                                                   0.0s
+ => [fuse-dev-2 internal] load .dockerignore                                                                                                    0.0s
+ => => transferring context: 69B                                                                                                                0.0s
+ => [fuse-dev-3 1/4] FROM docker.io/library/golang:1.26-bookworm@sha256:4f4ab2c90005e7e63cb631f0b4427f05422f241622ee3ec4727cc5febbf83e34        0.0s
+ => [fuse-dev-1 internal] load build context                                                                                                    0.0s
+ => => transferring context: 55B                                                                                                                0.0s
+ => CACHED [fuse-dev-1 2/4] WORKDIR /app                                                                                                        0.0s
+ => CACHED [fuse-dev-1 3/4] COPY go.mod go.sum ./                                                                                               0.0s
+ => CACHED [fuse-dev-1 4/4] RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl  && rm -rf /var/lib/apt/list  0.0s
+ => [fuse-dev-3] exporting to image                                                                                                             0.0s
+ => => exporting layers                                                                                                                         0.0s
+ => => writing image sha256:abd43f8dd2574bc950b74c15fc15535b011baa581c90d8139676a22aee278635                                                    0.0s
+ => => naming to docker.io/library/fuse-fuse-dev-3                                                                                              0.0s
+ => [fuse-dev-1] exporting to image                                                                                                             0.0s
+ => => exporting layers                                                                                                                         0.0s
+ => => writing image sha256:3658bfa57dfeec2e6c06c991248277211c31adb41aab77005d8b91c8466bccd5                                                    0.0s
+ => => naming to docker.io/library/fuse-fuse-dev-1                                                                                              0.0s
+ => [fuse-dev-2] exporting to image                                                                                                             0.0s
+ => => exporting layers                                                                                                                         0.0s
+ => => writing image sha256:495906f7ba0d897ca6c5aa00485c93e9a5eae5baa353071b3f39071089fd37ff                                                    0.0s
+ => => naming to docker.io/library/fuse-fuse-dev-2                                                                                              0.0s
+ => [fuse-dev] exporting to image                                                                                                               0.0s
+ => => exporting layers                                                                                                                         0.0s
+ => => writing image sha256:94fb2feea0c2b67ccf9f85ccd0248a12b7ebfcd190a0fe36eea7c4278126ef31                                                    0.0s
+ => => naming to docker.io/library/fuse-fuse-dev                                                                                                0.0s
+ => [fuse-dev-3] resolving provenance for metadata file                                                                                         0.0s
+ => [fuse-dev-2] resolving provenance for metadata file                                                                                         0.0s
+ => [fuse-dev-1] resolving provenance for metadata file                                                                                         0.0s
+ => [fuse-dev] resolving provenance for metadata file                                                                                           0.0s
+[+] up 9/9
+ ✔ Image fuse-fuse-dev-3   Built                                                                                                                 1.9s
+ ✔ Image fuse-fuse-dev     Built                                                                                                                 1.9s
+ ✔ Image fuse-fuse-dev-1   Built                                                                                                                 1.9s
+ ✔ Image fuse-fuse-dev-2   Built                                                                                                                 1.9s
+ ✔ Container fuse-postgres Running                                                                                                               0.0s
+ ✔ Container fuse-dev-3    Started                                                                                                               0.5s
+ ✔ Container fuse-dev-2    Started                                                                                                               0.5s
+ ✔ Container fuse-dev-1    Started                                                                                                               0.5s
+ ✔ Container fuse-dev      Started                                                                                                               0.2s
+➜  fuse git:(main) ✗ clear
+
+➜  fuse git:(main) ✗ docker compose -f docker-compose.e2e-ci.yml up --build -d 
+
+WARN[0000] Found orphan containers ([fuse-dev-3 fuse-dev-1 fuse-dev-2 fuse-dev fuse-postgres]) for this project. If you removed or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up. 
+[+] up 8/8
+ ✔ Network fuse_e2e              Created                                                                                                         0.0s
+ ✔ Container fuse-fuse-pg-1      Healthy                                                                                                         3.8s
+ ✔ Container fuse-fuse-s3-1      Healthy                                                                                                         5.5s
+ ✔ Container fuse-fuse-pg-init-1 Exited                                                                                                          4.4s
+ ✔ Container fuse-fuse-migrate-1 Exited                                                                                                          4.9s
+ ✔ Container fuse-2              Started                                                                                                         5.5s
+ ✔ Container fuse-3              Started                                                                                                         5.5s
+ ✔ Container fuse-1              Started                                                                                                         5.5s
+direnv: loading ~/open-source-cloud/fuse/.envrc                                                                                                      
+██████████████████████████████████████████████████
+█▌                                              ▐█
+█▌  >=======> >=>     >=>   >=>>=>   >=======>  ▐█
+█▌  >=>       >=>     >=> >=>    >=> >=>        ▐█
+█▌  >=>       >=>     >=>  >=>       >=>        ▐█
+█▌  >=====>   >=>     >=>    >=>     >=====>    ▐█
+█▌  >=>       >=>     >=>       >=>  >=>        ▐█
+█▌  >=>       >=>     >=> >=>    >=> >=>        ▐█
+█▌  >=>         >====>      >=>>=>   >=======>  ▐█
+█▌                                              ▐█
+██████████████████████████████████████████████████
+
+Welcome to the FUSE Development Environment
+Let's build something awesome!
+direnv: export +APP_NAME +DB_CONN_MAX_LIFETIME +DB_DRIVER +DB_MAX_IDLE_CONNS +DB_MAX_OPEN_CONNS +DB_POSTGRES_DSN +GROUPID +HA_CLAIM_SWEEP_INTERVAL +HA_ENABLED +HA_HEARTBEAT_INTERVAL +HA_LEASE_TIMEOUT +HA_NODE_ID +LOG_FORMAT +OBJECT_STORE_DRIVER +OBJECT_STORE_FS_BASE_PATH +OBJECT_STORE_KEY_PREFIX +PORT +PROJECT_PATH +USERID
+➜  fuse git:(main) ✗ go test -tags=e2e ./tests/e2e -v -count=1 -timeout 10m
+=== RUN   TestE2E_GET_health
+=== PAUSE TestE2E_GET_health
+=== RUN   TestE2E_GET_v1_packages
+=== PAUSE TestE2E_GET_v1_packages
+=== RUN   TestE2E_GET_v1_packages_byID
+=== PAUSE TestE2E_GET_v1_packages_byID
+=== RUN   TestE2E_PUT_GET_v1_schemas_roundTrip
+=== PAUSE TestE2E_PUT_GET_v1_schemas_roundTrip
+=== RUN   TestE2E_GET_v1_schemas_list
+=== PAUSE TestE2E_GET_v1_schemas_list
+=== RUN   TestE2E_PUT_v1_packages_roundTrip
+=== PAUSE TestE2E_PUT_v1_packages_roundTrip
+=== RUN   TestE2E_POST_v1_workflows_cancel
+=== PAUSE TestE2E_POST_v1_workflows_cancel
+=== RUN   TestE2E_POST_v1_workflows_execs_asyncResult
+=== PAUSE TestE2E_POST_v1_workflows_execs_asyncResult
+=== RUN   TestE2E_POST_v1_awakeables_resolve_notFound
+=== PAUSE TestE2E_POST_v1_awakeables_resolve_notFound
+=== RUN   TestResolveWorkflowsDir_override
+--- PASS: TestResolveWorkflowsDir_override (0.00s)
+=== RUN   TestResolveWorkflowsDir_invalidOverride
+--- PASS: TestResolveWorkflowsDir_invalidOverride (0.00s)
+=== RUN   TestResolveWorkflowsDir_repoRelative
+--- PASS: TestResolveWorkflowsDir_repoRelative (0.00s)
+=== RUN   TestReadSchemaFile_rejectsOutsideDir
+--- PASS: TestReadSchemaFile_rejectsOutsideDir (0.00s)
+=== RUN   TestE2E_TriggerWorkflow_Idempotency_Deduplication
+=== PAUSE TestE2E_TriggerWorkflow_Idempotency_Deduplication
+=== RUN   TestE2E_TriggerWorkflow_Idempotency_DifferentKeys
+=== PAUSE TestE2E_TriggerWorkflow_Idempotency_DifferentKeys
+=== RUN   TestE2E_TriggerWorkflow_NoIdempotencyKey
+=== PAUSE TestE2E_TriggerWorkflow_NoIdempotencyKey
+=== RUN   TestE2E_GET_workflow_trace
+=== PAUSE TestE2E_GET_workflow_trace
+=== RUN   TestE2E_GET_workflow_trace_notFound
+=== PAUSE TestE2E_GET_workflow_trace_notFound
+=== RUN   TestE2E_GET_schema_traces
+=== PAUSE TestE2E_GET_schema_traces
+=== RUN   TestE2E_GET_schema_traces_empty
+=== PAUSE TestE2E_GET_schema_traces_empty
+=== RUN   TestE2E_POST_webhook_notFound
+=== PAUSE TestE2E_POST_webhook_notFound
+=== RUN   TestE2E_POST_webhook_triggersWorkflow
+=== PAUSE TestE2E_POST_webhook_triggersWorkflow
+=== RUN   TestWorkflowExecutionSuite
+=== PAUSE TestWorkflowExecutionSuite
+=== RUN   TestWorkflowPersistenceSuite
+=== PAUSE TestWorkflowPersistenceSuite
+=== RUN   TestWorkflowResilienceSuite
+=== PAUSE TestWorkflowResilienceSuite
+=== CONT  TestE2E_GET_health
+=== CONT  TestE2E_TriggerWorkflow_NoIdempotencyKey
+=== CONT  TestWorkflowResilienceSuite
+=== CONT  TestE2E_POST_v1_workflows_cancel
+=== CONT  TestE2E_POST_v1_awakeables_resolve_notFound
+=== CONT  TestE2E_TriggerWorkflow_Idempotency_Deduplication
+=== CONT  TestE2E_TriggerWorkflow_Idempotency_DifferentKeys
+=== CONT  TestE2E_PUT_GET_v1_schemas_roundTrip
+--- PASS: TestE2E_POST_v1_workflows_cancel (0.01s)
+=== CONT  TestE2E_PUT_v1_packages_roundTrip
+--- PASS: TestE2E_GET_health (0.01s)
+=== CONT  TestE2E_GET_v1_schemas_list
+--- PASS: TestE2E_POST_v1_awakeables_resolve_notFound (0.02s)
+=== CONT  TestE2E_GET_v1_packages_byID
+--- PASS: TestE2E_GET_v1_schemas_list (0.01s)
+=== CONT  TestE2E_GET_v1_packages
+--- PASS: TestE2E_GET_v1_packages (0.04s)
+=== CONT  TestE2E_POST_v1_workflows_execs_asyncResult
+--- PASS: TestE2E_POST_v1_workflows_execs_asyncResult (0.01s)
+=== CONT  TestE2E_POST_webhook_notFound
+--- PASS: TestE2E_GET_v1_packages_byID (0.05s)
+=== CONT  TestWorkflowPersistenceSuite
+--- PASS: TestE2E_PUT_GET_v1_schemas_roundTrip (0.07s)
+=== CONT  TestWorkflowExecutionSuite
+--- PASS: TestE2E_POST_webhook_notFound (0.01s)
+=== CONT  TestE2E_POST_webhook_triggersWorkflow
+--- PASS: TestE2E_TriggerWorkflow_Idempotency_DifferentKeys (0.09s)
+=== CONT  TestE2E_GET_schema_traces
+--- PASS: TestE2E_PUT_v1_packages_roundTrip (0.08s)
+=== CONT  TestE2E_GET_schema_traces_empty
+--- PASS: TestE2E_GET_schema_traces_empty (0.00s)
+=== CONT  TestE2E_GET_workflow_trace_notFound
+--- PASS: TestE2E_GET_workflow_trace_notFound (0.00s)
+=== CONT  TestE2E_GET_workflow_trace
+--- PASS: TestE2E_TriggerWorkflow_Idempotency_Deduplication (0.10s)
+--- PASS: TestE2E_TriggerWorkflow_NoIdempotencyKey (0.11s)
+=== RUN   TestWorkflowPersistenceSuite/TestMultipleWorkflows_IndependentState
+=== RUN   TestWorkflowResilienceSuite/TestErrorEdge_FollowsRecoveryPath
+--- PASS: TestE2E_POST_webhook_triggersWorkflow (0.06s)
+=== RUN   TestWorkflowExecutionSuite/TestConditionalBranch_Finishes
+=== RUN   TestWorkflowResilienceSuite/TestParallelRetry_CompletesWithConcurrentRetries
+=== NAME  TestWorkflowPersistenceSuite/TestMultipleWorkflows_IndependentState
+    workflow_persistence_suite_e2e_test.go:72: 
+        	Error Trace:	/Users/gustavo.bertoi/open-source-cloud/fuse/tests/e2e/workflow_persistence_suite_e2e_test.go:72
+        	Error:      	Received unexpected error:
+        	            	workflow 019d7d49-2c62-77ad-af02-592a3853b3ad still in status "untriggered" after 15s
+        	Test:       	TestWorkflowPersistenceSuite/TestMultipleWorkflows_IndependentState
+=== RUN   TestWorkflowPersistenceSuite/TestPackageRegistration_PersistsInDB
+=== RUN   TestWorkflowPersistenceSuite/TestSchemaRoundTrip_PersistsInDB
+=== RUN   TestWorkflowPersistenceSuite/TestTriggerAndFinish_PersistsState
+=== NAME  TestWorkflowExecutionSuite/TestConditionalBranch_Finishes
+    workflow_execution_suite_e2e_test.go:67: 
+        	Error Trace:	/Users/gustavo.bertoi/open-source-cloud/fuse/tests/e2e/workflow_execution_suite_e2e_test.go:50
+        	            				/Users/gustavo.bertoi/open-source-cloud/fuse/tests/e2e/workflow_execution_suite_e2e_test.go:67
+        	            				/Users/gustavo.bertoi/.gvm/gos/go1.26/src/runtime/asm_arm64.s:1447
+        	Error:      	Received unexpected error:
+        	            	workflow 019d7d49-2c99-7bd6-b190-3769e77a68b7 still in status "untriggered" after 15s
+        	Test:       	TestWorkflowExecutionSuite/TestConditionalBranch_Finishes
+        	Messages:   	workflow small-cond-test should reach terminal state
+=== RUN   TestWorkflowExecutionSuite/TestDurableExecution_Finishes
+=== NAME  TestWorkflowResilienceSuite/TestParallelRetry_CompletesWithConcurrentRetries
+    workflow_resilience_suite_e2e_test.go:75: 
+        	Error Trace:	/Users/gustavo.bertoi/open-source-cloud/fuse/tests/e2e/workflow_resilience_suite_e2e_test.go:75
+        	Error:      	Received unexpected error:
+        	            	workflow 019d7d49-2d39-7c35-a1fe-f7abfe26be6c still in status "untriggered" after 15s
+        	Test:       	TestWorkflowResilienceSuite/TestParallelRetry_CompletesWithConcurrentRetries
+        	Messages:   	workflow should reach terminal state
+=== RUN   TestWorkflowResilienceSuite/TestRetry_CompletesAfterTransientFailures
+=== RUN   TestWorkflowResilienceSuite/TestTimeout_FollowsRecoveryPath
+--- FAIL: TestWorkflowResilienceSuite (17.06s)
+    --- PASS: TestWorkflowResilienceSuite/TestErrorEdge_FollowsRecoveryPath (0.21s)
+    --- FAIL: TestWorkflowResilienceSuite/TestParallelRetry_CompletesWithConcurrentRetries (15.07s)
+    --- PASS: TestWorkflowResilienceSuite/TestRetry_CompletesAfterTransientFailures (0.41s)
+    --- PASS: TestWorkflowResilienceSuite/TestTimeout_FollowsRecoveryPath (1.23s)
+=== NAME  TestE2E_GET_workflow_trace
+    trace_api_e2e_test.go:39: 
+        	Error Trace:	/Users/gustavo.bertoi/open-source-cloud/fuse/tests/e2e/trace_api_e2e_test.go:39
+        	Error:      	Received unexpected error:
+        	            	workflow 019d7d49-2c54-7d01-844a-708c44a9b0ad still in status "untriggered" after 30s
+        	Test:       	TestE2E_GET_workflow_trace
+--- FAIL: TestE2E_GET_workflow_trace (30.23s)
+=== NAME  TestWorkflowPersistenceSuite/TestTriggerAndFinish_PersistsState
+    workflow_persistence_suite_e2e_test.go:49: 
+        	Error Trace:	/Users/gustavo.bertoi/open-source-cloud/fuse/tests/e2e/workflow_persistence_suite_e2e_test.go:49
+        	Error:      	Received unexpected error:
+        	            	workflow 019d7d49-671b-7775-8e02-6ed6e5f5f36a still in status "untriggered" after 15s
+        	Test:       	TestWorkflowPersistenceSuite/TestTriggerAndFinish_PersistsState
+        	Messages:   	workflow should reach terminal state
+--- FAIL: TestWorkflowPersistenceSuite (30.25s)
+    --- FAIL: TestWorkflowPersistenceSuite/TestMultipleWorkflows_IndependentState (15.01s)
+    --- PASS: TestWorkflowPersistenceSuite/TestPackageRegistration_PersistsInDB (0.01s)
+    --- PASS: TestWorkflowPersistenceSuite/TestSchemaRoundTrip_PersistsInDB (0.01s)
+    --- FAIL: TestWorkflowPersistenceSuite/TestTriggerAndFinish_PersistsState (15.15s)
+=== NAME  TestE2E_GET_schema_traces
+    trace_api_e2e_test.go:109: 
+        	Error Trace:	/Users/gustavo.bertoi/open-source-cloud/fuse/tests/e2e/trace_api_e2e_test.go:109
+        	Error:      	"0" is not greater than or equal to "1"
+        	Test:       	TestE2E_GET_schema_traces
+--- FAIL: TestE2E_GET_schema_traces (30.23s)
+=== NAME  TestWorkflowExecutionSuite/TestDurableExecution_Finishes
+    workflow_execution_suite_e2e_test.go:77: 
+        	Error Trace:	/Users/gustavo.bertoi/open-source-cloud/fuse/tests/e2e/workflow_execution_suite_e2e_test.go:50
+        	            				/Users/gustavo.bertoi/open-source-cloud/fuse/tests/e2e/workflow_execution_suite_e2e_test.go:77
+        	            				/Users/gustavo.bertoi/.gvm/gos/go1.26/src/runtime/asm_arm64.s:1447
+        	Error:      	Received unexpected error:
+        	            	workflow 019d7d49-6747-7a0e-afab-63b56a94f4a1 still in status "untriggered" after 15s
+        	Test:       	TestWorkflowExecutionSuite/TestDurableExecution_Finishes
+        	Messages:   	workflow durable-test should reach terminal state
+=== RUN   TestWorkflowExecutionSuite/TestExpressionCondition_Finishes
+    workflow_execution_suite_e2e_test.go:72: 
+        	Error Trace:	/Users/gustavo.bertoi/open-source-cloud/fuse/tests/e2e/workflow_execution_suite_e2e_test.go:50
+        	            				/Users/gustavo.bertoi/open-source-cloud/fuse/tests/e2e/workflow_execution_suite_e2e_test.go:72
+        	            				/Users/gustavo.bertoi/.gvm/gos/go1.26/src/runtime/asm_arm64.s:1447
+        	Error:      	Received unexpected error:
+        	            	workflow 019d7d49-a253-7a1f-888d-525794b5a019 still in status "untriggered" after 15s
+        	Test:       	TestWorkflowExecutionSuite/TestExpressionCondition_Finishes
+        	Messages:   	workflow expression-condition-test should reach terminal state
+=== RUN   TestWorkflowExecutionSuite/TestParallelFanOut_Finishes
+    workflow_execution_suite_e2e_test.go:62: 
+        	Error Trace:	/Users/gustavo.bertoi/open-source-cloud/fuse/tests/e2e/workflow_execution_suite_e2e_test.go:50
+        	            				/Users/gustavo.bertoi/open-source-cloud/fuse/tests/e2e/workflow_execution_suite_e2e_test.go:62
+        	            				/Users/gustavo.bertoi/.gvm/gos/go1.26/src/runtime/asm_arm64.s:1447
+        	Error:      	Received unexpected error:
+        	            	workflow 019d7d49-ddab-7597-b196-842605623f1d still in status "untriggered" after 15s
+        	Test:       	TestWorkflowExecutionSuite/TestParallelFanOut_Finishes
+        	Messages:   	workflow small-test should reach terminal state
+=== RUN   TestWorkflowExecutionSuite/TestSmallestPipeline_Finishes
+    workflow_execution_suite_e2e_test.go:57: 
+        	Error Trace:	/Users/gustavo.bertoi/open-source-cloud/fuse/tests/e2e/workflow_execution_suite_e2e_test.go:50
+        	            				/Users/gustavo.bertoi/open-source-cloud/fuse/tests/e2e/workflow_execution_suite_e2e_test.go:57
+        	            				/Users/gustavo.bertoi/.gvm/gos/go1.26/src/runtime/asm_arm64.s:1447
+        	Error:      	Received unexpected error:
+        	            	workflow 019d7d4a-189b-7a46-8110-3cec1cabeb5d still in status "untriggered" after 15s
+        	Test:       	TestWorkflowExecutionSuite/TestSmallestPipeline_Finishes
+        	Messages:   	workflow smallest-test should reach terminal state
+=== RUN   TestWorkflowExecutionSuite/TestSumRandBranch_Finishes
+    workflow_execution_suite_e2e_test.go:87: 
+        	Error Trace:	/Users/gustavo.bertoi/open-source-cloud/fuse/tests/e2e/workflow_execution_suite_e2e_test.go:87
+        	Error:      	Received unexpected error:
+        	            	workflow 019d7d4a-53bd-7102-90d1-49aa741833fd still in status "untriggered" after 1m0s
+        	Test:       	TestWorkflowExecutionSuite/TestSumRandBranch_Finishes
+        	Messages:   	workflow should reach terminal state
+--- FAIL: TestWorkflowExecutionSuite (135.71s)
+    --- FAIL: TestWorkflowExecutionSuite/TestConditionalBranch_Finishes (15.02s)
+    --- FAIL: TestWorkflowExecutionSuite/TestDurableExecution_Finishes (15.11s)
+    --- FAIL: TestWorkflowExecutionSuite/TestExpressionCondition_Finishes (15.19s)
+    --- FAIL: TestWorkflowExecutionSuite/TestParallelFanOut_Finishes (15.09s)
+    --- FAIL: TestWorkflowExecutionSuite/TestSmallestPipeline_Finishes (15.14s)
+    --- FAIL: TestWorkflowExecutionSuite/TestSumRandBranch_Finishes (60.04s)
+FAIL
+FAIL	github.com/open-source-cloud/fuse/tests/e2e	136.292s
+FAIL
+➜  fuse git:(main) ✗ 

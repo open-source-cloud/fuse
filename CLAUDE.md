@@ -27,8 +27,10 @@ go clean -testcache
 make dkb                # Build Docker image (fuse-app:dev)
 make dkx                # Run Docker container
 
-# Local infrastructure (LocalStack for S3/SQS/SNS)
-docker compose up -d
+# Docker Compose (single file, profile-based)
+make infra-up           # PG + S3 (rustfs) + etcd (local dev, fuse on host)
+make ha-up              # Full HA: 3 Fuse nodes + infra (built from source)
+make ha-down            # Tear down HA stack
 ```
 
 **Quality gate order before committing: `make lint && make build && make test`**

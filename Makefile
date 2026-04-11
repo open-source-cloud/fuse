@@ -1,4 +1,4 @@
-.PHONY: run run-debug install-gotestsum test test-report testdox clean install-lint lint lint-fix install-swag swagger build build-debug dockerfile-lint sonar-local e2e-workflows migrate format-data-json bump-version
+.PHONY: run run-debug install-gotestsum test test-report testdox clean install-lint lint lint-fix install-swag swagger build build-debug dockerfile-lint sonar-local e2e-local migrate format-data-json bump-version ha-up ha-down infra-up infra-down
 
 GOTESTSUM := $(shell go env GOPATH)/bin/gotestsum
 GOLANGCI_LINT := $(shell go env GOPATH)/bin/golangci-lint
@@ -29,13 +29,12 @@ test-functional: install-gotestsum
 test-benchmark:
 	go test -bench=. -benchmem ./...
 
-# Run workflow E2E against a running API (requires -tags=e2e; default http://localhost:9090 via E2E_API_URL).
-# -parallel 1 avoids t.Parallel() disk/helper tests racing with workflow suites on one server.
-# Unit tests for helpers: go test ./tests/e2e
-e2e-workflows:
-	docker compose --profile fuse-e2e -f docker-compose.e2e.yml up --build -d
-	go test -tags=e2e ./tests/e2e -v -count=1 -timeout 15m
-	docker compose --profile fuse-e2e -f docker-compose.e2e.yml down -v
+# Run E2E locally: build image, start stack, run tests, tear down.
+e2e-local:
+	docker build -t fuse-app:test .
+	docker compose --profile e2e up -d --wait --wait-timeout 120
+	E2E_API_URL=http://localhost:9091 go test -tags=e2e ./tests/e2e -v -count=1 -timeout 15m; \
+		rc=$$?; docker compose --profile e2e down -v; exit $$rc
 
 # E2E against a Kubernetes cluster with PG (requires: Kind/k3d cluster, kubectl, helm).
 # Pipeline order: CI → Functional → E2E → Load Testing → Release
@@ -89,7 +88,7 @@ swagger: install-swag
 HADOLINT_IMAGE := hadolint/hadolint:2.12.0-alpine
 dockerfile-lint:
 	docker run --rm -v "$$(pwd):/work" -w /work --entrypoint /bin/hadolint $(HADOLINT_IMAGE) \
-		--config /work/.hadolint.yaml Dockerfile Dockerfile.dev
+		--config /work/.hadolint.yaml Dockerfile
 
 # SonarCloud local analysis (reads ./sonar-project.properties). Requires Docker.
 # SONAR_TOKEN: https://sonarcloud.io/account/security — use a SonarCloud user or org
@@ -124,9 +123,23 @@ dkb:
 	docker build -t fuse-app:dev .
 
 dkx:
-	docker stop fuse-local
-	docker rm fuse-local
+	docker stop fuse-local 2>/dev/null || true
+	docker rm fuse-local 2>/dev/null || true
 	docker run --name fuse-local --env-file .env -p 9090:9090 fuse-app:dev
+
+# Start full HA stack: 3 Fuse nodes + PostgreSQL + S3 + etcd (built from source).
+ha-up:
+	docker compose --profile ha up --build -d
+
+ha-down:
+	docker compose --profile ha down -v
+
+# Start infrastructure only (PG + S3 + etcd) for local dev with fuse on host.
+infra-up:
+	docker compose --profile infra up -d
+
+infra-down:
+	docker compose --profile infra down -v
 
 # Apply PostgreSQL migrations only (requires DB_POSTGRES_DSN, same as server).
 migrate: build

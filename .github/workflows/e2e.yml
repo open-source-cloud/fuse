@@ -34,23 +34,23 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Start infrastructure
-        run: docker compose -f docker-compose.e2e-ci.yml up -d --wait --wait-timeout 120
+        run: docker compose --profile e2e up -d --wait --wait-timeout 120
 
       - name: Health check
-        run: curl -sf --retry 10 --retry-delay 3 --retry-connrefused http://localhost:9090/health
+        run: curl -sf --retry 10 --retry-delay 3 --retry-connrefused http://localhost:9091/health
 
       - name: Run E2E fast tests
         run: go test -tags=e2e ./tests/e2e -v -count=1 -timeout 10m
         env:
-          E2E_API_URL: http://localhost:9090
+          E2E_API_URL: http://localhost:9091
 
       - name: Dump container logs on failure
         if: failure()
-        run: docker compose -f docker-compose.e2e-ci.yml logs --tail=200
+        run: docker compose --profile e2e logs --tail=200
 
       - name: Cleanup
         if: always()
-        run: docker compose -f docker-compose.e2e-ci.yml down -v
+        run: docker compose --profile e2e down -v
 
   e2e-slow:
     name: "E2E (slow tier)"
@@ -83,20 +83,20 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Start infrastructure
-        run: docker compose -f docker-compose.e2e-ci.yml up -d --wait --wait-timeout 120
+        run: docker compose --profile e2e up -d --wait --wait-timeout 120
 
       - name: Health check
-        run: curl -sf --retry 10 --retry-delay 3 --retry-connrefused http://localhost:9090/health
+        run: curl -sf --retry 10 --retry-delay 3 --retry-connrefused http://localhost:9091/health
 
       - name: Run E2E slow tests
         run: go test -tags="e2e e2e_slow" ./tests/e2e -v -count=1 -timeout 15m
         env:
-          E2E_API_URL: http://localhost:9090
+          E2E_API_URL: http://localhost:9091
 
       - name: Dump container logs on failure
         if: failure()
-        run: docker compose -f docker-compose.e2e-ci.yml logs --tail=1000
+        run: docker compose --profile e2e logs --tail=1000
 
       - name: Cleanup
         if: always()
-        run: docker compose -f docker-compose.e2e-ci.yml down -v
+        run: docker compose --profile e2e down -v
