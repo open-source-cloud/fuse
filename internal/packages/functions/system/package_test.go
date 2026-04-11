@@ -12,10 +12,11 @@ func TestNew_CreatesPackageWithAllFunctions(t *testing.T) {
 
 	require.NotNil(t, pkg)
 	assert.Equal(t, PackageID, pkg.ID)
-	assert.Len(t, pkg.Functions, 3)
+	assert.Len(t, pkg.Functions, 4)
 	assert.Equal(t, SleepFunctionID, pkg.Functions[0].ID)
 	assert.Equal(t, WaitFunctionID, pkg.Functions[1].ID)
 	assert.Equal(t, SubWorkflowFunctionID, pkg.Functions[2].ID)
+	assert.Equal(t, ForEachFunctionID, pkg.Functions[3].ID)
 }
 
 func TestSleepFunctionMetadata(t *testing.T) {
@@ -41,4 +42,5 @@ func TestFullFunctionIDs(t *testing.T) {
 	assert.Equal(t, "system/sleep", SleepFullFunctionID)
 	assert.Equal(t, "system/wait", WaitFullFunctionID)
 	assert.Equal(t, "system/subworkflow", SubWorkflowFullFunctionID)
+	assert.Equal(t, "system/foreach", ForEachFullFunctionID)
 }
