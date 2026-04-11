@@ -16,6 +16,9 @@ const WorkflowInstanceSupervisor = "workflow_instance_sup"
 // SchemaReplicationActorName is the schema cluster-replication actor (ergo Events producer/consumer).
 const SchemaReplicationActorName = "schema_replication"
 
+// FuseApplicationName is the ergo application name (see app.Fuse.Load). Used for etcd ResolveApplication peers.
+const FuseApplicationName = "fuse_app"
+
 // WorkflowClaimActorName is the HA workflow claim actor name.
 const WorkflowClaimActorName = "workflow_claim"
 

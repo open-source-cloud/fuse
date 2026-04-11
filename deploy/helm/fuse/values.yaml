@@ -42,10 +42,27 @@ cluster:
   # -- If true with mode: standalone, helm render fails (peer list assumes StatefulSet DNS; Deployments use random pod names).
   # Ergo clustering is configured when mode: cluster regardless of this flag.
   enabled: false
+  # -- Peer discovery: static (Helm-generated CLUSTER_PEER_NODES) or etcd (BYO registrar for dynamic peers / HPA).
+  discoveryMode: static
+  # -- etcd logical cluster name (ergo registrar key prefix); required for discoveryMode=etcd
+  etcd:
+    cluster: default
+    # -- Comma-equivalent: list of etcd client endpoints (e.g. http://etcd-client:2379). Leave empty if using existingSecret only.
+    endpoints: []
+    # -- Secret name containing CLUSTER_ETCD_ENDPOINTS value under existingSecretKey (overrides ConfigMap when set).
+    existingSecret: ""
+    existingSecretKey: endpoints
   # -- Shared cookie for ergo cluster authentication (Kubernetes Secret, not ConfigMap)
   cookie: "fuse-cluster-secret"
   # -- Port for ergo cluster acceptor (inter-node communication)
   acceptorPort: 15000
+
+# -- HorizontalPodAutoscaler for StatefulSet (requires mode: cluster, cluster.discoveryMode=etcd)
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
 
 database:
   # -- Database driver: "memory" (default, in-process) or "postgres"

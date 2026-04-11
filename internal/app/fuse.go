@@ -12,6 +12,7 @@ import (
 	"ergo.services/application/observer"
 	"ergo.services/ergo"
 	"ergo.services/ergo/gen"
+	"ergo.services/registrar/etcd"
 	"github.com/open-source-cloud/fuse/internal/actors"
 	"github.com/open-source-cloud/fuse/internal/app/config"
 	"github.com/open-source-cloud/fuse/internal/logging"
@@ -20,33 +21,37 @@ import (
 
 // NewApp creates a new FUSE application, in the context of the FX dependency injection engine and the Ergo framework
 func NewApp(
-	config *config.Config,
+	cfg *config.Config,
 	workflowSup *actors.WorkflowSupervisorFactory,
 	serverSup *actors.MuxServerSupFactory,
 	schemaReplicationSup *actors.SchemaReplicationActorFactory,
 	claimActor *actors.WorkflowClaimActorFactory,
 	pgListenerActor *actors.PgListenerActorFactory,
 ) (gen.Node, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+
 	var options gen.NodeOptions
-	options.ShutdownTimeout = config.Params.ShutdownTimeout
+	options.ShutdownTimeout = cfg.Params.ShutdownTimeout
 
 	apps := make([]gen.ApplicationBehavior, 0, 2)
 	apps = append(apps, &Fuse{
-		config:               config,
+		config:               cfg,
 		workflowSup:          workflowSup,
 		serverSup:            serverSup,
 		schemaReplicationSup: schemaReplicationSup,
 		claimActor:           claimActor,
 		pgListenerActor:      pgListenerActor,
 	})
-	if config.Params.ActorObserver {
+	if cfg.Params.ActorObserver {
 		apps = append(apps, observer.CreateApp(observer.Options{}))
 	}
 	options.Applications = apps
 
 	// disable default logger to get rid of multiple logging to the os.Stdout
 	options.Log.DefaultLogger.Disable = true
-	options.Log.Level = parseLogLevel(config.Params.LogLevel)
+	options.Log.Level = parseLogLevel(cfg.Params.LogLevel)
 
 	// add logger to the node
 	logger, err := logging.ErgoLogger()
@@ -55,19 +60,27 @@ func NewApp(
 	}
 	options.Log.Loggers = append(options.Log.Loggers, gen.Logger{Name: "zerolog", Logger: logger})
 
-	nodeName := buildNodeName(config)
+	nodeName := buildNodeName(cfg)
 
 	// Configure networking for cluster mode
-	if config.Cluster.Enabled {
+	if cfg.Cluster.Enabled {
 		options.Network.Mode = gen.NetworkModeEnabled
-		options.Network.Cookie = config.Cluster.Cookie
+		options.Network.Cookie = cfg.Cluster.Cookie
 		options.Network.Acceptors = []gen.AcceptorOptions{
 			{
 				Host: "0.0.0.0",
-				Port: config.Cluster.AcceptorPort,
+				Port: cfg.Cluster.AcceptorPort,
 			},
 		}
-		log.Info().Str("node", string(nodeName)).Uint16("port", config.Cluster.AcceptorPort).Msg("starting in cluster mode")
+		log.Info().Str("node", string(nodeName)).Uint16("port", cfg.Cluster.AcceptorPort).Msg("starting in cluster mode")
+		if cfg.Cluster.DiscoveryModeNormalized() == config.ClusterDiscoveryModeEtcd {
+			reg, err := newEtcdRegistrar(cfg)
+			if err != nil {
+				return nil, err
+			}
+			options.Network.Registrar = reg
+			log.Info().Str("cluster", cfg.Cluster.EtcdCluster).Msg("etcd registrar enabled for cluster discovery")
+		}
 	} else {
 		options.Network.Mode = gen.NetworkModeDisabled
 		log.Info().Str("node", string(nodeName)).Msg("starting in standalone mode")
@@ -103,6 +116,20 @@ func buildNodeName(cfg *config.Config) gen.Atom {
 		return gen.Atom(nodeName)
 	}
 	return "fuse@localhost"
+}
+
+func newEtcdRegistrar(cfg *config.Config) (gen.Registrar, error) {
+	opts := etcd.Options{
+		Cluster:            cfg.Cluster.EtcdCluster,
+		Endpoints:          cfg.Cluster.EtcdEndpointsList(),
+		Username:           cfg.Cluster.EtcdUsername,
+		Password:           cfg.Cluster.EtcdPassword,
+		InsecureSkipVerify: cfg.Cluster.EtcdInsecureSkipVerify,
+	}
+	if cfg.Cluster.EtcdLeaseTTL > 0 {
+		opts.LeaseTTL = cfg.Cluster.EtcdLeaseTTL
+	}
+	return etcd.Create(opts)
 }
 
 // Fuse the FUSE application
@@ -147,7 +174,7 @@ func (app *Fuse) Load(node gen.Node, _ ...any) (gen.ApplicationSpec, error) {
 	}
 
 	return gen.ApplicationSpec{
-		Name:        "fuse_app",
+		Name:        actornames.FuseApplicationName,
 		Description: "FUSE application",
 		Group:       group,
 		Mode:        gen.ApplicationModeTemporary,

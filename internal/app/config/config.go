@@ -2,6 +2,7 @@
 package config
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -10,6 +11,12 @@ import (
 
 // DBDriverPostgres is the driver value for PostgreSQL persistence.
 const DBDriverPostgres = "postgres"
+
+// Cluster discovery modes (CLUSTER_DISCOVERY_MODE).
+const (
+	ClusterDiscoveryModeStatic = "static"
+	ClusterDiscoveryModeEtcd   = "etcd"
+)
 
 var config *Config
 
@@ -46,6 +53,17 @@ type (
 		AcceptorPort        uint16 `env:"CLUSTER_ACCEPTOR_PORT" envDefault:"15000"`
 		HeadlessServiceFQDN string `env:"CLUSTER_HEADLESS_SERVICE_FQDN"`
 		PeerNodesCSV        string `env:"CLUSTER_PEER_NODES"`
+		// DiscoveryMode is static (Helm-generated CLUSTER_PEER_NODES) or etcd (BYO registrar for dynamic peers / autoscale).
+		DiscoveryMode string `env:"CLUSTER_DISCOVERY_MODE" envDefault:"static"`
+		// EtcdEndpointsCSV is a comma-separated list of etcd client endpoints (e.g. http://etcd:2379).
+		EtcdEndpointsCSV string `env:"CLUSTER_ETCD_ENDPOINTS"`
+		EtcdCluster      string `env:"CLUSTER_ETCD_CLUSTER" envDefault:"default"`
+		EtcdUsername     string `env:"CLUSTER_ETCD_USERNAME"`
+		EtcdPassword     string `env:"CLUSTER_ETCD_PASSWORD"`
+		// EtcdInsecureSkipVerify skips TLS certificate verification when connecting to etcd.
+		EtcdInsecureSkipVerify bool `env:"CLUSTER_ETCD_TLS_INSECURE_SKIP_VERIFY" envDefault:"false"`
+		// EtcdLeaseTTL is the etcd lease TTL in seconds for node registration (0 = registrar default).
+		EtcdLeaseTTL int64 `env:"CLUSTER_ETCD_LEASE_TTL_SEC" envDefault:"0"`
 	}
 
 	// DatabaseConfig configuration for the persistence backend
@@ -94,7 +112,37 @@ func Instance() *Config {
 
 // Validate checks the fields of the Config object for correctness and returns an error if validation fails.
 func (c *Config) Validate() error {
+	if c.Cluster.Enabled && c.Cluster.DiscoveryModeNormalized() == ClusterDiscoveryModeEtcd {
+		if len(c.Cluster.EtcdEndpointsList()) == 0 {
+			return fmt.Errorf("CLUSTER_ETCD_ENDPOINTS is required when CLUSTER_ENABLED=true and CLUSTER_DISCOVERY_MODE=etcd")
+		}
+	}
 	return nil
+}
+
+// DiscoveryModeNormalized returns static or etcd (default static).
+func (c *ClusterConfig) DiscoveryModeNormalized() string {
+	s := strings.ToLower(strings.TrimSpace(c.DiscoveryMode))
+	if s == "" {
+		return ClusterDiscoveryModeStatic
+	}
+	return s
+}
+
+// EtcdEndpointsList returns CLUSTER_ETCD_ENDPOINTS as trimmed non-empty entries.
+func (c *ClusterConfig) EtcdEndpointsList() []string {
+	if c.EtcdEndpointsCSV == "" {
+		return nil
+	}
+	parts := strings.Split(c.EtcdEndpointsCSV, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 // PeerNodeNames returns CLUSTER_PEER_NODES split into non-empty trimmed entries (full ergo node names).

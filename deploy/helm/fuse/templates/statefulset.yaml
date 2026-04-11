@@ -7,7 +7,7 @@ metadata:
     {{- include "fuse.labels" . | nindent 4 }}
 spec:
   serviceName: {{ include "fuse.fullname" . }}-headless
-  replicas: {{ .Values.replicaCount }}
+  replicas: {{ if and .Values.autoscaling.enabled (eq .Values.mode "cluster") }}{{ .Values.autoscaling.minReplicas }}{{ else }}{{ .Values.replicaCount }}{{ end }}
   selector:
     matchLabels:
       {{- include "fuse.selectorLabels" . | nindent 6 }}
@@ -65,6 +65,13 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            {{- if and (eq .Values.mode "cluster") (eq .Values.cluster.discoveryMode "etcd") .Values.cluster.etcd.existingSecret }}
+            - name: CLUSTER_ETCD_ENDPOINTS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.cluster.etcd.existingSecret | quote }}
+                  key: {{ .Values.cluster.etcd.existingSecretKey | default "endpoints" | quote }}
+            {{- end }}
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}

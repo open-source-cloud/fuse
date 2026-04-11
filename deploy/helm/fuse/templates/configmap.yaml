@@ -1,6 +1,14 @@
 {{- if and .Values.cluster.enabled (ne .Values.mode "cluster") }}
 {{- fail "fuse chart: cluster.enabled requires mode: cluster. Standalone uses a Deployment with unstable pod hostnames; CLUSTER_PEER_NODES from the chart only matches StatefulSet ordinals." }}
 {{- end }}
+{{- if and .Values.autoscaling.enabled (eq .Values.cluster.discoveryMode "static") }}
+{{- fail "fuse chart: autoscaling.enabled requires cluster.discoveryMode=etcd (static peer list does not track HPA scale)" }}
+{{- end }}
+{{- if and (eq .Values.mode "cluster") (eq .Values.cluster.discoveryMode "etcd") }}
+{{- if and (eq (len .Values.cluster.etcd.endpoints) 0) (not .Values.cluster.etcd.existingSecret) }}
+{{- fail "fuse chart: set cluster.etcd.endpoints and/or cluster.etcd.existingSecret when cluster.discoveryMode=etcd" }}
+{{- end }}
+{{- end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -42,5 +50,15 @@ data:
   CLUSTER_ENABLED: "true"
   CLUSTER_ACCEPTOR_PORT: {{ .Values.cluster.acceptorPort | quote }}
   CLUSTER_HEADLESS_SERVICE_FQDN: {{ printf "%s-headless.%s.svc.cluster.local" (include "fuse.fullname" .) .Release.Namespace | quote }}
+  {{- if eq .Values.cluster.discoveryMode "static" }}
   CLUSTER_PEER_NODES: {{ include "fuse.clusterPeerNodes" . | quote }}
+  {{- else if eq .Values.cluster.discoveryMode "etcd" }}
+  CLUSTER_DISCOVERY_MODE: etcd
+  CLUSTER_ETCD_CLUSTER: {{ .Values.cluster.etcd.cluster | quote }}
+  {{- if .Values.cluster.etcd.endpoints }}
+  CLUSTER_ETCD_ENDPOINTS: {{ join "," .Values.cluster.etcd.endpoints | quote }}
+  {{- end }}
+  {{- else }}
+  {{- fail "fuse chart: cluster.discoveryMode must be static or etcd" }}
+  {{- end }}
   {{- end }}
