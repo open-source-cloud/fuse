@@ -39,6 +39,14 @@ const (
 	JournalSubWorkflowCompleted JournalEntryType = "subworkflow:completed"
 	// JournalStepManualRetry a manual retry was requested for a failed node
 	JournalStepManualRetry JournalEntryType = "step:manual-retry"
+	// JournalForEachStarted a foreach iteration loop has started
+	JournalForEachStarted JournalEntryType = "foreach:started"
+	// JournalForEachIterationStarted an individual foreach iteration has started
+	JournalForEachIterationStarted JournalEntryType = "foreach:iteration:started"
+	// JournalForEachIterationCompleted an individual foreach iteration has completed
+	JournalForEachIterationCompleted JournalEntryType = "foreach:iteration:completed"
+	// JournalForEachCompleted all foreach iterations have completed
+	JournalForEachCompleted JournalEntryType = "foreach:completed"
 )
 
 // JournalEntry is a single recorded event in the execution journal

@@ -84,6 +84,12 @@ type (
 		// OTel root span covering the entire workflow lifetime.
 		rootSpan trace.Span
 		spanCtx  context.Context
+    
+		// ForEach tracking: one ForEachState per active foreach execID.
+		forEachStates       map[string]*internalworkflow.ForEachState
+		// iterThreadToForEach maps a live iteration thread ID back to its parent
+		// foreach execID so the completion handler can find the ForEachState.
+		iterThreadToForEach map[uint16]string
 	}
 
 	// WorkflowHandlerInitArgs defines the typed arguments for the WorkflowHandler Actor Init message
@@ -100,6 +106,8 @@ func (a *WorkflowHandler) Init(args ...any) error {
 	a.Log().Debug("starting process %s with args %s", a.PID(), args)
 	a.executionTimer = NewExecutionTimer()
 	a.spanCtx = context.Background()
+	a.forEachStates = make(map[string]*internalworkflow.ForEachState)
+	a.iterThreadToForEach = make(map[uint16]string)
 
 	if len(args) != 1 {
 		return fmt.Errorf("workflow actor init args must be 1 == [WorkflowHandlerInitArgs]")
@@ -244,6 +252,9 @@ func (a *WorkflowHandler) handleMsgFunctionResult(msg messaging.Message) error {
 	action := a.workflow.Next(fnResultMsg.ThreadID)
 	a.persistJournal()
 	if action.Type() == workflowactions.ActionNoop {
+		if a.handleForEachIterationComplete(fnResultMsg.ThreadID) {
+			return nil
+		}
 		a.checkWorkflowCompletion()
 		return nil
 	}
@@ -288,6 +299,9 @@ func (a *WorkflowHandler) handleMsgAsyncFunctionResult(msg messaging.Message) er
 	action := a.workflow.Next(fnResultMsg.ExecID.Thread())
 	a.persistJournal()
 	if action.Type() == workflowactions.ActionNoop {
+		if a.handleForEachIterationComplete(fnResultMsg.ExecID.Thread()) {
+			return nil
+		}
 		a.checkWorkflowCompletion()
 		return nil
 	}
@@ -591,6 +605,9 @@ func (a *WorkflowHandler) handleWorkflowRunFunctionAction(action workflowactions
 	case system.SubWorkflowFullFunctionID:
 		a.handleSystemSubWorkflow(execAction)
 		return
+	case system.ForEachFullFunctionID:
+		a.handleSystemForEach(execAction)
+		return
 	}
 
 	workflowPool := WorkflowFuncPoolName(a.workflow.ID())
@@ -856,6 +873,207 @@ func (a *WorkflowHandler) handleSubWorkflowAction(action *workflowactions.RunSub
 		a.workflow.SetState(internalworkflow.StateSleeping)
 		a.persistWorkflowState()
 	}
+}
+
+// --- ForEach ---
+
+// handleSystemForEach intercepts a system/foreach RunFunctionAction and starts
+// the iteration loop.  Empty collections complete immediately via the "done" edge.
+func (a *WorkflowHandler) handleSystemForEach(action *workflowactions.RunFunctionAction) {
+	// Extract items — accept both []any (JSON) and any typed slice.
+	items := toAnySlice(action.Args["items"])
+	if len(items) == 0 {
+		a.completeForEachImmediate(action, nil)
+		return
+	}
+
+	batchSize := toPositiveInt(action.Args["batchSize"], 1)
+	concurrency := toPositiveInt(action.Args["concurrency"], 1)
+
+	// Resolve the foreach node ID from the audit log.
+	auditEntry, exists := a.workflow.AuditLog().Get(action.FunctionExecID.String())
+	if !exists {
+		a.Log().Error("foreach: audit entry not found for exec %s", action.FunctionExecID)
+		a.completeWithError()
+		return
+	}
+	nodeID := auditEntry.FunctionNodeID
+
+	state := internalworkflow.NewForEachState(
+		action.FunctionExecID,
+		action.ThreadID,
+		nodeID,
+		items,
+		batchSize,
+		concurrency,
+	)
+	a.forEachStates[action.FunctionExecID.String()] = state
+
+	a.workflow.Journal().Append(internalworkflow.JournalEntry{
+		Type:     internalworkflow.JournalForEachStarted,
+		ThreadID: action.ThreadID,
+		ExecID:   action.FunctionExecID.String(),
+		Data: map[string]any{
+			"totalItems":  len(items),
+			"batchSize":   batchSize,
+			"concurrency": concurrency,
+		},
+	})
+
+	// Spawn the initial batch(es) up to the configured concurrency.
+	initialCount := state.InitialBatchCount()
+	for i := 0; i < initialCount; i++ {
+		a.spawnForEachBatch(state, i)
+	}
+
+	a.workflow.SetState(internalworkflow.StateRunning)
+	a.persistJournal()
+}
+
+// spawnForEachBatch creates a new iteration thread for batch at batchIndex and
+// dispatches it to the workflow function pool.
+func (a *WorkflowHandler) spawnForEachBatch(state *internalworkflow.ForEachState, batchIndex int) {
+	batch := state.GetBatch(batchIndex)
+	isLast := batchIndex == state.TotalBatches-1
+
+	var iterInput map[string]any
+	if state.BatchSize == 1 && len(batch) == 1 {
+		iterInput = map[string]any{
+			"item":   batch[0],
+			"index":  batchIndex,
+			"total":  len(state.Items),
+			"isLast": isLast,
+		}
+	} else {
+		iterInput = map[string]any{
+			"batch":  batch,
+			"index":  batchIndex,
+			"total":  len(state.Items),
+			"isLast": isLast,
+		}
+	}
+
+	runAction, iterThreadID, err := a.workflow.StartForEachIteration(state.NodeID, iterInput)
+	if err != nil {
+		a.Log().Error("foreach: failed to start iteration %d: %s", batchIndex, err)
+		return
+	}
+
+	state.StartBatch(iterThreadID, batchIndex)
+	a.iterThreadToForEach[iterThreadID] = state.ExecID.String()
+
+	workflowPool := WorkflowFuncPoolName(a.workflow.ID())
+	execFnMsg := messaging.NewExecuteFunctionMessage(a.workflow.ID(), runAction)
+	if err := a.Send(workflowPool, execFnMsg); err != nil {
+		a.Log().Error("foreach: failed to dispatch iteration %d: %s", batchIndex, err)
+	}
+}
+
+// handleForEachIterationComplete is called when Next() returns Noop for a thread.
+// It checks whether the thread belongs to a ForEach iteration; if so it records
+// the completion and either spawns the next batch or finalises the loop.
+// Returns true if the thread was a foreach iteration (caller should skip the
+// normal checkWorkflowCompletion path).
+func (a *WorkflowHandler) handleForEachIterationComplete(threadID uint16) bool {
+	forEachExecIDStr, isForEach := a.iterThreadToForEach[threadID]
+	if !isForEach {
+		return false
+	}
+	delete(a.iterThreadToForEach, threadID)
+
+	state, exists := a.forEachStates[forEachExecIDStr]
+	if !exists {
+		return true
+	}
+
+	iterResult := a.workflow.LastResultForThread(threadID)
+	nextBatch, allDone := state.RecordCompletion(threadID, iterResult)
+
+	a.workflow.Journal().Append(internalworkflow.JournalEntry{
+		Type:     internalworkflow.JournalForEachIterationCompleted,
+		ThreadID: threadID,
+		ExecID:   forEachExecIDStr,
+		Data:     map[string]any{"batchesCompleted": state.Completed},
+	})
+	a.persistJournal()
+
+	if allDone {
+		delete(a.forEachStates, forEachExecIDStr)
+
+		a.workflow.Journal().Append(internalworkflow.JournalEntry{
+			Type:     internalworkflow.JournalForEachCompleted,
+			ThreadID: state.ThreadID,
+			ExecID:   forEachExecIDStr,
+			Data:     map[string]any{"totalBatches": state.TotalBatches},
+		})
+
+		a.workflow.CompleteForEach(state.ExecID, state.Results)
+		a.persistJournal()
+
+		action := a.workflow.Next(state.ThreadID)
+		if action.Type() == workflowactions.ActionNoop {
+			a.checkWorkflowCompletion()
+			return true
+		}
+		a.handleWorkflowAction(action)
+		return true
+	}
+
+	if nextBatch >= 0 {
+		a.spawnForEachBatch(state, nextBatch)
+	}
+
+	return true
+}
+
+// completeForEachImmediate handles the empty-items case by immediately setting
+// the foreach result to empty and following the "done" edge.
+func (a *WorkflowHandler) completeForEachImmediate(action *workflowactions.RunFunctionAction, items []any) {
+	a.workflow.CompleteForEach(action.FunctionExecID, items)
+	a.persistJournal()
+
+	nextAction := a.workflow.Next(action.ThreadID)
+	if nextAction.Type() == workflowactions.ActionNoop {
+		a.checkWorkflowCompletion()
+		return
+	}
+	a.handleWorkflowAction(nextAction)
+}
+
+// toAnySlice coerces value to []any.  It handles the common cases produced by
+// JSON deserialisation (already []any) and typed slices passed programmatically.
+func toAnySlice(value any) []any {
+	if value == nil {
+		return nil
+	}
+	if s, ok := value.([]any); ok {
+		return s
+	}
+	// Fallback: unsupported type — return nil so the handler treats it as empty.
+	return nil
+}
+
+// toPositiveInt coerces value to a positive int, returning fallback when
+// the value is absent, zero, or cannot be converted.
+func toPositiveInt(value any, fallback int) int {
+	if value == nil {
+		return fallback
+	}
+	var n int
+	switch v := value.(type) {
+	case int:
+		n = v
+	case int64:
+		n = int(v)
+	case float64:
+		n = int(v)
+	default:
+		return fallback
+	}
+	if n < 1 {
+		return fallback
+	}
+	return n
 }
 
 func (a *WorkflowHandler) handleMsgSubWorkflowCompleted(msg messaging.Message) error {
