@@ -1,4 +1,4 @@
-//go:build e2e
+//go:build e2e && e2e_slow
 
 package e2e
 
@@ -22,19 +22,27 @@ type WorkflowOrchestrationSuite struct {
 }
 
 func TestWorkflowOrchestrationSuite(t *testing.T) {
+	t.Parallel()
 	suite.Run(t, new(WorkflowOrchestrationSuite))
 }
 
 func (s *WorkflowOrchestrationSuite) SetupSuite() {
 	s.client, s.baseURL = RequireE2E(s.T())
 	s.workflowsDir = WorkflowsDirForTests(s.T())
+	workflows := []string{
+		"sleep-test", "subworkflow-test", "awakeable-test",
+		"merge-strategy-test", "timed-cond-test",
+	}
+	for _, id := range workflows {
+		UpsertSchema(s.T(), s.client, s.baseURL, s.workflowsDir, id)
+	}
 }
 
 // TestSleep_CompletesAfterDelay triggers a workflow that sleeps for 5 seconds
 // before completing. Uses a longer timeout to accommodate the sleep duration.
 func (s *WorkflowOrchestrationSuite) TestSleep_CompletesAfterDelay() {
 	t := s.T()
-	wfID := UpsertAndTriggerExampleWorkflow(t, s.client, s.baseURL, s.workflowsDir, "sleep-test")
+	wfID := TriggerExampleWorkflow(t, s.client, s.baseURL, "sleep-test")
 	require.NotEmpty(t, wfID)
 
 	resp, err := WaitForWorkflowTerminal(s.client, s.baseURL, wfID, LongStatusTimeout)
@@ -47,7 +55,7 @@ func (s *WorkflowOrchestrationSuite) TestSleep_CompletesAfterDelay() {
 // a synchronous child (smallest-test) and waits for it to complete.
 func (s *WorkflowOrchestrationSuite) TestSubWorkflow_CompletesWithChild() {
 	t := s.T()
-	wfID := UpsertAndTriggerExampleWorkflow(t, s.client, s.baseURL, s.workflowsDir, "subworkflow-test")
+	wfID := TriggerExampleWorkflow(t, s.client, s.baseURL, "subworkflow-test")
 	require.NotEmpty(t, wfID)
 
 	resp, err := WaitForWorkflowTerminal(s.client, s.baseURL, wfID, LongStatusTimeout)
@@ -61,7 +69,7 @@ func (s *WorkflowOrchestrationSuite) TestSubWorkflow_CompletesWithChild() {
 // should enter and remain in "sleeping" state.
 func (s *WorkflowOrchestrationSuite) TestAwakeable_EntersSleepingState() {
 	t := s.T()
-	wfID := UpsertAndTriggerExampleWorkflow(t, s.client, s.baseURL, s.workflowsDir, "awakeable-test")
+	wfID := TriggerExampleWorkflow(t, s.client, s.baseURL, "awakeable-test")
 	require.NotEmpty(t, wfID)
 
 	resp, err := WaitForWorkflowStatus(s.client, s.baseURL, wfID, "sleeping", DefaultStatusTimeout)
@@ -74,7 +82,7 @@ func (s *WorkflowOrchestrationSuite) TestAwakeable_EntersSleepingState() {
 // branches that merge into a single join node using a keyed merge strategy.
 func (s *WorkflowOrchestrationSuite) TestMergeStrategy_JoinsParallelBranches() {
 	t := s.T()
-	wfID := UpsertAndTriggerExampleWorkflow(t, s.client, s.baseURL, s.workflowsDir, "merge-strategy-test")
+	wfID := TriggerExampleWorkflow(t, s.client, s.baseURL, "merge-strategy-test")
 	require.NotEmpty(t, wfID)
 
 	resp, err := WaitForWorkflowTerminal(s.client, s.baseURL, wfID, DefaultStatusTimeout)
@@ -87,7 +95,7 @@ func (s *WorkflowOrchestrationSuite) TestMergeStrategy_JoinsParallelBranches() {
 // before conditional branching.
 func (s *WorkflowOrchestrationSuite) TestTimedCondition_CompletesAfterTimer() {
 	t := s.T()
-	wfID := UpsertAndTriggerExampleWorkflow(t, s.client, s.baseURL, s.workflowsDir, "timed-cond-test")
+	wfID := TriggerExampleWorkflow(t, s.client, s.baseURL, "timed-cond-test")
 	require.NotEmpty(t, wfID)
 
 	resp, err := WaitForWorkflowTerminal(s.client, s.baseURL, wfID, LongStatusTimeout)
