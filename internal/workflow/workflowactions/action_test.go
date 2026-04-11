@@ -74,3 +74,15 @@ func TestRunSubWorkflowAction_Type(t *testing.T) {
 	}
 	assert.Equal(t, ActionRunSubWorkflow, action.Type())
 }
+
+func TestForEachAction_Type(t *testing.T) {
+	action := &ForEachAction{
+		ThreadID:    0,
+		ExecID:      workflow.NewExecID(0),
+		NodeID:      "foreach1",
+		Items:       []any{"a", "b", "c"},
+		BatchSize:   1,
+		Concurrency: 2,
+	}
+	assert.Equal(t, ActionForEach, action.Type())
+}

@@ -22,6 +22,8 @@ const (
 	ActionWaitForEvent ActionType = "workflow:wait-for-event"
 	// ActionRunSubWorkflow run a sub-workflow
 	ActionRunSubWorkflow ActionType = "workflow:subworkflow:run"
+	// ActionForEach iterate over a collection of items
+	ActionForEach ActionType = "workflow:foreach"
 )
 
 type (
@@ -79,6 +81,18 @@ type (
 		Input            map[string]any
 		Async            bool
 	}
+
+	// ForEachAction instructs the handler to iterate over a collection of items.
+	// The handler spawns one execution thread per batch (up to Concurrency at a time).
+	// When all batches complete the handler follows the "done" output edge.
+	ForEachAction struct {
+		ThreadID    uint16
+		ExecID      workflow.ExecID
+		NodeID      string
+		Items       []any
+		BatchSize   int
+		Concurrency int
+	}
 )
 
 // Type returns the type for a NoopAction action
@@ -114,4 +128,9 @@ func (a *WaitForEventAction) Type() ActionType {
 // Type returns the type for a RunSubWorkflowAction action
 func (a *RunSubWorkflowAction) Type() ActionType {
 	return ActionRunSubWorkflow
+}
+
+// Type returns the type for a ForEachAction action
+func (a *ForEachAction) Type() ActionType {
+	return ActionForEach
 }
