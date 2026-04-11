@@ -20,6 +20,10 @@ type WorkflowResilienceSuite struct {
 	workflowsDir string
 }
 
+const (
+	errMsgWorkflowShouldReachTerminal = "workflow should reach terminal state"
+)
+
 func TestWorkflowResilienceSuite(t *testing.T) {
 	t.Parallel()
 	suite.Run(t, new(WorkflowResilienceSuite))
