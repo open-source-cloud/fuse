@@ -10,23 +10,23 @@ import (
 type workerHandlerRegistrationParams struct {
 	fx.In
 
-	HealthCheckHandlerFactory             *handlers.HealthCheckHandlerFactory
-	AsyncFunctionResultHandlerFactory     *handlers.AsyncFunctionResultHandlerFactory
-	WorkflowSchemaHandlerFactory          *handlers.WorkflowSchemaHandlerFactory
-	ListSchemasHandlerFactory             *handlers.ListSchemasHandlerFactory
-	TriggerWorkflowHandlerFactory         *handlers.TriggerWorkflowHandlerFactory
-	PackagesHandlerFactory                *handlers.PackagesHandlerFactory
-	RegisterPackageHandlerFactory         *handlers.RegisterPackageHandlerFactory
-	GetWorkflowHandlerFactory             *handlers.GetWorkflowHandlerFactory
-	CancelWorkflowHandlerFactory          *handlers.CancelWorkflowHandlerFactory
-	ResolveAwakeableHandlerFactory        *handlers.ResolveAwakeableHandlerFactory
-	GetWorkflowSnapshotHandlerFactory     *handlers.GetWorkflowSnapshotHandlerFactory
-	RetryNodeHandlerFactory               *handlers.RetryNodeHandlerFactory
-	RetryWorkflowHandlerFactory           *handlers.RetryWorkflowHandlerFactory
-	ListExecutionsHandlerFactory          *handlers.ListExecutionsHandlerFactory
-	WorkflowTraceHandlerFactory           *handlers.WorkflowTraceHandlerFactory
-	SchemaTracesHandlerFactory            *handlers.SchemaTracesHandlerFactory
-	WebhookHandlerFactory                 *handlers.WebhookHandlerFactory
+	HealthCheckHandlerFactory         *handlers.HealthCheckHandlerFactory
+	AsyncFunctionResultHandlerFactory *handlers.AsyncFunctionResultHandlerFactory
+	WorkflowSchemaHandlerFactory      *handlers.WorkflowSchemaHandlerFactory
+	ListSchemasHandlerFactory         *handlers.ListSchemasHandlerFactory
+	TriggerWorkflowHandlerFactory     *handlers.TriggerWorkflowHandlerFactory
+	PackagesHandlerFactory            *handlers.PackagesHandlerFactory
+	RegisterPackageHandlerFactory     *handlers.RegisterPackageHandlerFactory
+	GetWorkflowHandlerFactory         *handlers.GetWorkflowHandlerFactory
+	CancelWorkflowHandlerFactory      *handlers.CancelWorkflowHandlerFactory
+	ResolveAwakeableHandlerFactory    *handlers.ResolveAwakeableHandlerFactory
+	GetWorkflowSnapshotHandlerFactory *handlers.GetWorkflowSnapshotHandlerFactory
+	RetryNodeHandlerFactory           *handlers.RetryNodeHandlerFactory
+	RetryWorkflowHandlerFactory       *handlers.RetryWorkflowHandlerFactory
+	ListExecutionsHandlerFactory      *handlers.ListExecutionsHandlerFactory
+	WorkflowTraceHandlerFactory       *handlers.WorkflowTraceHandlerFactory
+	SchemaTracesHandlerFactory        *handlers.SchemaTracesHandlerFactory
+	WebhookHandlerFactory             *handlers.WebhookHandlerFactory
 }
 
 // newWorkers builds the HTTP worker registry with all handler factories registered.

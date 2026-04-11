@@ -28,9 +28,9 @@ type (
 		Server      ServerConfig
 		Cluster     ClusterConfig
 		Database    DatabaseConfig
-		ObjectStore   ObjectStoreConfig
-		HA            HAConfig
-		Idempotency   IdempotencyConfig
+		ObjectStore ObjectStoreConfig
+		HA          HAConfig
+		Idempotency IdempotencyConfig
 	}
 
 	// ParamsConfig configuration parameters

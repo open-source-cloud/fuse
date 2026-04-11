@@ -8,8 +8,8 @@ import (
 	"ergo.services/ergo/gen"
 	"ergo.services/ergo/meta"
 	"github.com/gorilla/mux"
-	"github.com/swaggo/swag/v2"
 	httpSwagger "github.com/swaggo/http-swagger/v2"
+	"github.com/swaggo/swag/v2"
 
 	_ "github.com/open-source-cloud/fuse/docs" // Import generated docs
 	"github.com/open-source-cloud/fuse/internal/app/config"

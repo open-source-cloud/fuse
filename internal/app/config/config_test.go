@@ -37,8 +37,8 @@ func TestClusterConfig_DiscoveryModeNormalized_Default(t *testing.T) {
 func TestConfig_Validate_EtcdRequiresEndpoints(t *testing.T) {
 	c := &config.Config{
 		Cluster: config.ClusterConfig{
-			Enabled:         true,
-			DiscoveryMode:   config.ClusterDiscoveryModeEtcd,
+			Enabled:       true,
+			DiscoveryMode: config.ClusterDiscoveryModeEtcd,
 		},
 	}
 	assert.Error(t, c.Validate())
