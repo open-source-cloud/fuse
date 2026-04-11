@@ -43,9 +43,9 @@ env:
 
 resources:
   requests:
-    cpu: 2
-    memory: 1Gi
-    ephemeral-storage: 128Mi
+    cpu: 100m
+    memory: 128Mi
+    ephemeral-storage: 64Mi
   limits:
-    cpu: 4
-    memory: 2Gi
+    cpu: "1"
+    memory: 1Gi
