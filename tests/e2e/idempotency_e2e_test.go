@@ -12,6 +12,7 @@ import (
 )
 
 func TestE2E_TriggerWorkflow_Idempotency_Deduplication(t *testing.T) {
+	t.Parallel()
 	client, base := RequireE2E(t)
 
 	// Arrange — ensure a schema exists
@@ -62,6 +63,7 @@ func TestE2E_TriggerWorkflow_Idempotency_Deduplication(t *testing.T) {
 }
 
 func TestE2E_TriggerWorkflow_Idempotency_DifferentKeys(t *testing.T) {
+	t.Parallel()
 	client, base := RequireE2E(t)
 
 	// Arrange
@@ -98,6 +100,7 @@ func TestE2E_TriggerWorkflow_Idempotency_DifferentKeys(t *testing.T) {
 }
 
 func TestE2E_TriggerWorkflow_NoIdempotencyKey(t *testing.T) {
+	t.Parallel()
 	client, base := RequireE2E(t)
 
 	// Arrange

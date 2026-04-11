@@ -20,12 +20,13 @@ const (
 	// HTTPClientTimeout bounds each HTTP request duration.
 	HTTPClientTimeout = 30 * time.Second
 	// StatusPollInterval is the sleep between workflow status poll attempts.
-	StatusPollInterval = 500 * time.Millisecond
+	StatusPollInterval = 200 * time.Millisecond
 	// DefaultStatusTimeout is the default timeout for waiting for a workflow status.
-	// E2E runs against real clusters (e.g. k3d) with parallel tests; allow headroom beyond fast local runs.
-	DefaultStatusTimeout = 60 * time.Second
+	DefaultStatusTimeout = 30 * time.Second
 	// LongStatusTimeout is a longer timeout for workflows that sleep or do external calls.
-	LongStatusTimeout = 90 * time.Second
+	LongStatusTimeout = 60 * time.Second
+	// FastStatusTimeout is a shorter timeout for pure in-memory logic workflows (no sleep/timer).
+	FastStatusTimeout = 15 * time.Second
 )
 
 // TriggerResponse is the subset of POST /v1/workflows/trigger JSON we assert on.

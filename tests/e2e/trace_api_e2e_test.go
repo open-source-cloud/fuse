@@ -14,6 +14,7 @@ import (
 )
 
 func TestE2E_GET_workflow_trace(t *testing.T) {
+	t.Parallel()
 	client, base := RequireE2E(t)
 	dir := WorkflowsDirForTests(t)
 
@@ -61,6 +62,7 @@ func TestE2E_GET_workflow_trace(t *testing.T) {
 }
 
 func TestE2E_GET_workflow_trace_notFound(t *testing.T) {
+	t.Parallel()
 	client, base := RequireE2E(t)
 
 	url := base + "/v1/workflows/nonexistent-workflow-id/trace"
@@ -70,6 +72,7 @@ func TestE2E_GET_workflow_trace_notFound(t *testing.T) {
 }
 
 func TestE2E_GET_schema_traces(t *testing.T) {
+	t.Parallel()
 	client, base := RequireE2E(t)
 	dir := WorkflowsDirForTests(t)
 
@@ -108,6 +111,7 @@ func TestE2E_GET_schema_traces(t *testing.T) {
 }
 
 func TestE2E_GET_schema_traces_empty(t *testing.T) {
+	t.Parallel()
 	client, base := RequireE2E(t)
 
 	url := base + "/v1/schemas/nonexistent-schema/traces"
