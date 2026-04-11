@@ -24,7 +24,11 @@ func EvaluateCondition(condition *EdgeCondition, aggregatedOutput *store.KV, cur
 }
 
 func evaluateExactCondition(condition *EdgeCondition, aggregatedOutput *store.KV, currentNode *Node) bool {
-	conditionalSource := currentNode.FunctionMetadata().Output.ConditionalOutputField
+	metadata := currentNode.FunctionMetadata()
+	if metadata == nil {
+		return false
+	}
+	conditionalSource := metadata.Output.ConditionalOutputField
 	conditionalValue := aggregatedOutput.Get(fmt.Sprintf("%s.%s", currentNode.ID(), conditionalSource))
 	return condition.Value == conditionalValue
 }

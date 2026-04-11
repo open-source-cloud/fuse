@@ -68,8 +68,12 @@ func (n *Node) OutputEdges() []*Edge {
 	return n.outputEdges
 }
 
-// IsConditional returns true if this node has conditional output
+// IsConditional returns true if this node has conditional output.
+// Returns false when function metadata has not been populated yet.
 func (n *Node) IsConditional() bool {
+	if n.functionMetadata == nil {
+		return false
+	}
 	return n.functionMetadata.Output.ConditionalOutput
 }
 
