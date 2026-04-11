@@ -1,11 +1,18 @@
 package actors
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/open-source-cloud/fuse/internal/actors/actornames"
 	"github.com/open-source-cloud/fuse/internal/concurrency"
+	"github.com/open-source-cloud/fuse/internal/metrics"
+	"github.com/open-source-cloud/fuse/internal/tracing"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
@@ -18,13 +25,15 @@ import (
 type WorkflowFuncFactory ActorFactory[*WorkflowFunc]
 
 // NewWorkflowFuncFactory creates a dependency injection factory of WorkflowFunc worker actor
-func NewWorkflowFuncFactory(packageRegistry packages.Registry, concurrencyMgr *concurrency.Manager, rateLimiter *concurrency.RateLimiter) *WorkflowFuncFactory {
+func NewWorkflowFuncFactory(packageRegistry packages.Registry, concurrencyMgr *concurrency.Manager, rateLimiter *concurrency.RateLimiter, fuseMetrics *metrics.FuseMetrics, tracingProvider *tracing.Provider) *WorkflowFuncFactory {
 	return &WorkflowFuncFactory{
 		Factory: func() gen.ProcessBehavior {
 			return &WorkflowFunc{
 				packageRegistry:    packageRegistry,
 				concurrencyManager: concurrencyMgr,
 				rateLimiter:        rateLimiter,
+				fuseMetrics:        fuseMetrics,
+				tracingProvider:    tracingProvider,
 			}
 		},
 	}
@@ -39,6 +48,8 @@ type WorkflowFunc struct {
 	packageRegistry    packages.Registry
 	concurrencyManager *concurrency.Manager
 	rateLimiter        *concurrency.RateLimiter
+	fuseMetrics        *metrics.FuseMetrics
+	tracingProvider    *tracing.Provider
 }
 
 // Init called when a WorkflowFunc worker actor is being initialized
@@ -74,6 +85,17 @@ func (a *WorkflowFunc) HandleMessage(from gen.PID, message any) error {
 		return nil
 	}
 
+	// Restore parent trace context and create a child span for this node execution.
+	parentCtx := a.tracingProvider.ExtractCarrier(context.Background(), msg.TraceCarrier)
+	nodeCtx, nodeSpan := a.tracingProvider.StartSpan(parentCtx, "node.execute",
+		attribute.String("workflow.id", msgPayload.WorkflowID.String()),
+		attribute.String("node.exec_id", msgPayload.ExecID.String()),
+		attribute.String("node.function_id", msgPayload.FunctionID),
+		attribute.String("node.package_id", msgPayload.PackageID),
+	)
+	_ = nodeCtx
+	startTime := time.Now()
+
 	// Acquire concurrency slot if configured
 	metadata, _ := pkg.GetFunctionMetadata(msgPayload.FunctionID)
 	functionID := fmt.Sprintf("%s/%s", msgPayload.PackageID, msgPayload.FunctionID)
@@ -86,6 +108,10 @@ func (a *WorkflowFunc) HandleMessage(from gen.PID, message any) error {
 	if metadata != nil && metadata.RateLimit != nil {
 		if rlErr := a.rateLimiter.Acquire(functionID, *metadata.RateLimit, ""); rlErr != nil {
 			// Rate limit exceeded with reject strategy
+			nodeSpan.SetStatus(codes.Error, "rate limit exceeded")
+			nodeSpan.RecordError(rlErr)
+			nodeSpan.End()
+			a.recordNodeDuration(msgPayload.FunctionID, "error", startTime)
 			rlResult := workflow.FunctionResult{
 				Output: workflow.FunctionOutput{
 					Status: workflow.FunctionError,
@@ -100,6 +126,10 @@ func (a *WorkflowFunc) HandleMessage(from gen.PID, message any) error {
 	input, err := workflow.NewFunctionInputWith(msgPayload.Input)
 	if err != nil {
 		a.Log().Error("failed to create function input: %s", err)
+		nodeSpan.RecordError(err)
+		nodeSpan.SetStatus(codes.Error, "failed to build function input")
+		nodeSpan.End()
+		a.recordNodeDuration(msgPayload.FunctionID, "error", startTime)
 		return nil
 	}
 
@@ -121,6 +151,21 @@ func (a *WorkflowFunc) HandleMessage(from gen.PID, message any) error {
 			a.Log().Warning("function %s returned non-nil error with FunctionError result; delivering result to workflow", msgPayload.FunctionID, err)
 		}
 	}
+
+	// Close node span and record metrics.
+	status := "success"
+	if result.Output.Status == workflow.FunctionError {
+		status = "error"
+		nodeSpan.SetStatus(codes.Error, "function returned error status")
+		nodeSpan.AddEvent("node.error", trace.WithAttributes(
+			attribute.String("node.function_id", msgPayload.FunctionID),
+		))
+	} else {
+		nodeSpan.SetStatus(codes.Ok, "")
+	}
+	nodeSpan.End()
+	a.recordNodeDuration(msgPayload.FunctionID, status, startTime)
+
 	jsonResult, _ := json.Marshal(result)
 	a.Log().Debug("execute function %s result: %s", msgPayload.FunctionID, string(jsonResult))
 
@@ -131,4 +176,8 @@ func (a *WorkflowFunc) HandleMessage(from gen.PID, message any) error {
 	}
 
 	return nil
+}
+
+func (a *WorkflowFunc) recordNodeDuration(functionID, status string, start time.Time) {
+	a.fuseMetrics.NodeExecDuration.WithLabelValues(functionID, status).Observe(time.Since(start).Seconds())
 }

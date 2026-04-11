@@ -45,6 +45,26 @@ func NewWorkers() *Workers {
 				},
 			},
 			{
+				Name:    handlers.LivenessHandlerName,
+				Pattern: "/healthz",
+				Methods: []string{"GET"},
+				Timeout: 10 * time.Second,
+				PoolConfig: WorkerPoolConfig{
+					Name:     handlers.LivenessHandlerPoolName,
+					PoolSize: 3,
+				},
+			},
+			{
+				Name:    handlers.ReadinessHandlerName,
+				Pattern: "/readyz",
+				Methods: []string{"GET"},
+				Timeout: 10 * time.Second,
+				PoolConfig: WorkerPoolConfig{
+					Name:     handlers.ReadinessHandlerPoolName,
+					PoolSize: 3,
+				},
+			},
+			{
 				Name:    handlers.TriggerWorkflowHandlerName,
 				Pattern: "/v1/workflows/trigger",
 				Methods: []string{"POST"},

@@ -1,6 +1,7 @@
 package di
 
 import (
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-source-cloud/fuse/internal/actors"
 	"github.com/open-source-cloud/fuse/internal/handlers"
 	"github.com/open-source-cloud/fuse/internal/repositories/postgres"
@@ -10,24 +11,26 @@ import (
 type workerHandlerRegistrationParams struct {
 	fx.In
 
-	HealthCheckHandlerFactory              *handlers.HealthCheckHandlerFactory
-	AsyncFunctionResultHandlerFactory      *handlers.AsyncFunctionResultHandlerFactory
-	WorkflowSchemaHandlerFactory           *handlers.WorkflowSchemaHandlerFactory
-	ListSchemasHandlerFactory              *handlers.ListSchemasHandlerFactory
-	TriggerWorkflowHandlerFactory          *handlers.TriggerWorkflowHandlerFactory
-	PackagesHandlerFactory                 *handlers.PackagesHandlerFactory
-	RegisterPackageHandlerFactory          *handlers.RegisterPackageHandlerFactory
-	GetWorkflowHandlerFactory              *handlers.GetWorkflowHandlerFactory
-	CancelWorkflowHandlerFactory           *handlers.CancelWorkflowHandlerFactory
-	ResolveAwakeableHandlerFactory         *handlers.ResolveAwakeableHandlerFactory
-	GetWorkflowSnapshotHandlerFactory      *handlers.GetWorkflowSnapshotHandlerFactory
-	RetryNodeHandlerFactory                *handlers.RetryNodeHandlerFactory
-	RetryWorkflowHandlerFactory            *handlers.RetryWorkflowHandlerFactory
-	ListExecutionsHandlerFactory           *handlers.ListExecutionsHandlerFactory
-	WorkflowTraceHandlerFactory            *handlers.WorkflowTraceHandlerFactory
-	SchemaTracesHandlerFactory             *handlers.SchemaTracesHandlerFactory
-	WebhookHandlerFactory                  *handlers.WebhookHandlerFactory
-	ListSchemaVersionsHandlerFactory       *handlers.ListSchemaVersionsHandlerFactory
+	HealthCheckHandlerFactory         *handlers.HealthCheckHandlerFactory
+	LivenessHandlerFactory            *handlers.LivenessHandlerFactory
+	ReadinessHandlerFactory           *handlers.ReadinessHandlerFactory
+	AsyncFunctionResultHandlerFactory *handlers.AsyncFunctionResultHandlerFactory
+	WorkflowSchemaHandlerFactory      *handlers.WorkflowSchemaHandlerFactory
+	ListSchemasHandlerFactory         *handlers.ListSchemasHandlerFactory
+	TriggerWorkflowHandlerFactory     *handlers.TriggerWorkflowHandlerFactory
+	PackagesHandlerFactory            *handlers.PackagesHandlerFactory
+	RegisterPackageHandlerFactory     *handlers.RegisterPackageHandlerFactory
+	GetWorkflowHandlerFactory         *handlers.GetWorkflowHandlerFactory
+	CancelWorkflowHandlerFactory      *handlers.CancelWorkflowHandlerFactory
+	ResolveAwakeableHandlerFactory    *handlers.ResolveAwakeableHandlerFactory
+	GetWorkflowSnapshotHandlerFactory *handlers.GetWorkflowSnapshotHandlerFactory
+	RetryNodeHandlerFactory           *handlers.RetryNodeHandlerFactory
+	RetryWorkflowHandlerFactory       *handlers.RetryWorkflowHandlerFactory
+	ListExecutionsHandlerFactory      *handlers.ListExecutionsHandlerFactory
+	WorkflowTraceHandlerFactory       *handlers.WorkflowTraceHandlerFactory
+	SchemaTracesHandlerFactory        *handlers.SchemaTracesHandlerFactory
+	WebhookHandlerFactory             *handlers.WebhookHandlerFactory
+  ListSchemaVersionsHandlerFactory       *handlers.ListSchemaVersionsHandlerFactory
 	GetSchemaVersionHandlerFactory         *handlers.GetSchemaVersionHandlerFactory
 	ActivateSchemaVersionHandlerFactory    *handlers.ActivateSchemaVersionHandlerFactory
 	RollbackSchemaHandlerFactory           *handlers.RollbackSchemaHandlerFactory
@@ -39,6 +42,8 @@ type workerHandlerRegistrationParams struct {
 func newWorkers(p workerHandlerRegistrationParams) *actors.Workers {
 	w := actors.NewWorkers()
 	w.AddFactory(handlers.HealthCheckHandlerName, p.HealthCheckHandlerFactory.Factory)
+	w.AddFactory(handlers.LivenessHandlerName, p.LivenessHandlerFactory.Factory)
+	w.AddFactory(handlers.ReadinessHandlerName, p.ReadinessHandlerFactory.Factory)
 	w.AddFactory(handlers.AsyncFunctionResultHandlerName, p.AsyncFunctionResultHandlerFactory.Factory)
 	w.AddFactory(handlers.WorkflowSchemaHandlerName, p.WorkflowSchemaHandlerFactory.Factory)
 	w.AddFactory(handlers.ListSchemasHandlerName, p.ListSchemasHandlerFactory.Factory)
@@ -71,6 +76,8 @@ var WorkerModule = fx.Module(
 		handlers.NewListSchemasHandlerFactory,
 		handlers.NewTriggerWorkflowHandlerFactory,
 		handlers.NewHealthCheckHandler,
+		handlers.NewLivenessHandler,
+		provideReadinessHandlerFactory,
 		handlers.NewPackagesHandler,
 		handlers.NewRegisterPackageHandler,
 		handlers.NewGetWorkflowHandlerFactory,
@@ -121,4 +128,13 @@ func providePgListenerActorFactory(p pgListenerFactoryParams) *actors.PgListener
 		return &actors.PgListenerActorFactory{}
 	}
 	return actors.NewPgListenerActorFactory(p.Listener)
+}
+
+type readinessHandlerParams struct {
+	fx.In
+	Pool *pgxpool.Pool `optional:"true"`
+}
+
+func provideReadinessHandlerFactory(p readinessHandlerParams) *handlers.ReadinessHandlerFactory {
+	return handlers.NewReadinessHandlerFactory(p.Pool)
 }

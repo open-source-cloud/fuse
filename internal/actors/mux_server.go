@@ -8,11 +8,15 @@ import (
 	"ergo.services/ergo/gen"
 	"ergo.services/ergo/meta"
 	"github.com/gorilla/mux"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 	"github.com/swaggo/swag/v2"
 
 	_ "github.com/open-source-cloud/fuse/docs" // Import generated docs
 	"github.com/open-source-cloud/fuse/internal/app/config"
+	"github.com/open-source-cloud/fuse/internal/metrics"
 )
 
 // MuxServerFactory is a factory for creating MuxServer actors
@@ -21,17 +25,20 @@ type MuxServerFactory ActorFactory[*muxServer]
 // muxServer is a mux server actor
 type muxServer struct {
 	act.Actor
-	workers *Workers
-	config  *config.Config
+	workers      *Workers
+	config       *config.Config
+	fuseMetrics  *metrics.FuseMetrics
+	ergoCollector *metrics.ErgoNodeCollector
 }
 
 // NewMuxServerFactory creates a new MuxServerFactory
-func NewMuxServerFactory(workers *Workers, config *config.Config) *MuxServerFactory {
+func NewMuxServerFactory(workers *Workers, config *config.Config, fuseMetrics *metrics.FuseMetrics) *MuxServerFactory {
 	return &MuxServerFactory{
 		Factory: func() gen.ProcessBehavior {
 			return &muxServer{
-				workers: workers,
-				config:  config,
+				workers:     workers,
+				config:      config,
+				fuseMetrics: fuseMetrics,
 			}
 		},
 	}
@@ -41,7 +48,23 @@ func NewMuxServerFactory(workers *Workers, config *config.Config) *MuxServerFact
 func (m *muxServer) Init(_ ...any) error {
 	m.Log().Info("starting mux server")
 
+	// Register the Ergo node collector now that the node is available.
+	m.ergoCollector = metrics.NewErgoNodeCollector(m.Node())
+	m.ergoCollector.RegisterWith(m.fuseMetrics.Registry())
+
+	// Build a combined registry that includes default Go runtime metrics.
+	combinedRegistry := prometheus.NewRegistry()
+	combinedRegistry.MustRegister(collectors.NewGoCollector(), collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
+
+	metricsHandler := promhttp.HandlerFor(
+		prometheus.Gatherers{m.fuseMetrics.Registry(), combinedRegistry},
+		promhttp.HandlerOpts{EnableOpenMetrics: true},
+	)
+
 	muxRouter := mux.NewRouter()
+
+	// /metrics — Prometheus scrape endpoint
+	muxRouter.Handle("/metrics", metricsHandler).Methods(http.MethodGet)
 
 	// create routes
 	for _, worker := range m.workers.GetAll() {

@@ -1,0 +1,134 @@
+# High-Availability testing stack: 2 Fuse nodes + etcd (cluster discovery) + PostgreSQL
+#
+# Usage:
+#   docker compose -f docker-compose.ha.yml up --build
+#
+# What this demonstrates:
+#   - Two Fuse instances behind the same PostgreSQL database
+#   - Ergo clustering via etcd discovery (CLUSTER_DISCOVERY_MODE=etcd)
+#   - HA claim/lease mechanism (HA_ENABLED=true): each node periodically sweeps for
+#     unclaimed workflows and takes a PostgreSQL FOR UPDATE SKIP LOCKED lock
+#   - Graceful shutdown: on SIGTERM the node releases its claimed workflows so the
+#     surviving node picks them up within HA_CLAIM_SWEEP_INTERVAL seconds
+#   - /healthz liveness probe and /readyz readiness probe on each node
+#
+# Ports:
+#   fuse-ha-1  → http://localhost:9091  (cluster acceptor on 15001)
+#   fuse-ha-2  → http://localhost:9092  (cluster acceptor on 15002)
+#   PostgreSQL → localhost:5433
+#   etcd       → localhost:2379
+
+x-fuse-ha-base: &fuse-ha-base
+  build:
+    context: .
+    dockerfile: Dockerfile
+  restart: unless-stopped
+  networks:
+    - fuse-ha-network
+  depends_on:
+    postgres-ha:
+      condition: service_healthy
+    etcd:
+      condition: service_healthy
+  healthcheck:
+    test: ["CMD-SHELL", "curl -sf http://127.0.0.1:9090/readyz || exit 1"]
+    interval: 10s
+    timeout: 5s
+    retries: 6
+    start_period: 30s
+
+x-fuse-ha-env: &fuse-ha-env
+  HOST: "0.0.0.0"
+  PORT: "9090"
+  LOG_LEVEL: "info"
+  SHUTDOWN_TIMEOUT: "30s"
+  # Ergo cluster
+  CLUSTER_ENABLED: "true"
+  CLUSTER_COOKIE: "fuse-ha-secret"
+  CLUSTER_ACCEPTOR_PORT: "15000"
+  CLUSTER_DISCOVERY_MODE: "etcd"
+  CLUSTER_ETCD_ENDPOINTS: "http://etcd:2379"
+  CLUSTER_ETCD_CLUSTER: "fuse-ha"
+  # Database
+  DB_DRIVER: "postgres"
+  DB_POSTGRES_DSN: "postgres://fuse:fuse@postgres-ha:5432/fuse?sslmode=disable"
+  DB_MAX_OPEN_CONNS: "10"
+  DB_MAX_IDLE_CONNS: "3"
+  DB_CONN_MAX_LIFETIME: "5m"
+  # Object store
+  OBJECT_STORE_DRIVER: "memory"
+  # HA lease management
+  HA_ENABLED: "true"
+  HA_HEARTBEAT_INTERVAL: "10s"
+  HA_CLAIM_SWEEP_INTERVAL: "5s"
+  HA_LEASE_TIMEOUT: "30s"
+
+services:
+  fuse-ha-1:
+    <<: *fuse-ha-base
+    container_name: fuse-ha-1
+    hostname: fuse-ha-node-1
+    ports:
+      - "9091:9090"
+      - "15001:15000"
+    environment:
+      <<: *fuse-ha-env
+      HA_NODE_ID: "fuse-ha-node-1"
+
+  fuse-ha-2:
+    <<: *fuse-ha-base
+    container_name: fuse-ha-2
+    hostname: fuse-ha-node-2
+    ports:
+      - "9092:9090"
+      - "15002:15000"
+    environment:
+      <<: *fuse-ha-env
+      HA_NODE_ID: "fuse-ha-node-2"
+
+  postgres-ha:
+    image: postgres:17
+    container_name: fuse-ha-postgres
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: fuse
+      POSTGRES_PASSWORD: fuse
+      POSTGRES_DB: fuse
+    volumes:
+      - fuse-ha-postgres-data:/var/lib/postgresql/data
+    networks:
+      - fuse-ha-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fuse"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  etcd:
+    image: bitnami/etcd:3.5
+    container_name: fuse-ha-etcd
+    ports:
+      - "2379:2379"
+    environment:
+      ALLOW_NONE_AUTHENTICATION: "yes"
+      ETCD_ADVERTISE_CLIENT_URLS: "http://etcd:2379"
+      ETCD_LISTEN_CLIENT_URLS: "http://0.0.0.0:2379"
+      ETCD_ADVERTISE_PEER_URLS: "http://etcd:2380"
+      ETCD_LISTEN_PEER_URLS: "http://0.0.0.0:2380"
+      ETCD_NAME: "fuse-ha-etcd"
+    networks:
+      - fuse-ha-network
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  fuse-ha-postgres-data:
+    driver: local
+
+networks:
+  fuse-ha-network:
+    driver: bridge

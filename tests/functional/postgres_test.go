@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-source-cloud/fuse/internal/repositories"
@@ -190,7 +191,7 @@ func TestPostgresClaimRepository_Contract(t *testing.T) {
 	wfRepo := postgres.NewWorkflowRepository(pool, store)
 	contractTestClaimRepository(t,
 		func() repositories.ClaimRepository {
-			return postgres.NewClaimRepository(pool)
+			return postgres.NewClaimRepository(pool, 30*time.Second)
 		},
 		wfRepo, graphRepo, pool,
 		func() {

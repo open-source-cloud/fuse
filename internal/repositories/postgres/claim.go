@@ -10,12 +10,14 @@ import (
 
 // ClaimRepository implements ClaimRepository backed by PostgreSQL.
 type ClaimRepository struct {
-	pool *pgxpool.Pool
+	pool         *pgxpool.Pool
+	leaseTimeout time.Duration
 }
 
 // NewClaimRepository creates a new PostgreSQL-backed ClaimRepository.
-func NewClaimRepository(pool *pgxpool.Pool) repositories.ClaimRepository {
-	return &ClaimRepository{pool: pool}
+// leaseTimeout controls how long a node may hold a claim before it is considered stale.
+func NewClaimRepository(pool *pgxpool.Pool, leaseTimeout time.Duration) repositories.ClaimRepository {
+	return &ClaimRepository{pool: pool, leaseTimeout: leaseTimeout}
 }
 
 // ClaimWorkflows atomically claims unclaimed or lease-expired workflows for the given node.
@@ -36,7 +38,7 @@ func (r *ClaimRepository) ClaimWorkflows(nodeID string, limit int) ([]repositori
 			LIMIT $2
 		)
 		RETURNING workflow_id, schema_id, state::TEXT
-	`, nodeID, limit, 30) // lease timeout hardcoded for now, overridden via caller
+	`, nodeID, limit, r.leaseTimeout.Seconds())
 	if err != nil {
 		return nil, err
 	}
