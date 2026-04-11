@@ -10,23 +10,27 @@ import (
 type workerHandlerRegistrationParams struct {
 	fx.In
 
-	HealthCheckHandlerFactory         *handlers.HealthCheckHandlerFactory
-	AsyncFunctionResultHandlerFactory *handlers.AsyncFunctionResultHandlerFactory
-	WorkflowSchemaHandlerFactory      *handlers.WorkflowSchemaHandlerFactory
-	ListSchemasHandlerFactory         *handlers.ListSchemasHandlerFactory
-	TriggerWorkflowHandlerFactory     *handlers.TriggerWorkflowHandlerFactory
-	PackagesHandlerFactory            *handlers.PackagesHandlerFactory
-	RegisterPackageHandlerFactory     *handlers.RegisterPackageHandlerFactory
-	GetWorkflowHandlerFactory         *handlers.GetWorkflowHandlerFactory
-	CancelWorkflowHandlerFactory      *handlers.CancelWorkflowHandlerFactory
-	ResolveAwakeableHandlerFactory    *handlers.ResolveAwakeableHandlerFactory
-	GetWorkflowSnapshotHandlerFactory *handlers.GetWorkflowSnapshotHandlerFactory
-	RetryNodeHandlerFactory           *handlers.RetryNodeHandlerFactory
-	RetryWorkflowHandlerFactory       *handlers.RetryWorkflowHandlerFactory
-	ListExecutionsHandlerFactory      *handlers.ListExecutionsHandlerFactory
-	WorkflowTraceHandlerFactory       *handlers.WorkflowTraceHandlerFactory
-	SchemaTracesHandlerFactory        *handlers.SchemaTracesHandlerFactory
-	WebhookHandlerFactory             *handlers.WebhookHandlerFactory
+	HealthCheckHandlerFactory              *handlers.HealthCheckHandlerFactory
+	AsyncFunctionResultHandlerFactory      *handlers.AsyncFunctionResultHandlerFactory
+	WorkflowSchemaHandlerFactory           *handlers.WorkflowSchemaHandlerFactory
+	ListSchemasHandlerFactory              *handlers.ListSchemasHandlerFactory
+	TriggerWorkflowHandlerFactory          *handlers.TriggerWorkflowHandlerFactory
+	PackagesHandlerFactory                 *handlers.PackagesHandlerFactory
+	RegisterPackageHandlerFactory          *handlers.RegisterPackageHandlerFactory
+	GetWorkflowHandlerFactory              *handlers.GetWorkflowHandlerFactory
+	CancelWorkflowHandlerFactory           *handlers.CancelWorkflowHandlerFactory
+	ResolveAwakeableHandlerFactory         *handlers.ResolveAwakeableHandlerFactory
+	GetWorkflowSnapshotHandlerFactory      *handlers.GetWorkflowSnapshotHandlerFactory
+	RetryNodeHandlerFactory                *handlers.RetryNodeHandlerFactory
+	RetryWorkflowHandlerFactory            *handlers.RetryWorkflowHandlerFactory
+	ListExecutionsHandlerFactory           *handlers.ListExecutionsHandlerFactory
+	WorkflowTraceHandlerFactory            *handlers.WorkflowTraceHandlerFactory
+	SchemaTracesHandlerFactory             *handlers.SchemaTracesHandlerFactory
+	WebhookHandlerFactory                  *handlers.WebhookHandlerFactory
+	ListSchemaVersionsHandlerFactory       *handlers.ListSchemaVersionsHandlerFactory
+	GetSchemaVersionHandlerFactory         *handlers.GetSchemaVersionHandlerFactory
+	ActivateSchemaVersionHandlerFactory    *handlers.ActivateSchemaVersionHandlerFactory
+	RollbackSchemaHandlerFactory           *handlers.RollbackSchemaHandlerFactory
 }
 
 // newWorkers builds the HTTP worker registry with all handler factories registered.
@@ -51,6 +55,10 @@ func newWorkers(p workerHandlerRegistrationParams) *actors.Workers {
 	w.AddFactory(handlers.WorkflowTraceHandlerName, p.WorkflowTraceHandlerFactory.Factory)
 	w.AddFactory(handlers.SchemaTracesHandlerName, p.SchemaTracesHandlerFactory.Factory)
 	w.AddFactory(handlers.WebhookHandlerName, p.WebhookHandlerFactory.Factory)
+	w.AddFactory(handlers.ListSchemaVersionsHandlerName, p.ListSchemaVersionsHandlerFactory.Factory)
+	w.AddFactory(handlers.GetSchemaVersionHandlerName, p.GetSchemaVersionHandlerFactory.Factory)
+	w.AddFactory(handlers.ActivateSchemaVersionHandlerName, p.ActivateSchemaVersionHandlerFactory.Factory)
+	w.AddFactory(handlers.RollbackSchemaHandlerName, p.RollbackSchemaHandlerFactory.Factory)
 	return w
 }
 
@@ -75,6 +83,10 @@ var WorkerModule = fx.Module(
 		handlers.NewWorkflowTraceHandlerFactory,
 		handlers.NewSchemaTracesHandlerFactory,
 		handlers.NewWebhookHandlerFactory,
+		handlers.NewListSchemaVersionsHandlerFactory,
+		handlers.NewGetSchemaVersionHandlerFactory,
+		handlers.NewActivateSchemaVersionHandlerFactory,
+		handlers.NewRollbackSchemaHandlerFactory,
 		newWorkers,
 	),
 )

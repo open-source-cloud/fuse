@@ -3,7 +3,9 @@ package services
 
 import (
 	"errors"
+	"fmt"
 	"strings"
+	"time"
 
 	"github.com/open-source-cloud/fuse/internal/packages"
 	"github.com/open-source-cloud/fuse/internal/repositories"
@@ -15,9 +17,20 @@ type (
 	// GraphService represents the transactional and logical service to manage workflow.Graph
 	GraphService interface {
 		FindByID(schemaID string) (*workflow.Graph, error)
+		// FindByIDAndVersion retrieves the graph for a specific schema version.
+		FindByIDAndVersion(schemaID string, version int) (*workflow.Graph, error)
 		// ListSchemas returns lightweight metadata for every stored graph schema.
 		ListSchemas() ([]repositories.GraphSchemaListItem, error)
+		// ListVersions returns all recorded versions for a schema.
+		ListVersions(schemaID string) ([]workflow.SchemaVersion, error)
+		// GetVersionHistory returns aggregate version metadata for a schema.
+		GetVersionHistory(schemaID string) (*workflow.SchemaVersionHistory, error)
+		// Upsert creates or updates a schema, always creating a new version.
 		Upsert(schemaID string, schema *workflow.GraphSchema) (*workflow.Graph, error)
+		// SetActiveVersion activates a specific existing version of a schema.
+		SetActiveVersion(schemaID string, version int) error
+		// Rollback creates a new version with the content of an older version and activates it.
+		Rollback(schemaID string, toVersion int, comment string) (*workflow.SchemaVersion, error)
 		// ApplyReplicatedUpsert applies a schema from a peer cluster event (does not republish).
 		ApplyReplicatedUpsert(schemaID string, schemaJSON []byte) error
 	}
@@ -60,12 +73,38 @@ func (gs *DefaultGraphService) FindByID(schemaID string) (*workflow.Graph, error
 	return graph, nil
 }
 
+// FindByIDAndVersion retrieves the graph for a specific schema version.
+func (gs *DefaultGraphService) FindByIDAndVersion(schemaID string, version int) (*workflow.Graph, error) {
+	graph, err := gs.graphRepo.FindByIDAndVersion(schemaID, version)
+	if err != nil {
+		return nil, err
+	}
+
+	if !graph.IsNodesMetadataPopulated() {
+		if err := gs.populateNodeMetadata(graph, nil); err != nil {
+			return nil, err
+		}
+	}
+
+	return graph, nil
+}
+
 // ListSchemas lists all stored graph schemas from the repository.
 func (gs *DefaultGraphService) ListSchemas() ([]repositories.GraphSchemaListItem, error) {
 	return gs.graphRepo.List()
 }
 
-// Upsert upserts a workflow.GraphSchema into the database
+// ListVersions returns all recorded versions for a schema.
+func (gs *DefaultGraphService) ListVersions(schemaID string) ([]workflow.SchemaVersion, error) {
+	return gs.graphRepo.ListVersions(schemaID)
+}
+
+// GetVersionHistory returns aggregate version metadata for a schema.
+func (gs *DefaultGraphService) GetVersionHistory(schemaID string) (*workflow.SchemaVersionHistory, error) {
+	return gs.graphRepo.GetVersionHistory(schemaID)
+}
+
+// Upsert upserts a workflow.GraphSchema into the database, creating a new version on each call.
 func (gs *DefaultGraphService) Upsert(schemaID string, schema *workflow.GraphSchema) (*workflow.Graph, error) {
 	g, err := gs.upsertGraph(schemaID, schema)
 	if err != nil {
@@ -76,6 +115,63 @@ func (gs *DefaultGraphService) Upsert(schemaID string, schema *workflow.GraphSch
 		gs.publisher.PublishLocalUpsert(pubSchema.ID, &pubSchema)
 	}
 	return g, nil
+}
+
+// SetActiveVersion activates a specific existing version of a schema.
+func (gs *DefaultGraphService) SetActiveVersion(schemaID string, version int) error {
+	_, err := gs.graphRepo.FindByIDAndVersion(schemaID, version)
+	if err != nil {
+		if errors.Is(err, repositories.ErrSchemaVersionNotFound) {
+			return repositories.ErrSchemaVersionNotFound
+		}
+		return err
+	}
+	return gs.graphRepo.SetActiveVersion(schemaID, version)
+}
+
+// Rollback creates a new version with the content of an older version and activates it.
+func (gs *DefaultGraphService) Rollback(schemaID string, toVersion int, comment string) (*workflow.SchemaVersion, error) {
+	oldGraph, err := gs.graphRepo.FindByIDAndVersion(schemaID, toVersion)
+	if err != nil {
+		if errors.Is(err, repositories.ErrSchemaVersionNotFound) {
+			return nil, fmt.Errorf("version %d not found for schema %s: %w", toVersion, schemaID, repositories.ErrSchemaVersionNotFound)
+		}
+		return nil, err
+	}
+
+	history, err := gs.graphRepo.GetVersionHistory(schemaID)
+	if err != nil {
+		return nil, err
+	}
+
+	newVersionNum := history.LatestVersion + 1
+	oldSchema := oldGraph.Schema()
+
+	// Build and populate the graph so FindByID returns a metadata-populated graph
+	newGraph, err := workflow.NewGraph(&oldSchema)
+	if err != nil {
+		return nil, fmt.Errorf("rollback: rebuild graph: %w", err)
+	}
+	if err := gs.populateNodeMetadata(newGraph, oldSchema.Nodes); err != nil {
+		return nil, fmt.Errorf("rollback: populate node metadata: %w", err)
+	}
+	if err := gs.graphRepo.Save(newGraph); err != nil {
+		return nil, fmt.Errorf("rollback: save graph: %w", err)
+	}
+
+	sv := &workflow.SchemaVersion{
+		SchemaID:  schemaID,
+		Version:   newVersionNum,
+		Schema:    oldSchema,
+		CreatedAt: time.Now().UTC(),
+		Comment:   comment,
+		IsActive:  true,
+	}
+	if err := gs.graphRepo.SaveVersion(sv); err != nil {
+		return nil, fmt.Errorf("rollback: save version: %w", err)
+	}
+
+	return sv, nil
 }
 
 // ApplyReplicatedUpsert applies JSON from a peer without emitting another replication event.
@@ -100,53 +196,84 @@ func (gs *DefaultGraphService) upsertGraph(schemaID string, schema *workflow.Gra
 	graph, err := gs.graphRepo.FindByID(schema.ID)
 	if err != nil {
 		if errors.Is(err, repositories.ErrGraphNotFound) {
-			return gs.create(schema)
+			return gs.createVersioned(schema)
 		}
 		return nil, err
 	}
 
 	if graph == nil {
-		return gs.create(schema)
+		return gs.createVersioned(schema)
 	}
 
-	return gs.update(graph, schema)
+	return gs.updateVersioned(graph, schema)
 }
 
-// Update updates a workflow.GraphSchema into the database
-func (gs *DefaultGraphService) update(graph *workflow.Graph, schema *workflow.GraphSchema) (*workflow.Graph, error) {
-	if err := schema.Validate(); err != nil {
+// createVersioned creates a new graph and records it as version 1.
+func (gs *DefaultGraphService) createVersioned(schema *workflow.GraphSchema) (*workflow.Graph, error) {
+	graph, err := workflow.NewGraph(schema)
+	if err != nil {
 		return nil, err
 	}
 
-	if err := graph.UpdateSchema(schema); err != nil {
-		return nil, err
-	}
-
-	// populate the metadata of the graph's nodes
 	if err := gs.populateNodeMetadata(graph, schema.Nodes); err != nil {
 		return nil, err
 	}
 
 	if err := gs.graphRepo.Save(graph); err != nil {
+		return nil, err
+	}
+
+	sv := &workflow.SchemaVersion{
+		SchemaID:  schema.ID,
+		Version:   1,
+		Schema:    schema.Clone(),
+		CreatedAt: time.Now().UTC(),
+		IsActive:  true,
+	}
+	if err := gs.graphRepo.SaveVersion(sv); err != nil {
 		return nil, err
 	}
 
 	return graph, nil
 }
 
-// create creates a workflow.GraphSchema in the database
-func (gs *DefaultGraphService) create(schema *workflow.GraphSchema) (*workflow.Graph, error) {
-	graph, err := workflow.NewGraph(schema)
-	if err != nil {
+// updateVersioned updates an existing graph and records it as the next version.
+func (gs *DefaultGraphService) updateVersioned(graph *workflow.Graph, schema *workflow.GraphSchema) (*workflow.Graph, error) {
+	if err := schema.Validate(); err != nil {
 		return nil, err
 	}
 
-	// populate the metadata of the graph's nodes
+	// Determine next version number before mutating the graph
+	history, err := gs.graphRepo.GetVersionHistory(schema.ID)
+	if err != nil && !errors.Is(err, repositories.ErrGraphNotFound) {
+		return nil, err
+	}
+
+	newVersionNum := 1
+	if history != nil && history.LatestVersion > 0 {
+		newVersionNum = history.LatestVersion + 1
+	}
+
+	if err := graph.UpdateSchema(schema); err != nil {
+		return nil, err
+	}
+
 	if err := gs.populateNodeMetadata(graph, schema.Nodes); err != nil {
 		return nil, err
 	}
 
 	if err := gs.graphRepo.Save(graph); err != nil {
+		return nil, err
+	}
+
+	sv := &workflow.SchemaVersion{
+		SchemaID:  schema.ID,
+		Version:   newVersionNum,
+		Schema:    schema.Clone(),
+		CreatedAt: time.Now().UTC(),
+		IsActive:  true,
+	}
+	if err := gs.graphRepo.SaveVersion(sv); err != nil {
 		return nil, err
 	}
 
