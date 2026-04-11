@@ -60,6 +60,21 @@ func (s *MemoryStore) Delete(key string) error {
 	return nil
 }
 
+// CheckAndSet atomically checks if a key exists and sets it if not.
+func (s *MemoryStore) CheckAndSet(key string, workflowID string, ttl time.Duration) (string, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	entry, exists := s.entries[key]
+	if exists && time.Now().Before(entry.expiresAt) {
+		return entry.workflowID, true
+	}
+	s.entries[key] = idempotencyEntry{
+		workflowID: workflowID,
+		expiresAt:  time.Now().Add(ttl),
+	}
+	return "", false
+}
+
 func (s *MemoryStore) cleanup(ctx context.Context) {
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()

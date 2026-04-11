@@ -13,7 +13,7 @@ type ExecutionTrace struct {
 	Status      State                `json:"status"`
 	TriggeredAt time.Time            `json:"triggeredAt"`
 	CompletedAt *time.Time           `json:"completedAt,omitempty"`
-	Duration    *time.Duration       `json:"duration,omitempty"`
+	Duration    *string              `json:"duration,omitempty" example:"5s"`
 	Steps       []ExecutionStepTrace `json:"steps"`
 	Error       *string              `json:"error,omitempty"`
 }
@@ -25,7 +25,7 @@ type ExecutionStepTrace struct {
 	FunctionNodeID string                   `json:"functionNodeId"`
 	StartedAt      time.Time                `json:"startedAt"`
 	CompletedAt    *time.Time               `json:"completedAt,omitempty"`
-	Duration       *time.Duration           `json:"duration,omitempty"`
+	Duration       *string                  `json:"duration,omitempty" example:"2s"`
 	Input          map[string]any           `json:"input,omitempty"`
 	Output         *workflow.FunctionOutput `json:"output,omitempty"`
 	Status         string                   `json:"status"`

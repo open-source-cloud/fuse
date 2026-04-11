@@ -81,6 +81,47 @@ func TestMemoryStore_OverwriteKey(t *testing.T) {
 	assert.Equal(t, "wf-new", wfID)
 }
 
+func TestMemoryStore_CheckAndSet_NewKey(t *testing.T) {
+	store := newTestStore(t)
+
+	existingID, existed := store.CheckAndSet("cas-key", "wf-new", 1*time.Hour)
+	assert.False(t, existed)
+	assert.Empty(t, existingID)
+
+	// Verify it was set
+	wfID, exists := store.Check("cas-key")
+	assert.True(t, exists)
+	assert.Equal(t, "wf-new", wfID)
+}
+
+func TestMemoryStore_CheckAndSet_ExistingKey(t *testing.T) {
+	store := newTestStore(t)
+
+	// First set
+	_, _ = store.CheckAndSet("cas-key", "wf-first", 1*time.Hour)
+
+	// Second attempt with different workflow ID
+	existingID, existed := store.CheckAndSet("cas-key", "wf-second", 1*time.Hour)
+	assert.True(t, existed)
+	assert.Equal(t, "wf-first", existingID)
+
+	// Original value unchanged
+	wfID, _ := store.Check("cas-key")
+	assert.Equal(t, "wf-first", wfID)
+}
+
+func TestMemoryStore_CheckAndSet_ExpiredKey(t *testing.T) {
+	store := newTestStore(t)
+
+	_ = store.Set("cas-key", "wf-old", 1*time.Millisecond)
+	time.Sleep(5 * time.Millisecond)
+
+	// Expired key should be treated as new
+	existingID, existed := store.CheckAndSet("cas-key", "wf-new", 1*time.Hour)
+	assert.False(t, existed)
+	assert.Empty(t, existingID)
+}
+
 func TestMemoryStore_ConcurrentAccess(t *testing.T) {
 	store := newTestStore(t)
 

@@ -1,6 +1,9 @@
 package workflow
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 // BuildTrace constructs an ExecutionTrace from journal entries.
 // This is a pure projection — no side effects.
@@ -34,7 +37,7 @@ func BuildTrace(workflowID, schemaID string, entries []JournalEntry) *ExecutionT
 				ts := entry.Timestamp
 				dur := ts.Sub(trace.Steps[idx].StartedAt)
 				trace.Steps[idx].CompletedAt = &ts
-				trace.Steps[idx].Duration = &dur
+				trace.Steps[idx].Duration = durationStr(dur)
 				trace.Steps[idx].Status = "completed"
 				if entry.Result != nil {
 					trace.Steps[idx].Output = &entry.Result.Output
@@ -46,7 +49,7 @@ func BuildTrace(workflowID, schemaID string, entries []JournalEntry) *ExecutionT
 				ts := entry.Timestamp
 				dur := ts.Sub(trace.Steps[idx].StartedAt)
 				trace.Steps[idx].CompletedAt = &ts
-				trace.Steps[idx].Duration = &dur
+				trace.Steps[idx].Duration = durationStr(dur)
 				trace.Steps[idx].Status = "failed"
 				if entry.Result != nil && entry.Result.Output.Data != nil {
 					if errMsg, exists := entry.Result.Output.Data["error"]; exists {
@@ -72,7 +75,7 @@ func BuildTrace(workflowID, schemaID string, entries []JournalEntry) *ExecutionT
 				trace.CompletedAt = &ts
 				if !trace.TriggeredAt.IsZero() {
 					dur := ts.Sub(trace.TriggeredAt)
-					trace.Duration = &dur
+					trace.Duration = durationStr(dur)
 				}
 			}
 			if entry.State == StateError {
@@ -88,4 +91,9 @@ func BuildTrace(workflowID, schemaID string, entries []JournalEntry) *ExecutionT
 	}
 
 	return trace
+}
+
+func durationStr(d time.Duration) *string {
+	s := d.String()
+	return &s
 }
