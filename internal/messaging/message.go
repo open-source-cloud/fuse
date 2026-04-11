@@ -39,4 +39,7 @@ const (
 type Message struct {
 	Type MessageType
 	Args any
+	// TraceCarrier carries W3C TraceContext headers across actor message boundaries.
+	// Populated by the sender via tracing.Provider.InjectCarrier; extracted by the receiver.
+	TraceCarrier map[string]string
 }

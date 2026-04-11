@@ -2,12 +2,14 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/open-source-cloud/fuse/internal/actors/actornames"
 	"github.com/open-source-cloud/fuse/internal/messaging"
+	"github.com/open-source-cloud/fuse/internal/tracing"
 
 	"ergo.services/application/observer"
 	"ergo.services/ergo"
@@ -30,6 +32,7 @@ func NewApp(
 	cronScheduler *actors.CronSchedulerFactory,
 	webhookRouter *actors.WebhookRouterFactory,
 	eventTrigger *actors.EventTriggerFactory,
+	tracingProvider *tracing.Provider,
 ) (gen.Node, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
@@ -49,6 +52,7 @@ func NewApp(
 		cronScheduler:        cronScheduler,
 		webhookRouter:        webhookRouter,
 		eventTrigger:         eventTrigger,
+		tracingProvider:      tracingProvider,
 	})
 	if cfg.Params.ActorObserver {
 		apps = append(apps, observer.CreateApp(observer.Options{}))
@@ -149,6 +153,7 @@ type Fuse struct {
 	cronScheduler        *actors.CronSchedulerFactory
 	webhookRouter        *actors.WebhookRouterFactory
 	eventTrigger         *actors.EventTriggerFactory
+	tracingProvider      *tracing.Provider
 	node                 gen.Node
 }
 
@@ -215,6 +220,9 @@ func (app *Fuse) Start(_ gen.ApplicationMode) {
 
 // Terminate invoked once the application stopped
 func (app *Fuse) Terminate(_ error) {
+	if err := app.tracingProvider.Shutdown(context.Background()); err != nil {
+		log.Error().Err(err).Msg("failed to shutdown OTel tracing provider")
+	}
 	log.Info().Msg("FUSE application terminated")
 }
 

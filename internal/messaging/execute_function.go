@@ -18,12 +18,14 @@ type ExecuteFunctionMessage struct {
 	Input      map[string]any  `json:"input"`
 }
 
-// NewExecuteFunctionMessage creates a new ExecuteFunction message
-func NewExecuteFunctionMessage(workflowID workflow.ID, execAction *workflowactions.RunFunctionAction) Message {
+// NewExecuteFunctionMessage creates a new ExecuteFunction message.
+// Pass a non-nil traceCarrier to propagate the calling span's context to the worker.
+func NewExecuteFunctionMessage(workflowID workflow.ID, execAction *workflowactions.RunFunctionAction, traceCarrier map[string]string) Message {
 	lastSlashIndex := strings.LastIndex(execAction.FunctionID, "/")
 
 	return Message{
-		Type: ExecuteFunction,
+		Type:         ExecuteFunction,
+		TraceCarrier: traceCarrier,
 		Args: ExecuteFunctionMessage{
 			WorkflowID: workflowID,
 			ExecID:     execAction.FunctionExecID,

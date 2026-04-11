@@ -8,10 +8,15 @@ import (
 
 	"github.com/open-source-cloud/fuse/internal/actors/actornames"
 	"github.com/open-source-cloud/fuse/internal/events"
+	"github.com/open-source-cloud/fuse/internal/metrics"
 	"github.com/open-source-cloud/fuse/internal/packages/functions/system"
 	"github.com/open-source-cloud/fuse/internal/services"
+	"github.com/open-source-cloud/fuse/internal/tracing"
 	internalworkflow "github.com/open-source-cloud/fuse/internal/workflow"
 	"github.com/open-source-cloud/fuse/internal/workflow/workflowactions"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
@@ -36,6 +41,8 @@ func NewWorkflowHandlerFactory(
 	store objectstore.ObjectStore,
 	traceRepo repositories.TraceRepository,
 	eventBus events.EventBus,
+	fuseMetrics *metrics.FuseMetrics,
+	tracingProvider *tracing.Provider,
 ) *WorkflowHandlerFactory {
 	return &WorkflowHandlerFactory{
 		Factory: func() gen.ProcessBehavior {
@@ -48,6 +55,8 @@ func NewWorkflowHandlerFactory(
 				objectStore:        store,
 				traceRepo:          traceRepo,
 				eventBus:           eventBus,
+				fuseMetrics:        fuseMetrics,
+				tracingProvider:    tracingProvider,
 			}
 		},
 	}
@@ -66,9 +75,15 @@ type (
 		objectStore        objectstore.ObjectStore
 		traceRepo          repositories.TraceRepository
 		eventBus           events.EventBus
+		fuseMetrics        *metrics.FuseMetrics
+		tracingProvider    *tracing.Provider
 
 		workflow       *internalworkflow.Workflow
 		executionTimer *ExecutionTimer
+
+		// OTel root span covering the entire workflow lifetime.
+		rootSpan trace.Span
+		spanCtx  context.Context
 	}
 
 	// WorkflowHandlerInitArgs defines the typed arguments for the WorkflowHandler Actor Init message
@@ -84,6 +99,7 @@ type (
 func (a *WorkflowHandler) Init(args ...any) error {
 	a.Log().Debug("starting process %s with args %s", a.PID(), args)
 	a.executionTimer = NewExecutionTimer()
+	a.spanCtx = context.Background()
 
 	if len(args) != 1 {
 		return fmt.Errorf("workflow actor init args must be 1 == [WorkflowHandlerInitArgs]")
@@ -95,6 +111,7 @@ func (a *WorkflowHandler) Init(args ...any) error {
 
 	if a.workflowRepository.Exists(initArgs.workflowID.String()) {
 		a.workflow, _ = a.workflowRepository.Get(initArgs.workflowID.String())
+		a.startRootSpan()
 		var action workflowactions.Action
 		if a.workflow.State() == internalworkflow.StateUntriggered {
 			action = a.workflow.Trigger()
@@ -127,12 +144,25 @@ func (a *WorkflowHandler) Init(args ...any) error {
 		return nil
 	}
 	a.Log().Debug("created new workflow with id %s", initArgs.workflowID)
+	a.startRootSpan()
 
 	action := a.workflow.Trigger()
 	a.persistJournal()
 	a.startWorkflowTimeout()
 	a.handleWorkflowAction(action)
 	return nil
+}
+
+// startRootSpan begins the OTel root span for this workflow and increments active workflow metrics.
+// Must be called after a.workflow is set.
+func (a *WorkflowHandler) startRootSpan() {
+	a.spanCtx, a.rootSpan = a.tracingProvider.StartSpan(
+		context.Background(),
+		"workflow.execute",
+		attribute.String("workflow.id", a.workflow.ID().String()),
+		attribute.String("workflow.schema_id", a.workflow.Graph().ID()),
+	)
+	a.fuseMetrics.WorkflowsActive.Inc()
 }
 
 // HandleMessage processes messages that are sent to a WorkflowHandler actor
@@ -373,6 +403,22 @@ func (a *WorkflowHandler) isTerminalState() bool {
 func (a *WorkflowHandler) sendWorkflowCompleted() {
 	a.Log().Info("workflow %s completed with state %s", a.workflow.ID(), a.workflow.State())
 
+	// Record metrics and end OTel root span.
+	a.fuseMetrics.WorkflowsActive.Dec()
+	switch a.workflow.State() {
+	case internalworkflow.StateFinished:
+		a.fuseMetrics.WorkflowsCompleted.Inc()
+		a.rootSpan.SetStatus(codes.Ok, "")
+	case internalworkflow.StateError:
+		a.fuseMetrics.WorkflowsFailed.Inc()
+		a.rootSpan.SetStatus(codes.Error, "workflow ended in error state")
+	case internalworkflow.StateCancelled:
+		a.fuseMetrics.WorkflowsCancelled.Inc()
+		a.rootSpan.SetStatus(codes.Error, "workflow cancelled")
+	}
+	a.rootSpan.SetAttributes(attribute.String("workflow.final_state", a.workflow.State().String()))
+	a.rootSpan.End()
+
 	// Persist the terminal state, execution snapshot, and trace
 	a.persistJournal()
 	if err := a.workflowRepository.Save(a.workflow); err != nil {
@@ -523,7 +569,7 @@ func (a *WorkflowHandler) handleWorkflowAction(action workflowactions.Action) {
 		a.Log().Info("scheduling retry attempt %d for exec %s in %s",
 			retryAction.Attempt, retryAction.FunctionExecID, retryAction.Delay)
 		workflowPool := WorkflowFuncPoolName(a.workflow.ID())
-		retryMsg := messaging.NewExecuteFunctionMessage(a.workflow.ID(), &retryAction.RunFunctionAction)
+		retryMsg := messaging.NewExecuteFunctionMessage(a.workflow.ID(), &retryAction.RunFunctionAction, a.tracingProvider.InjectCarrier(a.spanCtx))
 		if _, err := a.SendAfter(gen.Atom(workflowPool), retryMsg, retryAction.Delay); err != nil {
 			a.Log().Error("failed to schedule retry: %s", err)
 		}
@@ -556,7 +602,7 @@ func (a *WorkflowHandler) handleWorkflowRunFunctionAction(action workflowactions
 		}
 	}
 
-	execFnMsg := messaging.NewExecuteFunctionMessage(a.workflow.ID(), execAction)
+	execFnMsg := messaging.NewExecuteFunctionMessage(a.workflow.ID(), execAction, a.tracingProvider.InjectCarrier(a.spanCtx))
 	err := a.Send(workflowPool, execFnMsg)
 	if err != nil {
 		a.Log().Error("failed to send execute function message to %s: %s", workflowPool, err)

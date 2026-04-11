@@ -6,9 +6,11 @@ import (
 	"github.com/open-source-cloud/fuse/internal/app"
 	"github.com/open-source-cloud/fuse/internal/app/config"
 	"github.com/open-source-cloud/fuse/internal/logging"
+	"github.com/open-source-cloud/fuse/internal/metrics"
 	"github.com/open-source-cloud/fuse/internal/packages"
 	"github.com/open-source-cloud/fuse/internal/repositories"
 	"github.com/open-source-cloud/fuse/internal/services"
+	"github.com/open-source-cloud/fuse/internal/tracing"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"go.uber.org/fx"
@@ -21,6 +23,8 @@ var CommonModule = fx.Module(
 		// configs, loggers, cli
 		logging.NewAppLogger,
 		config.Instance,
+		metrics.NewFuseMetrics,
+		tracing.NewProvider,
 	),
 	fx.Invoke(func(_ zerolog.Logger) {
 		// forces the initialization of the zerolog.Logger dependency
