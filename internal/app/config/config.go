@@ -37,6 +37,7 @@ type (
 	// ParamsConfig configuration parameters
 	ParamsConfig struct {
 		LogLevel        string
+		LogFormat       string        `env:"LOG_FORMAT" envDefault:"json"`
 		ActorObserver   bool
 		ShutdownTimeout time.Duration `env:"SHUTDOWN_TIMEOUT" envDefault:"30s"`
 	}

@@ -155,8 +155,10 @@ func (r *JournalRepository) LoadAll(workflowID string) ([]workflow.JournalEntry,
 		return []workflow.JournalEntry{}, nil
 	}
 
-	// Batch-fetch S3 payloads in parallel
+	// Batch-fetch S3 payloads in parallel with bounded concurrency to avoid
+	// exhausting OS threads when recovering workflows with many journal entries.
 	g, gctx := errgroup.WithContext(ctx)
+	g.SetLimit(10)
 	entries := make([]workflow.JournalEntry, len(entryRows))
 
 	for i := range entryRows {

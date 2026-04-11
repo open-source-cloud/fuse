@@ -21,7 +21,14 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// NewApp creates a new FUSE application, in the context of the FX dependency injection engine and the Ergo framework
+// PackagesReady is a marker type signaling that internal packages have been
+// registered in the package registry. NewApp depends on this so that actors
+// spawned during ergo node startup can resolve package metadata.
+type PackagesReady struct{}
+
+// NewApp creates a new FUSE application, in the context of the FX dependency injection engine and the Ergo framework.
+// It depends on PackagesReady to ensure internal packages are registered
+// before the ergo node and its actors start.
 func NewApp(
 	cfg *config.Config,
 	workflowSup *actors.WorkflowSupervisorFactory,
@@ -33,6 +40,7 @@ func NewApp(
 	webhookRouter *actors.WebhookRouterFactory,
 	eventTrigger *actors.EventTriggerFactory,
 	tracingProvider *tracing.Provider,
+	_ PackagesReady,
 ) (gen.Node, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err

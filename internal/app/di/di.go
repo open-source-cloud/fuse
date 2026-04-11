@@ -2,19 +2,26 @@
 package di
 
 import (
+	"fmt"
+
 	"ergo.services/ergo/gen"
 	"github.com/open-source-cloud/fuse/internal/app"
 	"github.com/open-source-cloud/fuse/internal/app/config"
 	"github.com/open-source-cloud/fuse/internal/logging"
 	"github.com/open-source-cloud/fuse/internal/metrics"
 	"github.com/open-source-cloud/fuse/internal/packages"
-	"github.com/open-source-cloud/fuse/internal/repositories"
 	"github.com/open-source-cloud/fuse/internal/services"
 	"github.com/open-source-cloud/fuse/internal/tracing"
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 	"go.uber.org/fx"
 )
+
+func providePackageRegistration(pkgSvc services.PackageService) (app.PackagesReady, error) {
+	if err := pkgSvc.RegisterInternalPackages(); err != nil {
+		return app.PackagesReady{}, fmt.Errorf("failed to register internal packages: %w", err)
+	}
+	return app.PackagesReady{}, nil
+}
 
 // CommonModule FX module with base common providers
 var CommonModule = fx.Module(
@@ -37,6 +44,7 @@ var PackageModule = fx.Module(
 	fx.Provide(
 		packages.NewPackageRegistry,
 		packages.NewInternal,
+		providePackageRegistration,
 	),
 )
 
@@ -46,20 +54,7 @@ var FuseAppModule = fx.Module(
 	fx.Provide(
 		app.NewApp,
 	),
-	// eager loading
-	fx.Invoke(func(
-		_ repositories.GraphRepository,
-		_ repositories.WorkflowRepository,
-		_ packages.Registry,
-		_ gen.Node,
-		pkgSvc services.PackageService,
-	) {
-		// register internal packages
-		if err := pkgSvc.RegisterInternalPackages(); err != nil {
-			log.Error().Err(err).Msg("failed to register internal packages")
-			panic(err)
-		}
-	}),
+	fx.Invoke(func(_ gen.Node) {}),
 )
 
 // AllModules FX module with the complete application + base providers

@@ -13,6 +13,7 @@ import (
 )
 
 var loglevel string
+var logformat string
 var observer bool
 var port string
 var nocolor bool
@@ -65,6 +66,9 @@ func setupGlobalConfig() {
 	}
 	zerolog.SetGlobalLevel(level)
 	cfg.Params.LogLevel = loglevel
+	if logformat != "" {
+		cfg.Params.LogFormat = logformat
+	}
 	cfg.Params.ActorObserver = observer
 	cfg.Server.Port = port
 	color.NoColor = color.NoColor || nocolor
@@ -92,6 +96,12 @@ func setupRootFlags(rootCmd *cobra.Command) {
 		"p",
 		"9090",
 		"Port to listen on for HTTP requests",
+	)
+	rootCmd.PersistentFlags().StringVar(
+		&logformat,
+		"log-format",
+		"",
+		"Log output format: json (default) or console",
 	)
 	rootCmd.PersistentFlags().BoolVar(
 		&nocolor,
