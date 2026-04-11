@@ -14,7 +14,7 @@ import (
 )
 
 func noopConfig() *config.Config {
-	cfg := config.Instance()
+	cfg := &config.Config{}
 	cfg.Otel.Enabled = false
 	return cfg
 }
