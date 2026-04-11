@@ -84,9 +84,9 @@ type (
 		// OTel root span covering the entire workflow lifetime.
 		rootSpan trace.Span
 		spanCtx  context.Context
-    
+
 		// ForEach tracking: one ForEachState per active foreach execID.
-		forEachStates       map[string]*internalworkflow.ForEachState
+		forEachStates map[string]*internalworkflow.ForEachState
 		// iterThreadToForEach maps a live iteration thread ID back to its parent
 		// foreach execID so the completion handler can find the ForEachState.
 		iterThreadToForEach map[uint16]string

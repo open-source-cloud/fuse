@@ -25,13 +25,13 @@ type SchemaVersionListResponse struct {
 
 // SchemaVersionResponse is the response for GET /v1/schemas/{schemaID}/versions/{version}.
 type SchemaVersionResponse struct {
-	SchemaID  string                  `json:"schemaId" example:"my-workflow"`
-	Version   int                     `json:"version" example:"2"`
-	Schema    workflow.GraphSchema    `json:"schema"`
-	IsActive  bool                    `json:"isActive" example:"false"`
-	CreatedAt time.Time               `json:"createdAt" example:"2025-06-15T00:00:00Z"`
-	CreatedBy string                  `json:"createdBy,omitempty"`
-	Comment   string                  `json:"comment,omitempty"`
+	SchemaID  string               `json:"schemaId" example:"my-workflow"`
+	Version   int                  `json:"version" example:"2"`
+	Schema    workflow.GraphSchema `json:"schema"`
+	IsActive  bool                 `json:"isActive" example:"false"`
+	CreatedAt time.Time            `json:"createdAt" example:"2025-06-15T00:00:00Z"`
+	CreatedBy string               `json:"createdBy,omitempty"`
+	Comment   string               `json:"comment,omitempty"`
 }
 
 // ActivateVersionResponse is the response for POST /v1/schemas/{schemaID}/versions/{version}/activate.
