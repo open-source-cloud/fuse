@@ -80,7 +80,7 @@ func provideAwakeableRepository(p repoParams) repositories.AwakeableRepository {
 func provideClaimRepository(p repoParams) repositories.ClaimRepository {
 	if p.Config.Database.Driver == config.DBDriverPostgres && p.Pool != nil {
 		log.Debug().Msg("using postgres claim repository")
-		return postgres.NewClaimRepository(p.Pool)
+		return postgres.NewClaimRepository(p.Pool, p.Config.HA.LeaseTimeout)
 	}
 	log.Debug().Msg("using memory claim repository (no-op)")
 	return repositories.NewMemoryClaimRepository()
