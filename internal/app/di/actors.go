@@ -1,6 +1,7 @@
 package di
 
 import (
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-source-cloud/fuse/internal/actors"
 	"github.com/open-source-cloud/fuse/internal/handlers"
 	"github.com/open-source-cloud/fuse/internal/repositories/postgres"
@@ -11,6 +12,8 @@ type workerHandlerRegistrationParams struct {
 	fx.In
 
 	HealthCheckHandlerFactory         *handlers.HealthCheckHandlerFactory
+	LivenessHandlerFactory            *handlers.LivenessHandlerFactory
+	ReadinessHandlerFactory           *handlers.ReadinessHandlerFactory
 	AsyncFunctionResultHandlerFactory *handlers.AsyncFunctionResultHandlerFactory
 	WorkflowSchemaHandlerFactory      *handlers.WorkflowSchemaHandlerFactory
 	ListSchemasHandlerFactory         *handlers.ListSchemasHandlerFactory
@@ -35,6 +38,8 @@ type workerHandlerRegistrationParams struct {
 func newWorkers(p workerHandlerRegistrationParams) *actors.Workers {
 	w := actors.NewWorkers()
 	w.AddFactory(handlers.HealthCheckHandlerName, p.HealthCheckHandlerFactory.Factory)
+	w.AddFactory(handlers.LivenessHandlerName, p.LivenessHandlerFactory.Factory)
+	w.AddFactory(handlers.ReadinessHandlerName, p.ReadinessHandlerFactory.Factory)
 	w.AddFactory(handlers.AsyncFunctionResultHandlerName, p.AsyncFunctionResultHandlerFactory.Factory)
 	w.AddFactory(handlers.WorkflowSchemaHandlerName, p.WorkflowSchemaHandlerFactory.Factory)
 	w.AddFactory(handlers.ListSchemasHandlerName, p.ListSchemasHandlerFactory.Factory)
@@ -63,6 +68,8 @@ var WorkerModule = fx.Module(
 		handlers.NewListSchemasHandlerFactory,
 		handlers.NewTriggerWorkflowHandlerFactory,
 		handlers.NewHealthCheckHandler,
+		handlers.NewLivenessHandler,
+		provideReadinessHandlerFactory,
 		handlers.NewPackagesHandler,
 		handlers.NewRegisterPackageHandler,
 		handlers.NewGetWorkflowHandlerFactory,
@@ -109,4 +116,13 @@ func providePgListenerActorFactory(p pgListenerFactoryParams) *actors.PgListener
 		return &actors.PgListenerActorFactory{}
 	}
 	return actors.NewPgListenerActorFactory(p.Listener)
+}
+
+type readinessHandlerParams struct {
+	fx.In
+	Pool *pgxpool.Pool `optional:"true"`
+}
+
+func provideReadinessHandlerFactory(p readinessHandlerParams) *handlers.ReadinessHandlerFactory {
+	return handlers.NewReadinessHandlerFactory(p.Pool)
 }
