@@ -35,7 +35,26 @@ jobs:
       - name: Install Helm
         uses: azure/setup-helm@v4
 
-      - name: Deploy FUSE (values-dev, multi-replica)
+      - name: Deploy PostgreSQL
+        run: |
+          kubectl apply -f deploy/k3s/postgres.yaml
+          kubectl wait --for=condition=Ready pod/fuse-pg --timeout=120s
+
+      - name: Deploy RustFS (S3-compatible object store)
+        run: |
+          kubectl apply -f deploy/k3s/rustfs.yaml
+          kubectl wait --for=condition=Ready pod/fuse-rustfs --timeout=120s
+
+      - name: Create fuse_e2e schema and run migrations
+        run: |
+          kubectl exec fuse-pg -- psql -U fuse -d fuse -c "CREATE SCHEMA IF NOT EXISTS fuse_e2e"
+          kubectl run fuse-migrate --rm -i --restart=Never \
+            --image=fuse-app:test \
+            --image-pull-policy=Never \
+            --env="DB_POSTGRES_DSN=postgres://fuse:fuse@fuse-pg:5432/fuse?sslmode=disable&search_path=fuse_e2e" \
+            -- /fuse migrate
+
+      - name: Deploy FUSE (multi-replica with Postgres + S3 + HA)
         run: |
           helm install fuse deploy/helm/fuse/ \
             -f deploy/k3s/values-dev.yaml \
@@ -55,10 +74,9 @@ jobs:
           echo "desired=$desired ready=$ready updated=$updated"
           test -n "$ready" && test "$ready" = "$desired" && test "$updated" = "$desired"
 
-      # Forward to Deployment so one pod handles the whole E2E run (standalone in-memory state).
       - name: Port forward
         run: |
-          kubectl port-forward deployment/fuse 9090:9090 &
+          kubectl port-forward svc/fuse 9090:9090 &
           sleep 3
 
       - name: Health check
@@ -66,6 +84,18 @@ jobs:
 
       - name: Run E2E workflow tests
         run: go test -tags=e2e ./tests/e2e -v -count=2 -timeout 15m
+
+      - name: Dump pod logs on failure
+        if: failure()
+        run: |
+          echo "=== FUSE pods ==="
+          kubectl get pods -o wide
+          echo "=== FUSE logs (all pods) ==="
+          kubectl logs -l app.kubernetes.io/name=fuse --all-containers --tail=200
+          echo "=== PostgreSQL logs ==="
+          kubectl logs fuse-pg --tail=50
+          echo "=== RustFS logs ==="
+          kubectl logs fuse-rustfs --tail=50
 
       - name: Cleanup
         if: always()

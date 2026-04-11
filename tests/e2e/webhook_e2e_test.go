@@ -32,11 +32,11 @@ func TestE2E_POST_webhook_triggersWorkflow(t *testing.T) {
 		"id": "webhook-test-schema",
 		"name": "Webhook Test",
 		"nodes": [
-			{"id": "trigger", "function": "debug/nil"},
-			{"id": "process", "function": "debug/print"}
+			{"id": "trigger", "function": "fuse/pkg/debug/nil"},
+			{"id": "process", "function": "fuse/pkg/debug/print"}
 		],
 		"edges": [
-			{"from": "trigger", "to": "process"}
+			{"id": "e-trigger-process", "from": "trigger", "to": "process"}
 		],
 		"triggerConfig": {
 			"type": "webhook",

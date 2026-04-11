@@ -10,7 +10,6 @@ import (
 )
 
 func TestResolveWorkflowsDir_override(t *testing.T) {
-	t.Parallel()
 	dir := t.TempDir()
 	got, err := ResolveWorkflowsDir(dir)
 	require.NoError(t, err)
@@ -18,7 +17,6 @@ func TestResolveWorkflowsDir_override(t *testing.T) {
 }
 
 func TestResolveWorkflowsDir_invalidOverride(t *testing.T) {
-	t.Parallel()
 	_, err := ResolveWorkflowsDir("/nonexistent/workflows/dir/e2e-test-xyz")
 	require.Error(t, err)
 }
@@ -46,7 +44,6 @@ func TestResolveWorkflowsDir_repoRelative(t *testing.T) {
 }
 
 func TestReadSchemaFile_rejectsOutsideDir(t *testing.T) {
-	t.Parallel()
 	wf := t.TempDir()
 	outside := t.TempDir()
 	bad := filepath.Join(outside, "x.json")
