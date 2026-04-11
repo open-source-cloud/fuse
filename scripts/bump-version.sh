@@ -35,14 +35,21 @@ for f in "$CHART" "$VALUES"; do
     fi
 done
 
+# Portable in-place sed (works on both macOS and GNU/Linux)
+_sed_inplace() {
+    local expr="$1" file="$2"
+    local tmp="${file}.tmp.$$"
+    sed "$expr" "$file" > "$tmp" && mv "$tmp" "$file"
+}
+
 # Chart.yaml — version (chart version)
-sed -i '' "s/^version: .*/version: ${VERSION}/" "$CHART"
+_sed_inplace "s/^version: .*/version: ${VERSION}/" "$CHART"
 
 # Chart.yaml — appVersion (container image tag)
-sed -i '' "s/^appVersion: .*/appVersion: \"${VERSION}\"/" "$CHART"
+_sed_inplace "s/^appVersion: .*/appVersion: \"${VERSION}\"/" "$CHART"
 
 # values.yaml — image.tag
-sed -i '' "s/^  tag: .*/  tag: \"${VERSION}\"/" "$VALUES"
+_sed_inplace "s/^  tag: .*/  tag: \"${VERSION}\"/" "$VALUES"
 
 echo "Bumped to ${VERSION}:"
 echo "  $CHART  — version + appVersion"

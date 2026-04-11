@@ -122,10 +122,8 @@ jobs:
       - name: Log in to OCI registry
         run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
 
-      - name: Update chart version
-        run: |
-          sed -i "s/^version:.*/version: ${{ needs.release.outputs.version }}/" deploy/helm/fuse/Chart.yaml
-          sed -i "s/^appVersion:.*/appVersion: \"${{ needs.release.outputs.version }}\"/" deploy/helm/fuse/Chart.yaml
+      - name: Bump deploy manifests to release version
+        run: ./scripts/bump-version.sh ${{ needs.release.outputs.version }}
 
       - name: Package and push Helm chart
         run: |
