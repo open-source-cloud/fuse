@@ -28,8 +28,9 @@ type (
 		Server      ServerConfig
 		Cluster     ClusterConfig
 		Database    DatabaseConfig
-		ObjectStore ObjectStoreConfig
-		HA          HAConfig
+		ObjectStore   ObjectStoreConfig
+		HA            HAConfig
+		Idempotency   IdempotencyConfig
 	}
 
 	// ParamsConfig configuration parameters
@@ -86,6 +87,11 @@ type (
 		S3AccessKey string `env:"OBJECT_STORE_S3_ACCESS_KEY"`
 		S3SecretKey string `env:"OBJECT_STORE_S3_SECRET_KEY"`
 		S3UseSSL    bool   `env:"OBJECT_STORE_S3_USE_SSL" envDefault:"false"`
+	}
+
+	// IdempotencyConfig configuration for idempotency key tracking
+	IdempotencyConfig struct {
+		TTL time.Duration `env:"IDEMPOTENCY_TTL" envDefault:"24h"`
 	}
 
 	// HAConfig configuration for high availability mode
