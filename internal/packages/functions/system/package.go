@@ -15,6 +15,7 @@ func New() *workflow.Package {
 		workflow.NewFunction(SleepFunctionID, SleepFunctionMetadata(), SleepFunction),
 		workflow.NewFunction(WaitFunctionID, WaitFunctionMetadata(), WaitFunction),
 		workflow.NewFunction(SubWorkflowFunctionID, SubWorkflowFunctionMetadata(), SubWorkflowFunction),
+		workflow.NewFunction(ForEachFunctionID, ForEachFunctionMetadata(), ForEachFunction),
 	)
 }
 
