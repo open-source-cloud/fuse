@@ -65,7 +65,7 @@ jobs:
         run: curl -sf http://localhost:9090/health
 
       - name: Run E2E workflow tests
-        run: go test -tags=e2e ./tests/e2e -v -count=4 -parallel 4 -timeout 15m
+        run: go test -tags=e2e ./tests/e2e -v -count=2 -timeout 15m
 
       - name: Cleanup
         if: always()

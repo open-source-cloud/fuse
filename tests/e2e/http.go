@@ -22,9 +22,10 @@ const (
 	// StatusPollInterval is the sleep between workflow status poll attempts.
 	StatusPollInterval = 500 * time.Millisecond
 	// DefaultStatusTimeout is the default timeout for waiting for a workflow status.
-	DefaultStatusTimeout = 30 * time.Second
+	// E2E runs against real clusters (e.g. k3d) with parallel tests; allow headroom beyond fast local runs.
+	DefaultStatusTimeout = 60 * time.Second
 	// LongStatusTimeout is a longer timeout for workflows that sleep or do external calls.
-	LongStatusTimeout = 45 * time.Second
+	LongStatusTimeout = 90 * time.Second
 )
 
 // TriggerResponse is the subset of POST /v1/workflows/trigger JSON we assert on.
