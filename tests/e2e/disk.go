@@ -76,6 +76,17 @@ func findRepoRoot(start string) (string, error) {
 	}
 }
 
+// ReadSchemaFileWithOverlay checks the override directory first, falling back to defaultDir.
+// This allows e2e-specific fast schema variants to shadow the production ones.
+func ReadSchemaFileWithOverlay(overrideDir, defaultDir, schemaID string) ([]byte, error) {
+	override := filepath.Join(overrideDir, schemaID+".json")
+	if _, err := os.Stat(override); err == nil {
+		return ReadSchemaFile(overrideDir, override)
+	}
+	file := filepath.Join(defaultDir, schemaID+".json")
+	return ReadSchemaFile(defaultDir, file)
+}
+
 // ReadSchemaFile reads file only if it resolves under workflowsDir.
 func ReadSchemaFile(workflowsDir, file string) ([]byte, error) {
 	wd, err := filepath.Abs(workflowsDir)

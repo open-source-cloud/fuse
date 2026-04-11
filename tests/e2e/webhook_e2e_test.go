@@ -12,6 +12,7 @@ import (
 )
 
 func TestE2E_POST_webhook_notFound(t *testing.T) {
+	t.Parallel()
 	client, base := RequireE2E(t)
 
 	// Act — POST to a webhook path that doesn't exist
@@ -25,6 +26,7 @@ func TestE2E_POST_webhook_notFound(t *testing.T) {
 }
 
 func TestE2E_POST_webhook_triggersWorkflow(t *testing.T) {
+	t.Parallel()
 	client, base := RequireE2E(t)
 
 	// Arrange — create a schema with webhook trigger config

@@ -1,4 +1,4 @@
-//go:build e2e
+//go:build e2e && e2e_slow
 
 package e2e
 
@@ -23,22 +23,29 @@ type WorkflowIntegrationSuite struct {
 }
 
 func TestWorkflowIntegrationSuite(t *testing.T) {
+	t.Parallel()
 	suite.Run(t, new(WorkflowIntegrationSuite))
 }
 
 func (s *WorkflowIntegrationSuite) SetupSuite() {
 	s.client, s.baseURL = RequireE2E(s.T())
 	s.workflowsDir = WorkflowsDirForTests(s.T())
+	for _, id := range []string{
+		"mermaid-test", "mermaid-loop-test",
+		"github-request-example", "full-foundation-test",
+	} {
+		UpsertSchema(s.T(), s.client, s.baseURL, s.workflowsDir, id)
+	}
 }
 
 // TestMermaidDAG_TraversesComplexGraph triggers an 11-node DAG workflow
 // (all debug/nil nodes) that exercises complex branching and merging paths.
 func (s *WorkflowIntegrationSuite) TestMermaidDAG_TraversesComplexGraph() {
 	t := s.T()
-	wfID := UpsertAndTriggerExampleWorkflow(t, s.client, s.baseURL, s.workflowsDir, "mermaid-test")
+	wfID := TriggerExampleWorkflow(t, s.client, s.baseURL, "mermaid-test")
 	require.NotEmpty(t, wfID)
 
-	resp, err := WaitForWorkflowTerminal(s.client, s.baseURL, wfID, DefaultStatusTimeout)
+	resp, err := WaitForWorkflowTerminal(s.client, s.baseURL, wfID, FastStatusTimeout)
 	require.NoError(t, err, errMsgWorkflowShouldReachTerminal)
 	assert.Equal(t, "finished", resp.Status,
 		"mermaid-test should traverse all DAG paths and finish")
@@ -48,10 +55,10 @@ func (s *WorkflowIntegrationSuite) TestMermaidDAG_TraversesComplexGraph() {
 // and verifies the workflow engine handles cycles correctly.
 func (s *WorkflowIntegrationSuite) TestMermaidLoop_HandlesBackEdge() {
 	t := s.T()
-	wfID := UpsertAndTriggerExampleWorkflow(t, s.client, s.baseURL, s.workflowsDir, "mermaid-loop-test")
+	wfID := TriggerExampleWorkflow(t, s.client, s.baseURL, "mermaid-loop-test")
 	require.NotEmpty(t, wfID)
 
-	resp, err := WaitForWorkflowTerminal(s.client, s.baseURL, wfID, DefaultStatusTimeout)
+	resp, err := WaitForWorkflowTerminal(s.client, s.baseURL, wfID, FastStatusTimeout)
 	require.NoError(t, err, errMsgWorkflowShouldReachTerminal)
 	assert.Equal(t, "finished", resp.Status,
 		"mermaid-loop-test should handle the loop back-edge and finish")
@@ -62,7 +69,7 @@ func (s *WorkflowIntegrationSuite) TestMermaidLoop_HandlesBackEdge() {
 // the external call succeeds or fails (conditional routing handles both cases).
 func (s *WorkflowIntegrationSuite) TestGitHubHTTPRequest_ReachesTerminalState() {
 	t := s.T()
-	wfID := UpsertAndTriggerExampleWorkflow(t, s.client, s.baseURL, s.workflowsDir, "github-request-example")
+	wfID := TriggerExampleWorkflow(t, s.client, s.baseURL, "github-request-example")
 	require.NotEmpty(t, wfID)
 
 	resp, err := WaitForWorkflowTerminal(s.client, s.baseURL, wfID, LongStatusTimeout)
@@ -76,7 +83,7 @@ func (s *WorkflowIntegrationSuite) TestGitHubHTTPRequest_ReachesTerminalState() 
 // error edges, and a 30s workflow timeout.
 func (s *WorkflowIntegrationSuite) TestFullFoundation_ExercisesAllFeatures() {
 	t := s.T()
-	wfID := UpsertAndTriggerExampleWorkflow(t, s.client, s.baseURL, s.workflowsDir, "full-foundation-test")
+	wfID := TriggerExampleWorkflow(t, s.client, s.baseURL, "full-foundation-test")
 	require.NotEmpty(t, wfID)
 
 	resp, err := WaitForWorkflowTerminal(s.client, s.baseURL, wfID, 60*time.Second)

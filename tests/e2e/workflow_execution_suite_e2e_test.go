@@ -21,23 +21,32 @@ type WorkflowExecutionSuite struct {
 }
 
 func TestWorkflowExecutionSuite(t *testing.T) {
+	t.Parallel()
 	suite.Run(t, new(WorkflowExecutionSuite))
 }
 
 func (s *WorkflowExecutionSuite) SetupSuite() {
 	s.client, s.baseURL = RequireE2E(s.T())
 	s.workflowsDir = WorkflowsDirForTests(s.T())
+	workflows := []string{
+		"smallest-test", "small-test", "small-cond-test",
+		"expression-condition-test", "durable-test", "sum-rand-branch",
+	}
+	for _, id := range workflows {
+		UpsertSchema(s.T(), s.client, s.baseURL, s.workflowsDir, id)
+	}
 }
 
-// triggerAndWaitFinished triggers a workflow and waits for it to reach "finished" status.
+// triggerAndWaitFinished triggers an already-upserted workflow and waits for "finished"
+// using FastStatusTimeout (suitable for pure in-memory logic workflows).
 func (s *WorkflowExecutionSuite) triggerAndWaitFinished(schemaID string) {
 	t := s.T()
 	t.Helper()
 
-	wfID := UpsertAndTriggerExampleWorkflow(t, s.client, s.baseURL, s.workflowsDir, schemaID)
+	wfID := TriggerExampleWorkflow(t, s.client, s.baseURL, schemaID)
 	require.NotEmpty(t, wfID, "trigger should return a workflow ID")
 
-	resp, err := WaitForWorkflowTerminal(s.client, s.baseURL, wfID, DefaultStatusTimeout)
+	resp, err := WaitForWorkflowTerminal(s.client, s.baseURL, wfID, FastStatusTimeout)
 	require.NoError(t, err, "workflow %s should reach terminal state", schemaID)
 	assert.Equal(t, wfID, resp.WorkflowID, "response should echo back the workflow ID")
 	assert.Equal(t, "finished", resp.Status, "workflow %s should finish successfully", schemaID)
@@ -71,7 +80,7 @@ func (s *WorkflowExecutionSuite) TestDurableExecution_Finishes() {
 // TestSumRandBranch_Finishes runs a workflow with a 3s timer, three parallel rands, sum, and conditional branching.
 func (s *WorkflowExecutionSuite) TestSumRandBranch_Finishes() {
 	t := s.T()
-	wfID := UpsertAndTriggerExampleWorkflow(t, s.client, s.baseURL, s.workflowsDir, "sum-rand-branch")
+	wfID := TriggerExampleWorkflow(t, s.client, s.baseURL, "sum-rand-branch")
 	require.NotEmpty(t, wfID)
 
 	resp, err := WaitForWorkflowTerminal(s.client, s.baseURL, wfID, LongStatusTimeout)

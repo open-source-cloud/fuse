@@ -51,6 +51,7 @@ func newRoot() *cobra.Command {
 	rootCmd.AddCommand(newSeedCommand())
 	rootCmd.AddCommand(newWorkflowCommand())
 	rootCmd.AddCommand(newMermaidCommand())
+	rootCmd.AddCommand(newHealthCommand())
 
 	return rootCmd
 }
