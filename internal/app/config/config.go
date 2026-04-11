@@ -31,6 +31,7 @@ type (
 		ObjectStore ObjectStoreConfig
 		HA          HAConfig
 		Idempotency IdempotencyConfig
+		Otel        OtelConfig
 	}
 
 	// ParamsConfig configuration parameters
@@ -101,6 +102,15 @@ type (
 		HeartbeatInterval  time.Duration `env:"HA_HEARTBEAT_INTERVAL" envDefault:"10s"`
 		ClaimSweepInterval time.Duration `env:"HA_CLAIM_SWEEP_INTERVAL" envDefault:"5s"`
 		LeaseTimeout       time.Duration `env:"HA_LEASE_TIMEOUT" envDefault:"30s"`
+	}
+
+	// OtelConfig configuration for OpenTelemetry distributed tracing
+	OtelConfig struct {
+		Enabled        bool   `env:"OTEL_ENABLED" envDefault:"false"`
+		Endpoint       string `env:"OTEL_EXPORTER_OTLP_ENDPOINT" envDefault:"localhost:4317"`
+		ServiceName    string `env:"OTEL_SERVICE_NAME" envDefault:"fuse"`
+		ServiceVersion string `env:"OTEL_SERVICE_VERSION" envDefault:"unknown"`
+		Insecure       bool   `env:"OTEL_EXPORTER_OTLP_INSECURE" envDefault:"true"`
 	}
 )
 
