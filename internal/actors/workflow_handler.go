@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/open-source-cloud/fuse/internal/actors/actornames"
+	"github.com/open-source-cloud/fuse/internal/events"
 	"github.com/open-source-cloud/fuse/internal/packages/functions/system"
 	"github.com/open-source-cloud/fuse/internal/services"
 	internalworkflow "github.com/open-source-cloud/fuse/internal/workflow"
@@ -33,6 +34,8 @@ func NewWorkflowHandlerFactory(
 	journalRepository repositories.JournalRepository,
 	awakeableRepository repositories.AwakeableRepository,
 	store objectstore.ObjectStore,
+	traceRepo repositories.TraceRepository,
+	eventBus events.EventBus,
 ) *WorkflowHandlerFactory {
 	return &WorkflowHandlerFactory{
 		Factory: func() gen.ProcessBehavior {
@@ -43,6 +46,8 @@ func NewWorkflowHandlerFactory(
 				journalRepo:        journalRepository,
 				awakeableRepo:      awakeableRepository,
 				objectStore:        store,
+				traceRepo:          traceRepo,
+				eventBus:           eventBus,
 			}
 		},
 	}
@@ -59,6 +64,8 @@ type (
 		journalRepo        repositories.JournalRepository
 		awakeableRepo      repositories.AwakeableRepository
 		objectStore        objectstore.ObjectStore
+		traceRepo          repositories.TraceRepository
+		eventBus           events.EventBus
 
 		workflow       *internalworkflow.Workflow
 		executionTimer *ExecutionTimer
@@ -294,6 +301,43 @@ func (a *WorkflowHandler) persistSnapshot() {
 	}
 }
 
+func (a *WorkflowHandler) persistTrace() {
+	trace := internalworkflow.BuildTrace(
+		a.workflow.ID().String(),
+		a.workflow.Graph().ID(),
+		a.workflow.Journal().Entries(),
+	)
+	if err := a.traceRepo.Save(trace); err != nil {
+		a.Log().Error("failed to persist execution trace for %s: %s", a.workflow.ID(), err)
+	}
+}
+
+func (a *WorkflowHandler) publishLifecycleEvent() {
+	var eventType string
+	switch a.workflow.State() {
+	case internalworkflow.StateFinished:
+		eventType = events.EventWorkflowCompleted
+	case internalworkflow.StateError:
+		eventType = events.EventWorkflowFailed
+	case internalworkflow.StateCancelled:
+		eventType = events.EventWorkflowCancelled
+	default:
+		return
+	}
+
+	if err := a.eventBus.Publish(events.Event{
+		Type:   eventType,
+		Source: a.workflow.ID().String(),
+		Data: map[string]any{
+			"workflowId": a.workflow.ID().String(),
+			"schemaId":   a.workflow.Graph().ID(),
+			"status":     a.workflow.State().String(),
+		},
+	}); err != nil {
+		a.Log().Error("failed to publish lifecycle event for %s: %s", a.workflow.ID(), err)
+	}
+}
+
 func (a *WorkflowHandler) persistJournal() {
 	newEntries := a.workflow.Journal().NewEntries()
 	if len(newEntries) == 0 {
@@ -329,12 +373,14 @@ func (a *WorkflowHandler) isTerminalState() bool {
 func (a *WorkflowHandler) sendWorkflowCompleted() {
 	a.Log().Info("workflow %s completed with state %s", a.workflow.ID(), a.workflow.State())
 
-	// Persist the terminal state and execution snapshot
+	// Persist the terminal state, execution snapshot, and trace
 	a.persistJournal()
 	if err := a.workflowRepository.Save(a.workflow); err != nil {
 		a.Log().Error("failed to persist terminal state for workflow %s: %s", a.workflow.ID(), err)
 	}
 	a.persistSnapshot()
+	a.persistTrace()
+	a.publishLifecycleEvent()
 
 	completedMsg := messaging.NewWorkflowCompletedMessage(a.workflow.ID(), a.workflow.State().String())
 	if err := a.Send(a.Parent(), completedMsg); err != nil {

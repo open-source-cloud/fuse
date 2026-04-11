@@ -24,3 +24,12 @@ const WorkflowClaimActorName = "workflow_claim"
 
 // PgListenerActorName is the PG LISTEN/NOTIFY actor name.
 const PgListenerActorName = "pg_listener"
+
+// CronSchedulerName is the cron scheduler actor name.
+const CronSchedulerName = "cron_scheduler"
+
+// WebhookRouterName is the webhook router actor name.
+const WebhookRouterName = "webhook_router"
+
+// EventTriggerName is the event trigger actor name.
+const EventTriggerName = "event_trigger"

@@ -175,6 +175,36 @@ func NewWorkers() *Workers {
 					PoolSize: 3,
 				},
 			},
+			{
+				Name:    handlers.WorkflowTraceHandlerName,
+				Pattern: "/v1/workflows/{workflowID}/trace",
+				Methods: []string{"GET"},
+				Timeout: 10 * time.Second,
+				PoolConfig: WorkerPoolConfig{
+					Name:     handlers.WorkflowTraceHandlerPoolName,
+					PoolSize: 3,
+				},
+			},
+			{
+				Name:    handlers.SchemaTracesHandlerName,
+				Pattern: "/v1/schemas/{schemaID}/traces",
+				Methods: []string{"GET"},
+				Timeout: 10 * time.Second,
+				PoolConfig: WorkerPoolConfig{
+					Name:     handlers.SchemaTracesHandlerPoolName,
+					PoolSize: 3,
+				},
+			},
+			{
+				Name:    handlers.WebhookHandlerName,
+				Pattern: "/v1/hooks/{path:.+}",
+				Methods: []string{"POST"},
+				Timeout: 30 * time.Second,
+				PoolConfig: WorkerPoolConfig{
+					Name:     handlers.WebhookHandlerPoolName,
+					PoolSize: 3,
+				},
+			},
 		},
 		factories: make(map[string]gen.ProcessFactory),
 	}
