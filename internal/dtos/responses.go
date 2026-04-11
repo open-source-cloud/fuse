@@ -23,3 +23,15 @@ type PaginationMetadata struct {
 type HealthCheckResponse struct {
 	Message string `json:"message" example:"OK"`
 }
+
+// LivenessResponse is returned by GET /healthz.
+type LivenessResponse struct {
+	Status string `json:"status" example:"ok"`
+}
+
+// ReadinessResponse is returned by GET /readyz.
+// Status is "ready" when all checks pass, "not_ready" otherwise (HTTP 503).
+type ReadinessResponse struct {
+	Status string            `json:"status" example:"ready"`
+	Checks map[string]string `json:"checks"`
+}
