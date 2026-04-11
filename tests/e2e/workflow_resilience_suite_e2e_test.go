@@ -21,12 +21,19 @@ type WorkflowResilienceSuite struct {
 }
 
 func TestWorkflowResilienceSuite(t *testing.T) {
+	t.Parallel()
 	suite.Run(t, new(WorkflowResilienceSuite))
 }
 
 func (s *WorkflowResilienceSuite) SetupSuite() {
 	s.client, s.baseURL = RequireE2E(s.T())
 	s.workflowsDir = WorkflowsDirForTests(s.T())
+	workflows := []string{
+		"error-edge-test", "retry-test", "parallel-retry-test", "timeout-test",
+	}
+	for _, id := range workflows {
+		UpsertSchema(s.T(), s.client, s.baseURL, s.workflowsDir, id)
+	}
 }
 
 // TestErrorEdge_FollowsRecoveryPath triggers a workflow where a node always fails
@@ -34,10 +41,10 @@ func (s *WorkflowResilienceSuite) SetupSuite() {
 // completing the workflow successfully.
 func (s *WorkflowResilienceSuite) TestErrorEdge_FollowsRecoveryPath() {
 	t := s.T()
-	wfID := UpsertAndTriggerExampleWorkflow(t, s.client, s.baseURL, s.workflowsDir, "error-edge-test")
+	wfID := TriggerExampleWorkflow(t, s.client, s.baseURL, "error-edge-test")
 	require.NotEmpty(t, wfID)
 
-	resp, err := WaitForWorkflowTerminal(s.client, s.baseURL, wfID, DefaultStatusTimeout)
+	resp, err := WaitForWorkflowTerminal(s.client, s.baseURL, wfID, FastStatusTimeout)
 	require.NoError(t, err, errMsgWorkflowShouldReachTerminal)
 	assert.Equal(t, wfID, resp.WorkflowID)
 	assert.Equal(t, "finished", resp.Status,
@@ -48,10 +55,10 @@ func (s *WorkflowResilienceSuite) TestErrorEdge_FollowsRecoveryPath() {
 // twice then succeeds on the third attempt (maxAttempts=3, failCount=2).
 func (s *WorkflowResilienceSuite) TestRetry_CompletesAfterTransientFailures() {
 	t := s.T()
-	wfID := UpsertAndTriggerExampleWorkflow(t, s.client, s.baseURL, s.workflowsDir, "retry-test")
+	wfID := TriggerExampleWorkflow(t, s.client, s.baseURL, "retry-test")
 	require.NotEmpty(t, wfID)
 
-	resp, err := WaitForWorkflowTerminal(s.client, s.baseURL, wfID, DefaultStatusTimeout)
+	resp, err := WaitForWorkflowTerminal(s.client, s.baseURL, wfID, FastStatusTimeout)
 	require.NoError(t, err, errMsgWorkflowShouldReachTerminal)
 	assert.Equal(t, "finished", resp.Status,
 		"retry-test should succeed after retrying transient failures")
@@ -61,10 +68,10 @@ func (s *WorkflowResilienceSuite) TestRetry_CompletesAfterTransientFailures() {
 // parallel branches where one branch retries once before succeeding.
 func (s *WorkflowResilienceSuite) TestParallelRetry_CompletesWithConcurrentRetries() {
 	t := s.T()
-	wfID := UpsertAndTriggerExampleWorkflow(t, s.client, s.baseURL, s.workflowsDir, "parallel-retry-test")
+	wfID := TriggerExampleWorkflow(t, s.client, s.baseURL, "parallel-retry-test")
 	require.NotEmpty(t, wfID)
 
-	resp, err := WaitForWorkflowTerminal(s.client, s.baseURL, wfID, DefaultStatusTimeout)
+	resp, err := WaitForWorkflowTerminal(s.client, s.baseURL, wfID, FastStatusTimeout)
 	require.NoError(t, err, errMsgWorkflowShouldReachTerminal)
 	assert.Equal(t, "finished", resp.Status,
 		"parallel-retry-test should finish after branch-b retries succeed")
@@ -74,7 +81,7 @@ func (s *WorkflowResilienceSuite) TestParallelRetry_CompletesWithConcurrentRetri
 // timeout but its function takes 5s. The timeout fires and the error edge routes to recovery.
 func (s *WorkflowResilienceSuite) TestTimeout_FollowsRecoveryPath() {
 	t := s.T()
-	wfID := UpsertAndTriggerExampleWorkflow(t, s.client, s.baseURL, s.workflowsDir, "timeout-test")
+	wfID := TriggerExampleWorkflow(t, s.client, s.baseURL, "timeout-test")
 	require.NotEmpty(t, wfID)
 
 	resp, err := WaitForWorkflowTerminal(s.client, s.baseURL, wfID, DefaultStatusTimeout)

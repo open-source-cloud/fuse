@@ -15,6 +15,7 @@ import (
 )
 
 func TestE2E_GET_health(t *testing.T) {
+	t.Parallel()
 	client, base := RequireE2E(t)
 
 	// Arrange
@@ -34,6 +35,7 @@ func TestE2E_GET_health(t *testing.T) {
 }
 
 func TestE2E_GET_v1_packages(t *testing.T) {
+	t.Parallel()
 	client, base := RequireE2E(t)
 
 	// Arrange
@@ -59,6 +61,7 @@ func TestE2E_GET_v1_packages(t *testing.T) {
 }
 
 func TestE2E_GET_v1_packages_byID(t *testing.T) {
+	t.Parallel()
 	client, base := RequireE2E(t)
 
 	// Arrange — pick first package from list
@@ -89,6 +92,7 @@ func TestE2E_GET_v1_packages_byID(t *testing.T) {
 }
 
 func TestE2E_PUT_GET_v1_schemas_roundTrip(t *testing.T) {
+	t.Parallel()
 	client, base := RequireE2E(t)
 	dir := WorkflowsDirForTests(t)
 
@@ -120,6 +124,7 @@ func TestE2E_PUT_GET_v1_schemas_roundTrip(t *testing.T) {
 }
 
 func TestE2E_GET_v1_schemas_list(t *testing.T) {
+	t.Parallel()
 	client, base := RequireE2E(t)
 
 	code, body, err := GET(client, base+"/v1/schemas")
@@ -141,6 +146,7 @@ func TestE2E_GET_v1_schemas_list(t *testing.T) {
 }
 
 func TestE2E_PUT_v1_packages_roundTrip(t *testing.T) {
+	t.Parallel()
 	client, base := RequireE2E(t)
 
 	// Arrange — load an existing package and PUT it back (noop update)
@@ -169,6 +175,7 @@ func TestE2E_PUT_v1_packages_roundTrip(t *testing.T) {
 }
 
 func TestE2E_POST_v1_workflows_cancel(t *testing.T) {
+	t.Parallel()
 	client, base := RequireE2E(t)
 
 	// Arrange
@@ -192,6 +199,7 @@ func TestE2E_POST_v1_workflows_cancel(t *testing.T) {
 }
 
 func TestE2E_POST_v1_workflows_execs_asyncResult(t *testing.T) {
+	t.Parallel()
 	client, base := RequireE2E(t)
 
 	// Arrange — valid body; workflow handler may not exist → 500 is acceptable for smoke
@@ -217,6 +225,7 @@ func TestE2E_POST_v1_workflows_execs_asyncResult(t *testing.T) {
 }
 
 func TestE2E_POST_v1_awakeables_resolve_notFound(t *testing.T) {
+	t.Parallel()
 	client, base := RequireE2E(t)
 
 	// Arrange

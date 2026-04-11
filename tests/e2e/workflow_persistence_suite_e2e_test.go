@@ -23,12 +23,16 @@ type WorkflowPersistenceSuite struct {
 }
 
 func TestWorkflowPersistenceSuite(t *testing.T) {
+	t.Parallel()
 	suite.Run(t, new(WorkflowPersistenceSuite))
 }
 
 func (s *WorkflowPersistenceSuite) SetupSuite() {
 	s.client, s.baseURL = RequireE2E(s.T())
 	s.workflowsDir = WorkflowsDirForTests(s.T())
+	for _, id := range []string{"smallest-test", "small-test"} {
+		UpsertSchema(s.T(), s.client, s.baseURL, s.workflowsDir, id)
+	}
 }
 
 // TestTriggerAndFinish_PersistsState triggers a workflow via PG-backed FUSE
@@ -37,11 +41,11 @@ func (s *WorkflowPersistenceSuite) TestTriggerAndFinish_PersistsState() {
 	t := s.T()
 
 	// Trigger a simple workflow
-	wfID := UpsertAndTriggerExampleWorkflow(t, s.client, s.baseURL, s.workflowsDir, "smallest-test")
+	wfID := TriggerExampleWorkflow(t, s.client, s.baseURL, "smallest-test")
 	require.NotEmpty(t, wfID)
 
 	// Wait for completion
-	resp, err := WaitForWorkflowTerminal(s.client, s.baseURL, wfID, DefaultStatusTimeout)
+	resp, err := WaitForWorkflowTerminal(s.client, s.baseURL, wfID, FastStatusTimeout)
 	require.NoError(t, err, "workflow should reach terminal state")
 	assert.Equal(t, "finished", resp.Status)
 
@@ -57,18 +61,18 @@ func (s *WorkflowPersistenceSuite) TestMultipleWorkflows_IndependentState() {
 	t := s.T()
 
 	// Trigger two workflows from different schemas
-	wfID1 := UpsertAndTriggerExampleWorkflow(t, s.client, s.baseURL, s.workflowsDir, "smallest-test")
-	wfID2 := UpsertAndTriggerExampleWorkflow(t, s.client, s.baseURL, s.workflowsDir, "small-test")
+	wfID1 := TriggerExampleWorkflow(t, s.client, s.baseURL, "smallest-test")
+	wfID2 := TriggerExampleWorkflow(t, s.client, s.baseURL, "small-test")
 	require.NotEmpty(t, wfID1)
 	require.NotEmpty(t, wfID2)
 	require.NotEqual(t, wfID1, wfID2)
 
 	// Both should finish independently
-	resp1, err := WaitForWorkflowTerminal(s.client, s.baseURL, wfID1, DefaultStatusTimeout)
+	resp1, err := WaitForWorkflowTerminal(s.client, s.baseURL, wfID1, FastStatusTimeout)
 	require.NoError(t, err)
 	assert.Equal(t, "finished", resp1.Status)
 
-	resp2, err := WaitForWorkflowTerminal(s.client, s.baseURL, wfID2, DefaultStatusTimeout)
+	resp2, err := WaitForWorkflowTerminal(s.client, s.baseURL, wfID2, FastStatusTimeout)
 	require.NoError(t, err)
 	assert.Equal(t, "finished", resp2.Status)
 }

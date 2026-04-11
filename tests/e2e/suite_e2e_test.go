@@ -6,6 +6,7 @@ import (
 	"flag"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -56,4 +57,16 @@ func WorkflowsDirForTests(t *testing.T) string {
 	dir, err := ResolveWorkflowsDir(workflowsDirFlag)
 	require.NoError(t, err, "resolve workflows directory")
 	return dir
+}
+
+// E2EOverlayDir returns the e2e-specific overlay directory (examples/workflows/e2e/).
+// Returns empty string if the directory does not exist.
+func E2EOverlayDir(t *testing.T) string {
+	t.Helper()
+	base := WorkflowsDirForTests(t)
+	overlay := filepath.Join(base, "e2e")
+	if _, err := os.Stat(overlay); err == nil {
+		return overlay
+	}
+	return ""
 }

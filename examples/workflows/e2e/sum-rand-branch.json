@@ -1,0 +1,185 @@
+{
+  "id": "sum-rand-branch",
+  "name": "Sum and Rand with Branch",
+  "nodes": [
+    {
+      "id": "debug-nil",
+      "function": "fuse/pkg/debug/nil"
+    },
+    {
+      "id": "logic-timer",
+      "function": "fuse/pkg/logic/timer"
+    },
+    {
+      "id": "logic-rand-1",
+      "function": "fuse/pkg/logic/rand"
+    },
+    {
+      "id": "logic-rand-2",
+      "function": "fuse/pkg/logic/rand"
+    },
+    {
+      "id": "logic-rand-3",
+      "function": "fuse/pkg/logic/rand"
+    },
+    {
+      "id": "logic-sum",
+      "function": "fuse/pkg/logic/sum"
+    },
+    {
+      "id": "if-conditional",
+      "function": "fuse/pkg/logic/if"
+    },
+    {
+      "id": "nil-true",
+      "function": "fuse/pkg/debug/nil"
+    },
+    {
+      "id": "nil-false",
+      "function": "fuse/pkg/debug/nil"
+    }
+  ],
+  "edges": [
+    {
+      "id": "019679f3-f808-7be9-a565-a2e8c13d906a",
+      "from": "debug-nil",
+      "to": "logic-timer",
+      "input": [
+        {
+          "source": "schema",
+          "value": 200,
+          "mapTo": "timer"
+        }
+      ]
+    },
+    {
+      "id": "01965ddc-8890-7eed-a894-6fbabbf8681f",
+      "from": "logic-timer",
+      "to": "logic-rand-1",
+      "input": [
+        {
+          "source": "schema",
+          "value": 300,
+          "mapTo": "min"
+        },
+        {
+          "source": "schema",
+          "value": 3000,
+          "mapTo": "max"
+        }
+      ]
+    },
+    {
+      "id": "01965ddc-8890-76ca-8c0b-e65655437777",
+      "from": "logic-timer",
+      "to": "logic-rand-2",
+      "input": [
+        {
+          "source": "schema",
+          "value": 300,
+          "mapTo": "min"
+        },
+        {
+          "source": "schema",
+          "value": 3000,
+          "mapTo": "max"
+        }
+      ]
+    },
+    {
+      "id": "01965e1b-a954-7bde-ad0b-744b7ba78332",
+      "from": "logic-timer",
+      "to": "logic-rand-3",
+      "input": [
+        {
+          "source": "schema",
+          "value": 300,
+          "mapTo": "min"
+        },
+        {
+          "source": "schema",
+          "value": 3000,
+          "mapTo": "max"
+        }
+      ]
+    },
+    {
+      "id": "01965e15-b7fc-7e9b-8ccb-cebb0e3e4d36",
+      "from": "logic-rand-1",
+      "to": "logic-sum",
+      "input": [
+        {
+          "source": "flow",
+          "variable": "logic-rand-1.rand",
+          "mapTo": "values"
+        }
+      ]
+    },
+    {
+      "id": "01965e15-b7fc-7e9b-8ccb-cebb0e3e4d36",
+      "from": "logic-rand-2",
+      "to": "logic-sum",
+      "input": [
+        {
+          "source": "flow",
+          "variable": "logic-rand-2.rand",
+          "mapTo": "values"
+        }
+      ]
+    },
+    {
+      "id": "01965e15-b7fc-7e9b-8ccb-cebb0e3e4d36",
+      "from": "logic-rand-3",
+      "to": "logic-sum",
+      "input": [
+        {
+          "source": "flow",
+          "variable": "logic-rand-3.rand",
+          "mapTo": "values"
+        }
+      ]
+    },
+    {
+      "id": "01967474-ed78-73b8-a01f-275498bdc2c6",
+      "from": "logic-sum",
+      "to": "if-conditional",
+      "input": [
+        {
+          "source": "flow",
+          "variable": "logic-sum.sum",
+          "mapTo": "sum"
+        },
+        {
+          "source": "schema",
+          "value": 1500,
+          "mapTo": "threshold"
+        },
+        {
+          "source": "schema",
+          "value": "sum > threshold",
+          "mapTo": "expression"
+        }
+      ]
+    },
+    {
+      "id": "01967737-9174-7abb-83af-1fc93c6a54bf",
+      "from": "if-conditional",
+      "to": "nil-true",
+      "conditional": {
+        "name": "if-true",
+        "value": true
+      },
+      "input": []
+    },
+    {
+      "id": "01967738-9b23-7973-8096-af24ffc82f0f",
+      "from": "if-conditional",
+      "to": "nil-false",
+      "conditional": {
+        "name": "if-false",
+        "value": false
+      },
+      "input": []
+    }
+  ]
+}
