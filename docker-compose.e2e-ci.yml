@@ -75,14 +75,15 @@ services:
   fuse-s3:
     image: rustfs/rustfs:latest
     environment:
-      ACCESS_KEY: rustfsadmin
-      SECRET_KEY: rustfsadmin
-    command:
-      ["server", "--host", "0.0.0.0", "--port", "9000", "--auto-create-bucket"]
+      RUSTFS_ACCESS_KEY: rustfsadmin
+      RUSTFS_SECRET_KEY: rustfsadmin
+      RUSTFS_ADDRESS: "0.0.0.0:9000"
+      RUSTFS_VOLUMES: "/data"
+    # Image entrypoint runs /usr/bin/rustfs with data dir; do not use legacy MinIO-style "server" CLI.
     networks:
       - e2e
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:9000/health || exit 1"]
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:9000/health >/dev/null || exit 1"]
       interval: 3s
       timeout: 3s
       retries: 10
