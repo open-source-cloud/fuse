@@ -126,6 +126,46 @@ func NewWorkers() *Workers {
 				},
 			},
 			{
+				Name:    handlers.ListSchemaVersionsHandlerName,
+				Pattern: "/v1/schemas/{schemaID}/versions",
+				Methods: []string{"GET"},
+				Timeout: 10 * time.Second,
+				PoolConfig: WorkerPoolConfig{
+					Name:     handlers.ListSchemaVersionsHandlerPoolName,
+					PoolSize: 3,
+				},
+			},
+			{
+				Name:    handlers.GetSchemaVersionHandlerName,
+				Pattern: "/v1/schemas/{schemaID}/versions/{version}",
+				Methods: []string{"GET"},
+				Timeout: 10 * time.Second,
+				PoolConfig: WorkerPoolConfig{
+					Name:     handlers.GetSchemaVersionHandlerPoolName,
+					PoolSize: 3,
+				},
+			},
+			{
+				Name:    handlers.ActivateSchemaVersionHandlerName,
+				Pattern: "/v1/schemas/{schemaID}/versions/{version}/activate",
+				Methods: []string{"POST"},
+				Timeout: 10 * time.Second,
+				PoolConfig: WorkerPoolConfig{
+					Name:     handlers.ActivateSchemaVersionHandlerPoolName,
+					PoolSize: 3,
+				},
+			},
+			{
+				Name:    handlers.RollbackSchemaHandlerName,
+				Pattern: "/v1/schemas/{schemaID}/rollback",
+				Methods: []string{"POST"},
+				Timeout: 10 * time.Second,
+				PoolConfig: WorkerPoolConfig{
+					Name:     handlers.RollbackSchemaHandlerPoolName,
+					PoolSize: 3,
+				},
+			},
+			{
 				Name:    handlers.ListExecutionsHandlerName,
 				Pattern: "/v1/schemas/{schemaID}/executions",
 				Methods: []string{"GET"},
