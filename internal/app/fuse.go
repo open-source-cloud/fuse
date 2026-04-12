@@ -130,7 +130,11 @@ func buildNodeName(cfg *config.Config) gen.Atom {
 			if podName != "" && podIP != "" {
 				nodeName = fmt.Sprintf("fuse-%s@%s", podName, podIP)
 			} else {
-				hostname, _ := os.Hostname()
+				hostname, err := os.Hostname()
+				if err != nil || hostname == "" {
+					log.Warn().Err(err).Msg("failed to get hostname, falling back to localhost for node name")
+					hostname = "localhost"
+				}
 				nodeName = fmt.Sprintf("fuse@%s", hostname)
 			}
 		}
