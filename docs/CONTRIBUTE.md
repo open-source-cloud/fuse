@@ -17,24 +17,15 @@ Thank you for your interest in contributing to FUSE (Utility for Stateful Events
 3. Set up upstream remote: `git remote add upstream https://github.com/open-source-cloud/fuse.git`
 4. Create a new branch for your changes: `git checkout -b feature/your-feature-name`
 
-## Roadmap-driven development
-
-Large features are specified in [docs/roadmap/README.md](roadmap/README.md) and the phase documents:
-
-1. [Phase 1 — Foundation](roadmap/phase-1-foundation.md) — durability, retries, timeouts, completion, validation  
-2. [Phase 2 — Control flow](roadmap/phase-2-control-flow.md) — sleep/wait, cancel, sub-workflows, conditionals, merge  
-3. [Phase 3 — Operational](roadmap/phase-3-operational.md) — triggers, concurrency, rate limits, idempotency, traces  
-4. [Phase 4 — Polish](roadmap/phase-4-polish.md) — foreach/batch, schema versioning  
-
-Prefer implementing in dependency order (Phase 1 before features that assume a persisted journal, and so on). Follow the project’s test and quality workflow: **Lint → Build → Test** (`make lint && make build && make test`) before every commit.
-
 ### API and documentation changes
 
 When you add or change HTTP behavior:
 
 1. Update Swagger annotations on handlers and regenerate OpenAPI: `make swagger`.
-2. Update [docs/API.md](API.md) for human-readable REST docs (implemented vs [roadmap](roadmap/) **Planned** sections).
+2. Update [docs/API.md](API.md) for human-readable REST docs.
 3. Update the root [README.md](../README.md) route summary only if the public surface changes.
+
+Follow the project’s quality workflow: **Lint → Build → Test** (`make lint && make build && make test`) before every commit.
 
 ## Development Workflow
 
@@ -74,7 +65,7 @@ make lint-fix
 - `deploy/helm/fuse/`: Kubernetes Helm chart
 - `tests/`: E2E tests (`go test -tags=e2e ./tests/e2e` against a live API; env `E2E_API_URL`, default `http://localhost:9090`; optional `-args -workflows=dir` or `E2E_WORKFLOWS_DIR`). One `workflow_*_e2e_test.go` per `examples/workflows/*.json`, REST smoke tests in `apis_e2e_test.go`. Helper tests: `go test ./tests/e2e`
 - `bin/`: Build artifacts (not committed to git)
-- `docs/`: Documentation (including `docs/roadmap/` specs)
+- `docs/`: Documentation
 - `examples/`: Example usage and configurations
 
 ### Coding Style
@@ -125,7 +116,7 @@ make lint-fix
 
 ## License
 
-By contributing to FUSE, you agree that your contributions will be licensed under the project's license.
+By contributing to FUSE, you agree that your contributions will be licensed under the [Apache License 2.0](../LICENSE).
 
 ## Questions and Support
 

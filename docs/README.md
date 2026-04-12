@@ -2,7 +2,7 @@
 
 This directory contains auto-generated Swagger/OpenAPI documentation for the FUSE Workflow Engine API.
 
-**Human-readable REST overview:** [API.md](API.md) (implemented routes vs roadmap-planned items).
+**Human-readable REST overview:** [API.md](API.md).
 
 ## Generated Files
 

@@ -182,26 +182,9 @@ Real examples: [`examples/workflows/`](../examples/workflows/).
 
 ---
 
-# Planned endpoints and fields (roadmap)
+## API versioning
 
-**Not implemented until the linked phase ships.** Names and paths may change slightly during implementation; see [docs/roadmap/](roadmap/).
-
-| Item | Phase | Notes |
-| ---- | ----- | ----- |
-| `POST /v1/workflows/{workflowID}/cancel` | [2](roadmap/phase-2-control-flow.md) | User-initiated cancellation |
-| `POST /v1/awakeables/{awakeableID}/resolve` | [2](roadmap/phase-2-control-flow.md) | Resolve wait-for-event / awakeable |
-| `idempotencyKey`, optional `schemaVersion` on trigger body | [3](roadmap/phase-3-operational.md), [4](roadmap/phase-4-polish.md) | Dedup and version pinning |
-| `GET /v1/workflows/{workflowID}/trace` | [3](roadmap/phase-3-operational.md) | Persisted execution trace |
-| `GET /v1/schemas/{schemaID}/traces` | [3](roadmap/phase-3-operational.md) | Traces by schema |
-| Cron / webhook / event triggers (`/v1/hooks/...`, internal bus) | [3](roadmap/phase-3-operational.md) | Beyond HTTP-only trigger |
-| `GET/POST /v1/schemas/.../versions` etc. | [4](roadmap/phase-4-polish.md) | Versioned schemas, activate, rollback |
-
----
-
-## Rate limiting and API versioning
-
-- **Rate limiting:** not implemented on the API today; roadmap Phase 3 includes function-level rate limits.
-- **Versioning:** URL prefix `/v1/`. Breaking changes would introduce a new prefix.
+All endpoints use the `/v1/` prefix. Breaking changes will introduce a new version prefix.
 
 ## Support
 

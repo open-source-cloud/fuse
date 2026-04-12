@@ -96,10 +96,10 @@ Default Service type is `ClusterIP` on port `9090` (`service.port`). Expose with
 
 ## Production and HA checklist
 
-1. **Single writer vs many replicas:** Today, workflow state and repositories are largely **in-memory**. Multiple `standalone` replicas behind a load balancer can each hold **different** workflow state unless you add **shared, durable** backends (see [docs/roadmap/phase-1-foundation.md](roadmap/phase-1-foundation.md) and [phase-3-operational.md](roadmap/phase-3-operational.md)).
-2. **Ergo cluster mode:** Multi-node ergo addresses **actor distribution**; workflow **graph schemas** are replicated across peers in cluster mode via ergo Events (see above). You still need **durable workflow/journal/idempotency** stores for crash safety and consistent behavior across restarts.
-3. **Idempotency and triggers:** Roadmap Phase 3 covers trigger idempotency; until then, clients should avoid assuming deduplication across retries at the API layer.
-4. **Observability:** Use pod logs, metrics from your platform, and (once implemented) persisted traces from the roadmap.
+1. **Shared state:** For multi-replica deployments, configure PostgreSQL (`database.driver: postgres`) and S3 (`objectStore.driver: s3`) so all nodes share durable state.
+2. **Ergo cluster mode:** Multi-node ergo addresses **actor distribution**; workflow **graph schemas** are replicated across peers in cluster mode via ergo Events (see above). Configure durable stores for crash safety and consistent behavior across restarts.
+3. **Idempotency:** Use `idempotencyKey` on trigger requests to prevent duplicate workflow executions.
+4. **Observability:** Use pod logs, structured logging (zerolog), and execution traces via the API.
 
 ## Vertical scaling
 
