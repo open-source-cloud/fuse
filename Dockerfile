@@ -16,7 +16,7 @@ RUN go mod download \
 
 ## Runnable container
 
-FROM gcr.io/distroless/base-debian12 AS runnable
+FROM gcr.io/distroless/static-debian12 AS runnable
 
 COPY --from=build /app/bin/fuse /
 
