@@ -86,7 +86,11 @@ func provideClaimRepository(p repoParams) repositories.ClaimRepository {
 	return repositories.NewMemoryClaimRepository()
 }
 
-func provideTraceRepository(_ repoParams) repositories.TraceRepository {
+func provideTraceRepository(p repoParams) repositories.TraceRepository {
+	if p.Config.Database.Driver == config.DBDriverPostgres && p.Pool != nil {
+		log.Debug().Msg("using postgres trace repository")
+		return postgres.NewTraceRepository(p.Pool, p.Store)
+	}
 	log.Debug().Msg("using memory trace repository")
 	return repositories.NewMemoryTraceRepository()
 }

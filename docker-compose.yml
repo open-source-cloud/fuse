@@ -245,6 +245,7 @@ services:
   fuse-e2e-1:
     <<: *fuse-e2e-service
     container_name: fuse-e2e-1
+    hostname: fuse-e2e-node-1
     profiles: ["e2e"]
     ports:
       - "9091:9090"
@@ -255,6 +256,7 @@ services:
   fuse-e2e-2:
     <<: *fuse-e2e-service
     container_name: fuse-e2e-2
+    hostname: fuse-e2e-node-2
     profiles: ["e2e"]
     ports:
       - "9092:9090"
@@ -265,6 +267,7 @@ services:
   fuse-e2e-3:
     <<: *fuse-e2e-service
     container_name: fuse-e2e-3
+    hostname: fuse-e2e-node-3
     profiles: ["e2e"]
     ports:
       - "9093:9090"
