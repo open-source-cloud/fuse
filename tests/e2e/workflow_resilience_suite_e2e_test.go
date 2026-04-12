@@ -11,8 +11,6 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-const errMsgWorkflowShouldReachTerminal = "workflow should reach terminal state"
-
 // WorkflowResilienceSuite verifies error handling, retry mechanisms,
 // and timeout recovery in workflow execution.
 type WorkflowResilienceSuite struct {
@@ -21,10 +19,6 @@ type WorkflowResilienceSuite struct {
 	baseURL      string
 	workflowsDir string
 }
-
-const (
-	errMsgWorkflowShouldReachTerminal = "workflow should reach terminal state"
-)
 
 func TestWorkflowResilienceSuite(t *testing.T) {
 	t.Parallel()

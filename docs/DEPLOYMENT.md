@@ -6,7 +6,7 @@ FUSE ships a Helm chart under [`deploy/helm/fuse/`](../deploy/helm/fuse/). It ta
 
 - Kubernetes 1.24+ (typical; align with your platform)
 - Helm 3
-- A container image (chart default: `ghcr.io/open-source-cloud/fuse` — override `image.repository` / `image.tag` in `values.yaml`)
+- A container image (chart default: `uranustechnologies/fuse` on DockerHub — override `image.repository` / `image.tag` in `values.yaml`)
 
 ## Install
 

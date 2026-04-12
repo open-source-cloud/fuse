@@ -6,7 +6,7 @@ mode: standalone
 
 image:
   # -- Container image repository
-  repository: ghcr.io/open-source-cloud/fuse
+  repository: uranustechnologies/fuse
   # -- Container image tag (pin per release; align with Chart appVersion)
   tag: "0.0.0-dev"
   # -- Image pull policy
