@@ -13,7 +13,7 @@ func newHealthCommand() *cobra.Command {
 		Use:   "health",
 		Short: "Check the health of the FUSE server",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			url := fmt.Sprintf("http://127.0.0.1:%s/readyz", port)
+			url := fmt.Sprintf("http://127.0.0.1:%s/health", port)
 			client := &http.Client{Timeout: 3 * time.Second}
 
 			resp, err := client.Get(url)
