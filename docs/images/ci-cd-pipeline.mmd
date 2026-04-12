@@ -1,0 +1,45 @@
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#1a1a2e', 'primaryTextColor': '#e0e0e0', 'primaryBorderColor': '#4a4a6a', 'lineColor': '#6c63ff', 'secondaryColor': '#16213e', 'tertiaryColor': '#0f3460', 'background': '#0d1117', 'mainBkg': '#1a1a2e', 'nodeBorder': '#4a4a6a', 'clusterBkg': '#161b22', 'clusterBorder': '#30363d', 'titleColor': '#e0e0e0', 'edgeLabelBackground': '#161b22', 'nodeTextColor': '#e0e0e0'}}}%%
+
+flowchart LR
+    subgraph CI["CI Pipeline"]
+        direction TB
+        LINT["Lint<br/><i>golangci-lint v2</i>"]
+        BUILD["Build<br/><i>Go 1.26</i>"]
+        UNIT["Unit Tests<br/><i>100 test files</i>"]
+        BENCH["Benchmarks"]
+        HELM_LINT["Helm Lint"]
+        FUNC["Functional Tests<br/><i>PostgreSQL 17</i>"]
+
+        LINT --> BUILD
+        BUILD --> UNIT
+        UNIT --> BENCH
+        BENCH --> HELM_LINT
+        HELM_LINT --> FUNC
+    end
+
+    subgraph E2E["E2E Pipeline"]
+        direction TB
+        E2E_BUILD["Build Docker Image"]
+        E2E_INFRA["Start Infrastructure<br/><i>3 FUSE + PG + S3 + etcd</i>"]
+        E2E_FAST["Fast Tier<br/><i>all branches</i>"]
+        E2E_SLOW["Slow Tier<br/><i>main only</i>"]
+
+        E2E_BUILD --> E2E_INFRA
+        E2E_INFRA --> E2E_FAST
+        E2E_FAST --> E2E_SLOW
+    end
+
+    subgraph CD["CD Pipeline"]
+        direction TB
+        RELEASE["Semantic Release<br/><i>auto version</i>"]
+        DOCKER["Docker Build & Push<br/><i>linux/amd64 + arm64</i>"]
+        TRIVY["Trivy Scan<br/><i>vulnerability check</i>"]
+        HELM_PUB["Helm Chart Publish<br/><i>OCI registry</i>"]
+
+        RELEASE --> DOCKER
+        DOCKER --> TRIVY
+        TRIVY --> HELM_PUB
+    end
+
+    CI -->|"triggers"| E2E
+    E2E -->|"main branch"| CD

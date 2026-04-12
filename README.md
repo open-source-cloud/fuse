@@ -24,24 +24,9 @@ Built and maintained by [Uranus Technologies](https://uranus.com.br).
 
 ## Architecture
 
-```
-                    ┌─────────────────────────────────────────────┐
-                    │                 FUSE Node                   │
-                    │                                             │
-  HTTP Request ───> │  HTTP Mux ──> Workflow Supervisor           │
-                    │                    │                        │
-                    │               Instance Sup                  │
-                    │              /            \                 │
-                    │    Workflow Handler    Function Pool         │
-                    │         │                  │                │
-                    │    Graph Engine       Actor Workers         │
-                    │                                             │
-                    │  ┌───────────┐  ┌──────┐  ┌────────────┐   │
-                    │  │ PostgreSQL│  │  S3  │  │    etcd     │   │
-                    │  │ (state)   │  │(data)│  │ (discovery) │   │
-                    │  └───────────┘  └──────┘  └────────────┘   │
-                    └─────────────────────────────────────────────┘
-```
+<p align="center">
+  <img src="docs/images/architecture.svg" alt="FUSE Architecture" width="100%">
+</p>
 
 ### How it works
 
@@ -124,23 +109,22 @@ curl -X POST http://localhost:9090/v1/workflows/trigger \
 
 See [`examples/workflows/`](examples/workflows/) for more schema examples including conditional branching, parallel execution, retries, error edges, timeouts, sub-workflows, and awakeables.
 
+## Workflow execution
+
+<p align="center">
+  <img src="docs/images/workflow-execution.svg" alt="Workflow Execution Flow" width="100%">
+</p>
+
 ## Testing
 
 FUSE has a comprehensive 4-layer test strategy:
 
-```
-Unit tests          100 test files across pkg/ and internal/
-                    Table-driven tests, Arrange-Act-Assert pattern
-
-Functional tests    Contract tests against real PostgreSQL
-                    Repository behavior validation
-
-E2E fast tier       Full stack (3 FUSE nodes + PG + S3 + etcd)
-                    Workflow execution, resilience, orchestration
-
-E2E slow tier       Long-running scenarios (main branch only)
-                    Persistence, integration, stress testing
-```
+| Layer | Scope | What it validates |
+| ----- | ----- | ----------------- |
+| **Unit** | 100 test files across `pkg/` and `internal/` | Table-driven tests, Arrange-Act-Assert pattern |
+| **Functional** | Contract tests against real PostgreSQL | Repository behavior, SQL migrations, data integrity |
+| **E2E fast** | Full stack (3 FUSE nodes + PG + S3 + etcd) | Workflow execution, resilience, orchestration |
+| **E2E slow** | Long-running scenarios (main branch only) | Persistence, integration, stress testing |
 
 ```bash
 make test               # Unit tests
@@ -151,17 +135,9 @@ make e2e-local          # Full E2E suite (builds Docker, starts infra)
 
 ## CI/CD Pipeline
 
-Every change goes through a multi-stage pipeline:
-
-```
-CI                          E2E                         CD
-├── Lint (golangci-lint)    ├── Fast tier (always)      ├── Semantic release
-├── Build                   └── Slow tier (main only)   ├── Multi-arch Docker image
-├── Unit tests                                          │   (linux/amd64, linux/arm64)
-├── Benchmarks                                          ├── Trivy vulnerability scan
-├── Helm lint                                           └── Helm chart publish (OCI)
-└── Functional tests (PG)
-```
+<p align="center">
+  <img src="docs/images/ci-cd-pipeline.svg" alt="CI/CD Pipeline" width="100%">
+</p>
 
 Container images are published to [DockerHub](https://hub.docker.com/r/uranustechnologies/fuse) on every release.
 
@@ -230,6 +206,6 @@ make lint && make build && make test
 
 ## License
 
-Copyright 2025 [Uranus Technologies](https://uranus.com.br)
+Copyright 2026 [Uranus Technologies](https://uranus.com.br)
 
 Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for details.

@@ -1,0 +1,61 @@
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#1a1a2e', 'primaryTextColor': '#e0e0e0', 'primaryBorderColor': '#4a4a6a', 'lineColor': '#6c63ff', 'secondaryColor': '#16213e', 'tertiaryColor': '#0f3460', 'background': '#0d1117', 'mainBkg': '#1a1a2e', 'nodeBorder': '#4a4a6a', 'clusterBkg': '#161b22', 'clusterBorder': '#30363d', 'titleColor': '#e0e0e0', 'edgeLabelBackground': '#161b22', 'nodeTextColor': '#e0e0e0'}}}%%
+
+flowchart TB
+    subgraph CLIENT["Client"]
+        HTTP_REQ["HTTP Request"]
+    end
+
+    subgraph FUSE_ENGINE["FUSE Engine"]
+        direction TB
+
+        subgraph HTTP_LAYER["HTTP Layer"]
+            MUX["HTTP Mux Server<br/><i>gorilla/mux</i>"]
+            WEB["WebWorker Pool<br/><i>Actor-based handlers</i>"]
+        end
+
+        subgraph ACTOR_LAYER["Actor Layer &nbsp;(ergo.services)"]
+            SUP["Workflow Supervisor"]
+            INST["Instance Supervisor<br/><i>per workflow</i>"]
+            WH["Workflow Handler<br/><i>graph walker</i>"]
+            POOL["Function Pool<br/><i>worker actors</i>"]
+        end
+
+        subgraph BUSINESS_LAYER["Business Layer"]
+            SVC_WF["Workflow Service"]
+            SVC_PKG["Package Service"]
+            SVC_SCHEMA["Schema Service"]
+        end
+
+        subgraph DATA_LAYER["Data Layer"]
+            REPO_WF["Workflow Repo"]
+            REPO_GRAPH["Graph Repo"]
+            REPO_JOURNAL["Journal Repo"]
+            REPO_PKG["Package Repo"]
+        end
+    end
+
+    subgraph INFRA["Infrastructure"]
+        PG[("PostgreSQL<br/><i>State & journals</i>")]
+        S3[("S3-Compatible<br/><i>Payload store</i>")]
+        ETCD[("etcd<br/><i>Cluster discovery</i>")]
+    end
+
+    HTTP_REQ --> MUX
+    MUX --> WEB
+    WEB --> SUP
+    SUP --> INST
+    INST --> WH
+    INST --> POOL
+    WH --> SVC_WF
+    WH --> SVC_SCHEMA
+    POOL --> SVC_PKG
+    SVC_WF --> REPO_WF
+    SVC_WF --> REPO_JOURNAL
+    SVC_SCHEMA --> REPO_GRAPH
+    SVC_PKG --> REPO_PKG
+    REPO_WF --> PG
+    REPO_GRAPH --> PG
+    REPO_JOURNAL --> PG
+    REPO_PKG --> PG
+    SVC_WF --> S3
+    SUP -.->|"cluster sync"| ETCD

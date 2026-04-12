@@ -1,0 +1,64 @@
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#1a1a2e', 'primaryTextColor': '#e0e0e0', 'primaryBorderColor': '#4a4a6a', 'lineColor': '#6c63ff', 'secondaryColor': '#16213e', 'tertiaryColor': '#0f3460', 'background': '#0d1117', 'mainBkg': '#1a1a2e', 'nodeBorder': '#4a4a6a', 'clusterBkg': '#161b22', 'clusterBorder': '#30363d', 'titleColor': '#e0e0e0', 'edgeLabelBackground': '#161b22', 'nodeTextColor': '#e0e0e0'}}}%%
+
+flowchart TB
+    TRIGGER["POST /v1/workflows/trigger"]
+
+    subgraph INIT["Initialization"]
+        LOAD["Load Graph Schema"]
+        SPAWN["Spawn Instance Supervisor"]
+        JOURNAL["Create Journal Entry"]
+    end
+
+    subgraph EXEC["Execution Loop"]
+        direction TB
+        RESOLVE["Resolve Next Node(s)"]
+        SPAWN_ACTOR["Spawn Node Actor"]
+
+        subgraph NODE_EXEC["Node Execution"]
+            direction LR
+            FN["Execute Function"]
+            RETRY{"Retry?"}
+            TIMEOUT{"Timeout?"}
+        end
+
+        EVAL{"Evaluate<br/>Output Edges"}
+    end
+
+    subgraph BRANCHING["Edge Resolution"]
+        COND["Conditional<br/><i>expr-lang</i>"]
+        ERROR["Error Edge<br/><i>recovery path</i>"]
+        DEFAULT["Default Edge<br/><i>next node</i>"]
+    end
+
+    subgraph PARALLEL["Parallel Execution"]
+        FORK["Fan-out<br/><i>concurrent actors</i>"]
+        JOIN["Join / Merge<br/><i>configurable strategy</i>"]
+    end
+
+    TERMINAL(["Workflow Complete"])
+    ASYNC["Async: Wait for<br/>External Callback"]
+
+    TRIGGER --> LOAD
+    LOAD --> SPAWN
+    SPAWN --> JOURNAL
+    JOURNAL --> RESOLVE
+    RESOLVE --> SPAWN_ACTOR
+    SPAWN_ACTOR --> FN
+    FN --> RETRY
+    RETRY -->|"retries left"| FN
+    FN --> TIMEOUT
+    TIMEOUT -->|"exceeded"| ERROR
+    RETRY -->|"exhausted"| ERROR
+    FN -->|"success"| EVAL
+    EVAL --> COND
+    EVAL --> DEFAULT
+    EVAL --> ERROR
+    COND --> RESOLVE
+    DEFAULT --> RESOLVE
+    ERROR --> RESOLVE
+    RESOLVE -->|"parallel branches"| FORK
+    FORK --> SPAWN_ACTOR
+    JOIN --> EVAL
+    RESOLVE -->|"no more nodes"| TERMINAL
+    FN -->|"async node"| ASYNC
+    ASYNC -->|"callback received"| EVAL
