@@ -14,7 +14,7 @@ import (
 )
 
 func noopConfig() *config.Config {
-	cfg := config.Instance()
+	cfg := &config.Config{}
 	cfg.Otel.Enabled = false
 	return cfg
 }
@@ -67,7 +67,21 @@ func TestProvider_injectExtractCarrier_nilCarrier(t *testing.T) {
 
 	ctx := context.Background()
 	// Extracting a nil carrier must return the original context unchanged.
+	// Note: in Go, len(nilMap) == 0, so this follows the same empty-carrier path.
 	out := p.ExtractCarrier(ctx, nil)
+	assert.Equal(t, ctx, out)
+}
+
+func TestProvider_injectExtractCarrier_emptyCarrier(t *testing.T) {
+	cfg := noopConfig()
+	p, err := tracing.NewProvider(cfg)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	carrier := map[string]string{}
+
+	// Extracting an empty (non-nil) carrier must also return the original context.
+	out := p.ExtractCarrier(ctx, carrier)
 	assert.Equal(t, ctx, out)
 }
 
@@ -85,4 +99,5 @@ func TestProvider_startSpanReturnsChildContext(t *testing.T) {
 	// Span from child context must be valid.
 	spanFromCtx := trace.SpanFromContext(childCtx)
 	assert.NotNil(t, spanFromCtx)
+	assert.Equal(t, span, spanFromCtx)
 }
