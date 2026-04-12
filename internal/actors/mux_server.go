@@ -25,9 +25,9 @@ type MuxServerFactory ActorFactory[*muxServer]
 // muxServer is a mux server actor
 type muxServer struct {
 	act.Actor
-	workers      *Workers
-	config       *config.Config
-	fuseMetrics  *metrics.FuseMetrics
+	workers       *Workers
+	config        *config.Config
+	fuseMetrics   *metrics.FuseMetrics
 	ergoCollector *metrics.ErgoNodeCollector
 }
 
