@@ -116,7 +116,7 @@
       ]
     },
     {
-      "id": "01965e15-b7fc-7e9b-8ccb-cebb0e3e4d36",
+      "id": "01965e15-b7fc-7e9b-8ccb-cebb0e3e4d37",
       "from": "logic-rand-2",
       "to": "logic-sum",
       "input": [
@@ -128,7 +128,7 @@
       ]
     },
     {
-      "id": "01965e15-b7fc-7e9b-8ccb-cebb0e3e4d36",
+      "id": "01965e15-b7fc-7e9b-8ccb-cebb0e3e4d38",
       "from": "logic-rand-3",
       "to": "logic-sum",
       "input": [
