@@ -48,6 +48,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: release
     if: needs.release.outputs.released == 'true'
+    environment: prod
     permissions:
       security-events: write
 
@@ -106,6 +107,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [release, deploy]
     if: needs.release.outputs.released == 'true'
+    environment: prod
 
     steps:
       - name: Checkout repository
