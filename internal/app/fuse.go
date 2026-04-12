@@ -77,7 +77,7 @@ func NewApp(
 	// add logger to the node
 	logger, err := logging.ErgoLogger()
 	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("failed to create ergo logger: %w", err))
 	}
 	options.Log.Loggers = append(options.Log.Loggers, gen.Logger{Name: "zerolog", Logger: logger})
 
