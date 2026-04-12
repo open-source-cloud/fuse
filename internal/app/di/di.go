@@ -7,6 +7,7 @@ import (
 	"ergo.services/ergo/gen"
 	"github.com/open-source-cloud/fuse/internal/app"
 	"github.com/open-source-cloud/fuse/internal/app/config"
+	"github.com/open-source-cloud/fuse/internal/readiness"
 	"github.com/open-source-cloud/fuse/internal/logging"
 	"github.com/open-source-cloud/fuse/internal/metrics"
 	"github.com/open-source-cloud/fuse/internal/packages"
@@ -52,6 +53,7 @@ var PackageModule = fx.Module(
 var FuseAppModule = fx.Module(
 	"fuse_app",
 	fx.Provide(
+		readiness.NewFlag,
 		app.NewApp,
 	),
 	fx.Invoke(func(_ gen.Node) {}),

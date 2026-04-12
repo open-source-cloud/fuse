@@ -9,6 +9,7 @@ import (
 
 	"github.com/open-source-cloud/fuse/internal/actors/actornames"
 	"github.com/open-source-cloud/fuse/internal/messaging"
+	"github.com/open-source-cloud/fuse/internal/readiness"
 	"github.com/open-source-cloud/fuse/internal/tracing"
 
 	"ergo.services/application/observer"
@@ -41,6 +42,7 @@ func NewApp(
 	eventTrigger *actors.EventTriggerFactory,
 	tracingProvider *tracing.Provider,
 	_ PackagesReady,
+	readinessFlag *readiness.Flag,
 ) (gen.Node, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
@@ -61,6 +63,7 @@ func NewApp(
 		webhookRouter:        webhookRouter,
 		eventTrigger:         eventTrigger,
 		tracingProvider:      tracingProvider,
+		readinessFlag:        readinessFlag,
 	})
 	if cfg.Params.ActorObserver {
 		apps = append(apps, observer.CreateApp(observer.Options{}))
@@ -162,6 +165,7 @@ type Fuse struct {
 	webhookRouter        *actors.WebhookRouterFactory
 	eventTrigger         *actors.EventTriggerFactory
 	tracingProvider      *tracing.Provider
+	readinessFlag        *readiness.Flag
 	node                 gen.Node
 }
 
@@ -219,6 +223,9 @@ func (app *Fuse) Load(node gen.Node, _ ...any) (gen.ApplicationSpec, error) {
 
 // Start invoked once the application started
 func (app *Fuse) Start(_ gen.ApplicationMode) {
+	// Mark application as ready — all group actors are running at this point.
+	app.readinessFlag.SetReady()
+
 	// Trigger workflow recovery for any in-progress workflows from a previous run
 	recoverMsg := messaging.Message{Type: messaging.RecoverWorkflows}
 	if err := app.node.Send(gen.Atom(actornames.WorkflowSupervisorName), recoverMsg); err != nil {
