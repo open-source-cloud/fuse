@@ -9,6 +9,7 @@ import (
 
 	"github.com/open-source-cloud/fuse/internal/actors/actornames"
 	"github.com/open-source-cloud/fuse/internal/messaging"
+	"github.com/open-source-cloud/fuse/internal/readiness"
 	"github.com/open-source-cloud/fuse/internal/tracing"
 
 	"ergo.services/application/observer"
@@ -21,7 +22,14 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// NewApp creates a new FUSE application, in the context of the FX dependency injection engine and the Ergo framework
+// PackagesReady is a marker type signaling that internal packages have been
+// registered in the package registry. NewApp depends on this so that actors
+// spawned during ergo node startup can resolve package metadata.
+type PackagesReady struct{}
+
+// NewApp creates a new FUSE application, in the context of the FX dependency injection engine and the Ergo framework.
+// It depends on PackagesReady to ensure internal packages are registered
+// before the ergo node and its actors start.
 func NewApp(
 	cfg *config.Config,
 	workflowSup *actors.WorkflowSupervisorFactory,
@@ -33,6 +41,8 @@ func NewApp(
 	webhookRouter *actors.WebhookRouterFactory,
 	eventTrigger *actors.EventTriggerFactory,
 	tracingProvider *tracing.Provider,
+	_ PackagesReady,
+	readinessFlag *readiness.Flag,
 ) (gen.Node, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
@@ -53,6 +63,7 @@ func NewApp(
 		webhookRouter:        webhookRouter,
 		eventTrigger:         eventTrigger,
 		tracingProvider:      tracingProvider,
+		readinessFlag:        readinessFlag,
 	})
 	if cfg.Params.ActorObserver {
 		apps = append(apps, observer.CreateApp(observer.Options{}))
@@ -154,47 +165,62 @@ type Fuse struct {
 	webhookRouter        *actors.WebhookRouterFactory
 	eventTrigger         *actors.EventTriggerFactory
 	tracingProvider      *tracing.Provider
+	readinessFlag        *readiness.Flag
 	node                 gen.Node
 }
 
 // Load invoked on loading application using the method ApplicationLoad of gen.Node interface.
 func (app *Fuse) Load(node gen.Node, _ ...any) (gen.ApplicationSpec, error) {
 	app.node = node
+
+	// Use the maximum allowed init timeout for application group members
+	// (3× DefaultRequestTimeout = 15s). The default 5s is too tight for
+	// CI runners where 3 nodes start concurrently and contend for resources.
+	opts := gen.ProcessOptions{InitTimeout: gen.DefaultRequestTimeout * 3}
+
 	group := []gen.ApplicationMemberSpec{
 		{
 			Name:    actornames.WorkflowSupervisorName,
 			Factory: app.workflowSup.Factory,
+			Options: opts,
 		},
 		{
 			Name:    actornames.MuxServerSupName,
 			Factory: app.serverSup.Factory,
+			Options: opts,
 		},
 		{
 			Name:    actornames.SchemaReplicationActorName,
 			Factory: app.schemaReplicationSup.Factory,
+			Options: opts,
 		},
 		{
 			Name:    actornames.CronSchedulerName,
 			Factory: app.cronScheduler.Factory,
+			Options: opts,
 		},
 		{
 			Name:    actornames.WebhookRouterName,
 			Factory: app.webhookRouter.Factory,
+			Options: opts,
 		},
 		{
 			Name:    actornames.EventTriggerName,
 			Factory: app.eventTrigger.Factory,
+			Options: opts,
 		},
 	}
 	if app.config.HA.Enabled {
 		group = append(group, gen.ApplicationMemberSpec{
 			Name:    actornames.WorkflowClaimActorName,
 			Factory: app.claimActor.Factory,
+			Options: opts,
 		})
 		if app.pgListenerActor.Factory != nil {
 			group = append(group, gen.ApplicationMemberSpec{
 				Name:    actornames.PgListenerActorName,
 				Factory: app.pgListenerActor.Factory,
+				Options: opts,
 			})
 		}
 	}
@@ -211,6 +237,9 @@ func (app *Fuse) Load(node gen.Node, _ ...any) (gen.ApplicationSpec, error) {
 
 // Start invoked once the application started
 func (app *Fuse) Start(_ gen.ApplicationMode) {
+	// Mark application as ready — all group actors are running at this point.
+	app.readinessFlag.SetReady()
+
 	// Trigger workflow recovery for any in-progress workflows from a previous run
 	recoverMsg := messaging.Message{Type: messaging.RecoverWorkflows}
 	if err := app.node.Send(gen.Atom(actornames.WorkflowSupervisorName), recoverMsg); err != nil {

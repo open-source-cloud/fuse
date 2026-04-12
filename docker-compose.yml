@@ -1,103 +1,124 @@
-# Ergo cluster dev (3 nodes, air hot reload):
-#   docker compose --profile fuse-dev up --build
+# Unified FUSE Docker Compose
 #
-# HTTP: http://localhost:9090 (standalone fuse-dev) or http://localhost:9091..9093 (cluster nodes).
-# Cluster acceptor 15000 is reachable on fuse-network only (container DNS: fuse-node-{1,2,3}:15000).
+# Profiles:
+#   infra   – PostgreSQL + S3 (rustfs) + etcd         (standalone infra for local dev)
+#   ha      – 3 Fuse nodes (HA) + infra               (build from source, HA cluster)
+#   e2e     – 3 Fuse nodes (HA) + infra + migrate     (pre-built image, CI/E2E)
 #
-# Ergo node names match buildNodeName() with hostname fallback: fuse@fuse-node-1, etc.
-# CLUSTER_PEER_NODES must list every replica so schema replication (ergo Events) can MonitorEvent peers.
+# Examples:
+#   docker compose --profile infra up -d                # infra only (local dev, run fuse on host)
+#   docker compose --profile ha up --build -d           # full HA cluster built from source
+#   docker compose --profile e2e up -d --wait           # E2E with pre-built fuse-app:test image
+#
+# Ports:
+#   PostgreSQL → localhost:5432
+#   S3 (rustfs) → localhost:9000
+#   etcd → localhost:2379
+#   fuse-1 → localhost:9091   fuse-2 → localhost:9092   fuse-3 → localhost:9093
 
-x-fuse-dev-service: &fuse-dev-service
-  profiles: ["fuse-dev"]
+# ─── Shared environment blocks ──────────────────────────────────────────────
+
+x-pg-env: &pg-env
+  POSTGRES_USER: fuse
+  POSTGRES_PASSWORD: fuse
+  POSTGRES_DB: fuse
+
+x-fuse-env-common: &fuse-env-common
+  HOST: "0.0.0.0"
+  PORT: "9090"
+  LOG_LEVEL: "${LOG_LEVEL:-info}"
+  SHUTDOWN_TIMEOUT: "${SHUTDOWN_TIMEOUT:-30s}"
+  DB_DRIVER: "postgres"
+  DB_POSTGRES_DSN: "postgres://fuse:fuse@postgres:5432/fuse?sslmode=disable"
+  DB_MAX_OPEN_CONNS: "10"
+  DB_MAX_IDLE_CONNS: "3"
+  DB_CONN_MAX_LIFETIME: "5m"
+  OBJECT_STORE_DRIVER: "s3"
+  OBJECT_STORE_S3_BUCKET: "fuse-data"
+  OBJECT_STORE_S3_ENDPOINT: "s3:9000"
+  OBJECT_STORE_S3_REGION: "us-east-1"
+  OBJECT_STORE_S3_ACCESS_KEY: "rustfsadmin"
+  OBJECT_STORE_S3_SECRET_KEY: "rustfsadmin"
+  OBJECT_STORE_S3_USE_SSL: "false"
+  CLUSTER_ENABLED: "true"
+  CLUSTER_COOKIE: "${CLUSTER_COOKIE:-fuse-ha-secret}"
+  CLUSTER_ACCEPTOR_PORT: "15000"
+  CLUSTER_DISCOVERY_MODE: "etcd"
+  CLUSTER_ETCD_ENDPOINTS: "http://etcd:2379"
+  CLUSTER_ETCD_CLUSTER: "fuse-ha"
+  HA_ENABLED: "true"
+  HA_HEARTBEAT_INTERVAL: "${HA_HEARTBEAT_INTERVAL:-10s}"
+  HA_CLAIM_SWEEP_INTERVAL: "${HA_CLAIM_SWEEP_INTERVAL:-5s}"
+  HA_LEASE_TIMEOUT: "${HA_LEASE_TIMEOUT:-30s}"
+
+# E2E variant: separate PG schema, shorter HA intervals for faster tests.
+x-fuse-env-e2e: &fuse-env-e2e
+  <<: *fuse-env-common
+  LOG_LEVEL: "debug"
+  SHUTDOWN_TIMEOUT: "10s"
+  DB_POSTGRES_DSN: "postgres://fuse:fuse@postgres:5432/fuse?sslmode=disable&search_path=fuse_e2e"
+  OBJECT_STORE_S3_BUCKET: "fuse-e2e"
+  HA_HEARTBEAT_INTERVAL: "5s"
+  HA_CLAIM_SWEEP_INTERVAL: "3s"
+  HA_LEASE_TIMEOUT: "15s"
+
+# ─── Shared service templates ───────────────────────────────────────────────
+
+x-fuse-ha-service: &fuse-ha-service
   build:
     context: .
-    dockerfile: Dockerfile.dev
+    dockerfile: Dockerfile
   restart: unless-stopped
-  working_dir: /app
-  volumes:
-    - .:/app
-    - ./data/fuse:/app/data/fuse
   networks:
     - fuse-network
+  depends_on:
+    postgres:
+      condition: service_healthy
+    s3:
+      condition: service_healthy
+    etcd:
+      condition: service_healthy
   healthcheck:
-    test: ["CMD", "curl", "-f", "http://127.0.0.1:9090/health"]
-    interval: 15s
+    test: ["CMD", "/fuse", "health"]
+    interval: 10s
     timeout: 5s
-    retries: 5
-    start_period: 90s
+    retries: 6
+    start_period: 30s
 
-# Single-process dev (no ergo cluster / no cross-container schema replication).
-x-fuse-env-standalone: &fuse-env-standalone
-  HOST: "0.0.0.0"
-  PORT: "9090"
-  CLUSTER_ENABLED: "false"
-  DB_DRIVER: "${DB_DRIVER:-memory}"
-  DB_POSTGRES_DSN: "postgres://fuse:fuse@postgres:5432/fuse?sslmode=disable"
-  OBJECT_STORE_DRIVER: "${OBJECT_STORE_DRIVER:-memory}"
-  OBJECT_STORE_FS_BASE_PATH: "/app/data/fuse"
+x-fuse-e2e-service: &fuse-e2e-service
+  image: fuse-app:test
+  restart: "no"
+  networks:
+    - fuse-network
+  depends_on:
+    fuse-migrate:
+      condition: service_completed_successfully
+    s3:
+      condition: service_healthy
+    etcd:
+      condition: service_healthy
+  healthcheck:
+    test: ["CMD", "/fuse", "health"]
+    interval: 5s
+    timeout: 3s
+    retries: 10
+    start_period: 10s
 
-# Three-node cluster: same peer list on each node (self is skipped for MonitorEvent in code).
-x-fuse-env-cluster: &fuse-env-cluster
-  HOST: "0.0.0.0"
-  PORT: "9090"
-  CLUSTER_ENABLED: "true"
-  CLUSTER_COOKIE: "${CLUSTER_COOKIE:-fuse-docker-dev}"
-  CLUSTER_ACCEPTOR_PORT: "${CLUSTER_ACCEPTOR_PORT:-15000}"
-  CLUSTER_PEER_NODES: "fuse@fuse-node-1,fuse@fuse-node-2,fuse@fuse-node-3"
-  DB_DRIVER: "${DB_DRIVER:-memory}"
-  DB_POSTGRES_DSN: "postgres://fuse:fuse@postgres:5432/fuse?sslmode=disable"
-  OBJECT_STORE_DRIVER: "${OBJECT_STORE_DRIVER:-memory}"
-  OBJECT_STORE_FS_BASE_PATH: "/app/data/fuse"
-  HA_ENABLED: "${HA_ENABLED:-false}"
+# ─── Infrastructure services ────────────────────────────────────────────────
 
 services:
-  fuse-dev:
-    <<: *fuse-dev-service
-    container_name: fuse-dev
-    hostname: fuse-node-dev
-    ports:
-      - "9090:9090"
-    environment:
-      <<: *fuse-env-standalone
-
-  fuse-dev-1:
-    <<: *fuse-dev-service
-    container_name: fuse-dev-1
-    hostname: fuse-node-1
-    ports:
-      - "9091:9090"
-    environment:
-      <<: *fuse-env-cluster
-
-  fuse-dev-2:
-    <<: *fuse-dev-service
-    container_name: fuse-dev-2
-    hostname: fuse-node-2
-    ports:
-      - "9092:9090"
-    environment:
-      <<: *fuse-env-cluster
-
-  fuse-dev-3:
-    <<: *fuse-dev-service
-    container_name: fuse-dev-3
-    hostname: fuse-node-3
-    ports:
-      - "9093:9090"
-    environment:
-      <<: *fuse-env-cluster
-
   postgres:
     image: postgres:17
     container_name: fuse-postgres
+    profiles: ["infra", "ha", "e2e"]
     ports:
-      - "5432:5432"
+      - "${PG_PORT:-5432}:5432"
     environment:
-      POSTGRES_USER: fuse
-      POSTGRES_PASSWORD: fuse
-      POSTGRES_DB: fuse
+      <<: *pg-env
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
+    command: ["postgres", "-c", "log_statement=none"]
     volumes:
-      - fuse-postgres-data:/var/lib/postgresql/data
+      - fuse-pg-data:/var/lib/postgresql/data
     networks:
       - fuse-network
     healthcheck:
@@ -106,8 +127,156 @@ services:
       timeout: 3s
       retries: 5
 
+  s3:
+    image: rustfs/rustfs:latest
+    container_name: fuse-s3
+    profiles: ["infra", "ha", "e2e"]
+    ports:
+      - "${S3_PORT:-9000}:9000"
+    environment:
+      RUSTFS_ACCESS_KEY: rustfsadmin
+      RUSTFS_SECRET_KEY: rustfsadmin
+      RUSTFS_ADDRESS: "0.0.0.0:9000"
+      RUSTFS_VOLUMES: "/data"
+    networks:
+      - fuse-network
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -sf http://127.0.0.1:9000/health >/dev/null || exit 1",
+        ]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.21
+    container_name: fuse-etcd
+    profiles: ["infra", "ha", "e2e"]
+    ports:
+      - "${ETCD_PORT:-2379}:2379"
+    command:
+      - etcd
+      - --name=fuse-etcd
+      - --advertise-client-urls=http://etcd:2379
+      - --listen-client-urls=http://0.0.0.0:2379
+      - --listen-peer-urls=http://0.0.0.0:2380
+    networks:
+      - fuse-network
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ─── E2E init containers ────────────────────────────────────────────────
+
+  fuse-pg-init:
+    image: postgres:17
+    profiles: ["e2e"]
+    restart: "no"
+    entrypoint:
+      [
+        "sh",
+        "-c",
+        "PGPASSWORD=fuse psql -h postgres -U fuse -d fuse -c 'CREATE SCHEMA IF NOT EXISTS fuse_e2e'",
+      ]
+    networks:
+      - fuse-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  fuse-migrate:
+    image: fuse-app:test
+    profiles: ["e2e"]
+    command: ["/fuse", "migrate"]
+    restart: "no"
+    environment:
+      DB_POSTGRES_DSN: "postgres://fuse:fuse@postgres:5432/fuse?sslmode=disable&search_path=fuse_e2e"
+    networks:
+      - fuse-network
+    depends_on:
+      fuse-pg-init:
+        condition: service_completed_successfully
+
+  # ─── HA profile: 3 Fuse nodes (built from source) ────────────────────────
+
+  fuse-ha-1:
+    <<: *fuse-ha-service
+    container_name: fuse-ha-1
+    hostname: fuse-ha-node-1
+    profiles: ["ha"]
+    ports:
+      - "9091:9090"
+      - "15001:15000"
+    environment:
+      <<: *fuse-env-common
+      HA_NODE_ID: "fuse-ha-node-1"
+
+  fuse-ha-2:
+    <<: *fuse-ha-service
+    container_name: fuse-ha-2
+    hostname: fuse-ha-node-2
+    profiles: ["ha"]
+    ports:
+      - "9092:9090"
+      - "15002:15000"
+    environment:
+      <<: *fuse-env-common
+      HA_NODE_ID: "fuse-ha-node-2"
+
+  fuse-ha-3:
+    <<: *fuse-ha-service
+    container_name: fuse-ha-3
+    hostname: fuse-ha-node-3
+    profiles: ["ha"]
+    ports:
+      - "9093:9090"
+      - "15003:15000"
+    environment:
+      <<: *fuse-env-common
+      HA_NODE_ID: "fuse-ha-node-3"
+
+  # ─── E2E profile: 3 Fuse nodes (pre-built image) ────────────────────────
+
+  fuse-e2e-1:
+    <<: *fuse-e2e-service
+    container_name: fuse-e2e-1
+    hostname: fuse-e2e-node-1
+    profiles: ["e2e"]
+    ports:
+      - "9091:9090"
+    environment:
+      <<: *fuse-env-e2e
+      HA_NODE_ID: "fuse-e2e-node-1"
+
+  fuse-e2e-2:
+    <<: *fuse-e2e-service
+    container_name: fuse-e2e-2
+    hostname: fuse-e2e-node-2
+    profiles: ["e2e"]
+    ports:
+      - "9092:9090"
+    environment:
+      <<: *fuse-env-e2e
+      HA_NODE_ID: "fuse-e2e-node-2"
+
+  fuse-e2e-3:
+    <<: *fuse-e2e-service
+    container_name: fuse-e2e-3
+    hostname: fuse-e2e-node-3
+    profiles: ["e2e"]
+    ports:
+      - "9093:9090"
+    environment:
+      <<: *fuse-env-e2e
+      HA_NODE_ID: "fuse-e2e-node-3"
+
 volumes:
-  fuse-postgres-data:
+  fuse-pg-data:
     driver: local
 
 networks:

@@ -119,6 +119,10 @@ func (a *WorkflowHandler) Init(args ...any) error {
 
 	if a.workflowRepository.Exists(initArgs.workflowID.String()) {
 		a.workflow, _ = a.workflowRepository.Get(initArgs.workflowID.String())
+		if err := a.graphService.EnsureNodeMetadata(a.workflow.Graph()); err != nil {
+			a.Log().Error("failed to populate graph node metadata for workflow %s: %s", initArgs.workflowID, err)
+			return gen.TerminateReasonPanic
+		}
 		a.startRootSpan()
 		var action workflowactions.Action
 		if a.workflow.State() == internalworkflow.StateUntriggered {

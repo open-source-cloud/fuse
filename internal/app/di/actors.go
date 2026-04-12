@@ -4,6 +4,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-source-cloud/fuse/internal/actors"
 	"github.com/open-source-cloud/fuse/internal/handlers"
+	"github.com/open-source-cloud/fuse/internal/readiness"
 	"github.com/open-source-cloud/fuse/internal/repositories/postgres"
 	"go.uber.org/fx"
 )
@@ -132,9 +133,10 @@ func providePgListenerActorFactory(p pgListenerFactoryParams) *actors.PgListener
 
 type readinessHandlerParams struct {
 	fx.In
-	Pool *pgxpool.Pool `optional:"true"`
+	Pool      *pgxpool.Pool  `optional:"true"`
+	Readiness *readiness.Flag
 }
 
 func provideReadinessHandlerFactory(p readinessHandlerParams) *handlers.ReadinessHandlerFactory {
-	return handlers.NewReadinessHandlerFactory(p.Pool)
+	return handlers.NewReadinessHandlerFactory(p.Pool, p.Readiness)
 }

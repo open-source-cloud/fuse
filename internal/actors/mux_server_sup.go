@@ -49,7 +49,7 @@ func (m *MuxServerSup) Init(_ ...any) (act.SupervisorSpec, error) {
 			Name:    worker.PoolConfig.Name,
 			Factory: pool.Factory,
 		})
-		m.Log().Info("added worker pool", "worker", worker.Name, "pool", worker.PoolConfig.Name)
+		m.Log().Info("added worker pool worker=%s pool=%s", worker.Name, worker.PoolConfig.Name)
 	}
 
 	children = append(children, act.SupervisorChildSpec{

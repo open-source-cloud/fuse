@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/open-source-cloud/fuse/internal/dtos"
+	"github.com/open-source-cloud/fuse/internal/readiness"
 )
 
 const (
@@ -22,18 +23,19 @@ const (
 type ReadinessHandlerFactory HandlerFactory[*ReadinessHandler]
 
 // ReadinessHandler handles GET /readyz — returns 200 only when the node is ready to serve traffic.
-// Readiness checks: database connectivity (when using the PostgreSQL driver).
+// Readiness checks: actor system initialization, database connectivity (when using the PostgreSQL driver).
 type ReadinessHandler struct {
 	Handler
-	pool *pgxpool.Pool // nil when using the memory driver
+	pool          *pgxpool.Pool   // nil when using the memory driver
+	readinessFlag *readiness.Flag // signals whether actors are fully started
 }
 
 // NewReadinessHandlerFactory creates a new ReadinessHandlerFactory.
 // pool may be nil when DB_DRIVER != postgres; the handler is still ready in that case.
-func NewReadinessHandlerFactory(pool *pgxpool.Pool) *ReadinessHandlerFactory {
+func NewReadinessHandlerFactory(pool *pgxpool.Pool, flag *readiness.Flag) *ReadinessHandlerFactory {
 	return &ReadinessHandlerFactory{
 		Factory: func() gen.ProcessBehavior {
-			return &ReadinessHandler{pool: pool}
+			return &ReadinessHandler{pool: pool, readinessFlag: flag}
 		},
 	}
 }
@@ -60,6 +62,16 @@ func (h *ReadinessHandler) checkReadiness() dtos.ReadinessResponse {
 		Status: "ready",
 		Checks: make(map[string]string),
 	}
+
+	// Check actor system readiness
+	if h.readinessFlag.IsNotReady() {
+		resp.Status = "not_ready"
+		resp.Checks["actors"] = "initializing"
+		return resp
+	}
+
+	resp.Checks["actors"] = "ok"
+
 	if h.pool != nil {
 		if err := h.pool.Ping(context.Background()); err != nil {
 			resp.Status = "not_ready"

@@ -33,6 +33,9 @@ type (
 		Rollback(schemaID string, toVersion int, comment string) (*workflow.SchemaVersion, error)
 		// ApplyReplicatedUpsert applies a schema from a peer cluster event (does not republish).
 		ApplyReplicatedUpsert(schemaID string, schemaJSON []byte) error
+		// EnsureNodeMetadata populates function metadata on graph nodes if not already present.
+		// This is needed when a graph is loaded from persistence without package registry access.
+		EnsureNodeMetadata(graph *workflow.Graph) error
 	}
 	// DefaultGraphService is the default implementation of the GraphService interface
 	DefaultGraphService struct {
@@ -278,6 +281,14 @@ func (gs *DefaultGraphService) updateVersioned(graph *workflow.Graph, schema *wo
 	}
 
 	return graph, nil
+}
+
+// EnsureNodeMetadata populates function metadata on graph nodes if not already present.
+func (gs *DefaultGraphService) EnsureNodeMetadata(graph *workflow.Graph) error {
+	if graph.IsNodesMetadataPopulated() {
+		return nil
+	}
+	return gs.populateNodeMetadata(graph, nil)
 }
 
 // populateNodeMetadata populates the metadata of the graph's nodes
