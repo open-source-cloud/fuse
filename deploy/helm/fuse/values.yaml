@@ -15,8 +15,8 @@ image:
 # -- Image pull secrets for private registries
 imagePullSecrets: []
 
-# -- Override the chart name
-nameOverride: ""
+# -- Override the chart name (default keeps workload names as "fuse" while the packaged chart is named fuse-chart for OCI)
+nameOverride: "fuse"
 # -- Override the full release name
 fullnameOverride: ""
 

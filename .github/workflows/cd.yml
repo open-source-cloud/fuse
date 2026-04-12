@@ -125,4 +125,5 @@ jobs:
       - name: Package and push Helm chart
         run: |
           helm package deploy/helm/fuse/
-          helm push fuse-${{ needs.release.outputs.version }}.tgz oci://docker.io/${{ secrets.DOCKERHUB_USERNAME }}
+          # Chart name is fuse-chart → fuse-chart-<version>.tgz (separate OCI repo from app image …/fuse)
+          helm push fuse-chart-${{ needs.release.outputs.version }}.tgz oci://docker.io/${{ secrets.DOCKERHUB_USERNAME }}

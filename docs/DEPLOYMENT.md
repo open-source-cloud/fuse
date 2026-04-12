@@ -6,7 +6,8 @@ FUSE ships a Helm chart under [`deploy/helm/fuse/`](../deploy/helm/fuse/). It ta
 
 - Kubernetes 1.24+ (typical; align with your platform)
 - Helm 3
-- A container image (chart default: `uranustechnologies/fuse` on DockerHub — override `image.repository` / `image.tag` in `values.yaml`)
+- A container image (chart default: `uranustechnologies/fuse` on Docker Hub — override `image.repository` / `image.tag` in `values.yaml`)
+- **Registry layout:** the app image and the Helm chart are **different** repositories. Images: `docker.io/<org>/fuse:<tag>`. Chart (OCI): `docker.io/<org>/fuse-chart:<chart-version>`. Installing by OCI pulls only the chart; the chart still references the image above.
 
 ## Install
 
@@ -17,6 +18,18 @@ helm install fuse ./deploy/helm/fuse \
   --namespace fuse --create-namespace \
   --set image.tag=<your-tag>
 ```
+
+### Install from OCI (Docker Hub)
+
+After a release, the chart is published as an OCI artifact (not the container image):
+
+```bash
+helm install fuse oci://docker.io/uranustechnologies/fuse-chart \
+  --version <chart-version> \
+  --namespace fuse --create-namespace
+```
+
+Pin `image.tag` to the same application version if you do not rely on chart defaults.
 
 See `deploy/helm/fuse/values.yaml` for all options.
 

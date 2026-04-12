@@ -139,7 +139,7 @@ make e2e-local          # Full E2E suite (builds Docker, starts infra)
   <img src="docs/images/ci-cd-pipeline.svg" alt="CI/CD Pipeline" width="100%">
 </p>
 
-Container images are published to [DockerHub](https://hub.docker.com/r/uranustechnologies/fuse) on every release.
+Container images are published to [Docker Hub `uranustechnologies/fuse`](https://hub.docker.com/r/uranustechnologies/fuse) on every release. The Helm chart is published separately as OCI [`uranustechnologies/fuse-chart`](https://hub.docker.com/r/uranustechnologies/fuse-chart) so the image repo is not overwritten by chart pushes.
 
 ## Deployment
 
