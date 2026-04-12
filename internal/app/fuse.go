@@ -172,41 +172,55 @@ type Fuse struct {
 // Load invoked on loading application using the method ApplicationLoad of gen.Node interface.
 func (app *Fuse) Load(node gen.Node, _ ...any) (gen.ApplicationSpec, error) {
 	app.node = node
+
+	// Use the maximum allowed init timeout for application group members
+	// (3× DefaultRequestTimeout = 15s). The default 5s is too tight for
+	// CI runners where 3 nodes start concurrently and contend for resources.
+	opts := gen.ProcessOptions{InitTimeout: gen.DefaultRequestTimeout * 3}
+
 	group := []gen.ApplicationMemberSpec{
 		{
 			Name:    actornames.WorkflowSupervisorName,
 			Factory: app.workflowSup.Factory,
+			Options: opts,
 		},
 		{
 			Name:    actornames.MuxServerSupName,
 			Factory: app.serverSup.Factory,
+			Options: opts,
 		},
 		{
 			Name:    actornames.SchemaReplicationActorName,
 			Factory: app.schemaReplicationSup.Factory,
+			Options: opts,
 		},
 		{
 			Name:    actornames.CronSchedulerName,
 			Factory: app.cronScheduler.Factory,
+			Options: opts,
 		},
 		{
 			Name:    actornames.WebhookRouterName,
 			Factory: app.webhookRouter.Factory,
+			Options: opts,
 		},
 		{
 			Name:    actornames.EventTriggerName,
 			Factory: app.eventTrigger.Factory,
+			Options: opts,
 		},
 	}
 	if app.config.HA.Enabled {
 		group = append(group, gen.ApplicationMemberSpec{
 			Name:    actornames.WorkflowClaimActorName,
 			Factory: app.claimActor.Factory,
+			Options: opts,
 		})
 		if app.pgListenerActor.Factory != nil {
 			group = append(group, gen.ApplicationMemberSpec{
 				Name:    actornames.PgListenerActorName,
 				Factory: app.pgListenerActor.Factory,
+				Options: opts,
 			})
 		}
 	}
