@@ -53,9 +53,9 @@ func NewHTTPClient() *http.Client {
 	}
 }
 
-// WaitForHealth polls GET /health until success or attempts exhausted.
+// WaitForHealth polls GET /readyz until success or attempts exhausted.
 func WaitForHealth(client *http.Client, apiURL string) error {
-	url := apiURL + "/health"
+	url := apiURL + "/readyz"
 	for attempt := 0; attempt < HealthAttempts; attempt++ {
 		req, err := http.NewRequest(http.MethodGet, url, nil)
 		if err != nil {
