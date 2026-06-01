@@ -11,6 +11,7 @@ import (
 	"github.com/open-source-cloud/fuse/internal/repositories"
 	"github.com/open-source-cloud/fuse/internal/services"
 	"github.com/open-source-cloud/fuse/internal/workflow"
+	"github.com/open-source-cloud/fuse/pkg/llm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -19,7 +20,7 @@ func setupVersioningService(t *testing.T) services.GraphService {
 	t.Helper()
 	repo := repositories.NewMemoryGraphRepository()
 	pkgRegistry := packages.NewPackageRegistry()
-	internalPkgs := packages.NewInternal()
+	internalPkgs := packages.NewInternal(llm.NewRegistry(nil, ""))
 	pkgSvc := services.NewPackageService(repositories.NewMemoryPackageRepository(), pkgRegistry, internalPkgs)
 	require.NoError(t, pkgSvc.RegisterInternalPackages())
 	return services.NewGraphService(repo, pkgRegistry, nil)
@@ -101,7 +102,7 @@ func TestVersioning_FullLifecycle(t *testing.T) {
 func TestVersioning_ExistingSchema_MigrationPath(t *testing.T) {
 	repo := repositories.NewMemoryGraphRepository()
 	pkgRegistry := packages.NewPackageRegistry()
-	internalPkgs := packages.NewInternal()
+	internalPkgs := packages.NewInternal(llm.NewRegistry(nil, ""))
 	pkgSvc := services.NewPackageService(repositories.NewMemoryPackageRepository(), pkgRegistry, internalPkgs)
 	require.NoError(t, pkgSvc.RegisterInternalPackages())
 
