@@ -4,6 +4,8 @@ This directory contains auto-generated Swagger/OpenAPI documentation for the FUS
 
 **Human-readable REST overview:** [API.md](API.md).
 
+**Architecture Decision Records:** [adr/](adr/README.md) — significant architectural decisions and their rationale.
+
 ## Generated Files
 
 The following files are auto-generated and should not be edited manually:
