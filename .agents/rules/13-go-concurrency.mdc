@@ -412,6 +412,6 @@ func transfer(from, to *Account, amount int) {
 
 ## References
 
-- See `.cursor/skills/go-concurrency/SKILL.md` for detailed patterns
+- See `.agents/skills/go-concurrency/SKILL.md` for detailed patterns
 - [Go Concurrency Patterns](https://go.dev/blog/pipelines)
 - [Effective Go - Concurrency](https://go.dev/doc/effective_go#concurrency)

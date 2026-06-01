@@ -140,7 +140,7 @@ Before every merge:
 ### Actor Model Implementation
 
 - Use ergo.services actor framework
-- Follow actor patterns from `.cursor/rules/03-actor-patterns.mdc`
+- Follow actor patterns from `.agents/rules/03-actor-patterns.mdc`
 - Implement proper supervisor strategies
 - Use message passing for all communication
 - Maintain actor isolation
@@ -215,8 +215,8 @@ This constitution supersedes all other practices and guidelines. All development
 - Code reviews must check constitution adherence
 - CI/CD must enforce quality gates
 - Complexity must be justified
-- Use `.cursor/rules/` for runtime development guidance
+- Use `.agents/rules/` for runtime development guidance (tool-agnostic; `.cursor/`/`.claude/` symlink into it — see ADR-0009)
 
 ### Version History
 
-**Version**: 1.0.0 | **Ratified**: 2026-01-30 | **Last Amended**: 2026-01-30
+**Version**: 1.0.1 | **Ratified**: 2026-01-30 | **Last Amended**: 2026-06-01

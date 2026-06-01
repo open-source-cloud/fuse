@@ -35,3 +35,4 @@ copying [`template.md`](template.md).
 | 0006 | [LLM provider abstraction & multi-provider strategy](0006-llm-provider-abstraction-and-multi-provider-strategy.md) | Accepted | 2026-06-01 |
 | 0007 | [Agent reasoning loop & tools-from-functions](0007-agent-reasoning-loop-and-tools-from-functions.md) | Proposed | 2026-06-01 |
 | 0008 | [Settings, environments & secrets management](0008-settings-environments-and-secrets-management.md) | Proposed | 2026-06-01 |
+| 0009 | [Portable AI agent guidance in `.agents/`](0009-portable-ai-agent-guidance.md)         | Accepted | 2026-06-01 |

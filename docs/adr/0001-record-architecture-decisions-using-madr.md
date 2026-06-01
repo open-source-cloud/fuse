@@ -7,7 +7,7 @@
 ## Context and Problem Statement
 
 FUSE's architectural rationale has so far lived implicitly across `CLAUDE.md`,
-the `.cursor/rules/*.mdc` files, code comments, and commit messages. As the
+the `.agents/rules/*.mdc` files (formerly `.cursor/rules/`), code comments, and commit messages. As the
 project takes on larger, cross-cutting initiatives (notably the AI-agent work),
 contributors increasingly need to know *why* a structure exists, not just what it
 is. There is no durable, reviewable record of significant decisions, so rationale

@@ -213,7 +213,7 @@ Track quality gate metrics:
 
 ## References
 
-- See `.cursor/rules/07-testing.mdc` for testing standards
-- See `.cursor/rules/11-development-workflow.mdc` for workflow integration
+- See `.agents/rules/07-testing.mdc` for testing standards
+- See `.agents/rules/11-development-workflow.mdc` for workflow integration
 - See `.golangci.yml` for linting configuration
 - See `Makefile` for build and test commands
