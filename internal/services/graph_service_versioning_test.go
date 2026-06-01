@@ -7,6 +7,7 @@ import (
 	"github.com/open-source-cloud/fuse/internal/packages"
 	"github.com/open-source-cloud/fuse/internal/repositories"
 	"github.com/open-source-cloud/fuse/internal/services"
+	"github.com/open-source-cloud/fuse/pkg/llm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -15,7 +16,7 @@ func newVersioningGraphService(t *testing.T) services.GraphService {
 	t.Helper()
 	memGraphRepo := repositories.NewMemoryGraphRepository()
 	pkgRegistry := packages.NewPackageRegistry()
-	internalPackages := packages.NewInternal()
+	internalPackages := packages.NewInternal(llm.NewRegistry(nil, ""))
 	pkgSvc := services.NewPackageService(repositories.NewMemoryPackageRepository(), pkgRegistry, internalPackages)
 	require.NoError(t, pkgSvc.RegisterInternalPackages())
 	return services.NewGraphService(memGraphRepo, pkgRegistry, nil)

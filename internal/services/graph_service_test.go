@@ -11,6 +11,7 @@ import (
 	"github.com/open-source-cloud/fuse/internal/repositories"
 	"github.com/open-source-cloud/fuse/internal/services"
 	"github.com/open-source-cloud/fuse/internal/workflow"
+	"github.com/open-source-cloud/fuse/pkg/llm"
 	"github.com/stretchr/testify/require"
 )
 
@@ -32,7 +33,7 @@ func TestGraphService(t *testing.T) {
 
 	pkgRepo := repositories.NewMemoryPackageRepository()
 	pkgRegistry := packages.NewPackageRegistry()
-	internalPackages := packages.NewInternal()
+	internalPackages := packages.NewInternal(llm.NewRegistry(nil, ""))
 
 	pkgSvc := services.NewPackageService(pkgRepo, pkgRegistry, internalPackages)
 	if err := pkgSvc.RegisterInternalPackages(); err != nil {
@@ -65,7 +66,7 @@ func TestGraphService(t *testing.T) {
 func TestGraphService_ListSchemas(t *testing.T) {
 	memGraphRepo := repositories.NewMemoryGraphRepository()
 	pkgRegistry := packages.NewPackageRegistry()
-	internalPackages := packages.NewInternal()
+	internalPackages := packages.NewInternal(llm.NewRegistry(nil, ""))
 	pkgSvc := services.NewPackageService(repositories.NewMemoryPackageRepository(), pkgRegistry, internalPackages)
 	if err := pkgSvc.RegisterInternalPackages(); err != nil {
 		t.Fatalf("failed to register internal packages: %v", err)
@@ -97,7 +98,7 @@ func TestGraphService_ListSchemas(t *testing.T) {
 func TestGraphService_Upsert_invokesPublisher(t *testing.T) {
 	memGraphRepo := repositories.NewMemoryGraphRepository()
 	pkgRegistry := packages.NewPackageRegistry()
-	internalPackages := packages.NewInternal()
+	internalPackages := packages.NewInternal(llm.NewRegistry(nil, ""))
 	pkgSvc := services.NewPackageService(repositories.NewMemoryPackageRepository(), pkgRegistry, internalPackages)
 	require.NoError(t, pkgSvc.RegisterInternalPackages())
 
@@ -113,7 +114,7 @@ func TestGraphService_Upsert_invokesPublisher(t *testing.T) {
 func TestGraphService_Upsert_pathSchemaIDOverridesBodyID(t *testing.T) {
 	memGraphRepo := repositories.NewMemoryGraphRepository()
 	pkgRegistry := packages.NewPackageRegistry()
-	internalPackages := packages.NewInternal()
+	internalPackages := packages.NewInternal(llm.NewRegistry(nil, ""))
 	pkgSvc := services.NewPackageService(repositories.NewMemoryPackageRepository(), pkgRegistry, internalPackages)
 	require.NoError(t, pkgSvc.RegisterInternalPackages())
 
@@ -138,7 +139,7 @@ func TestGraphService_Upsert_pathSchemaIDOverridesBodyID(t *testing.T) {
 func TestGraphService_ApplyReplicatedUpsert(t *testing.T) {
 	memGraphRepo := repositories.NewMemoryGraphRepository()
 	pkgRegistry := packages.NewPackageRegistry()
-	internalPackages := packages.NewInternal()
+	internalPackages := packages.NewInternal(llm.NewRegistry(nil, ""))
 	pkgSvc := services.NewPackageService(repositories.NewMemoryPackageRepository(), pkgRegistry, internalPackages)
 	require.NoError(t, pkgSvc.RegisterInternalPackages())
 

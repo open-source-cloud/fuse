@@ -72,9 +72,10 @@ lint-fix: install-lint
 format:
 	go fmt ./...
 
-# Recursively pretty-print JSON under data/ (2-space indent, UTF-8). Requires python3.
+# Pretty-print JSON under data/ (filesystem object store). No-op if data/ is missing. Requires jq.
 format-data-json:
-	@find data -type f -name '*.json' -print0 | xargs -0 -n1 python3 -c "import json,sys,pathlib; p=pathlib.Path(sys.argv[1]); d=json.loads(p.read_text(encoding='utf-8')); p.write_text(json.dumps(d, indent=2, ensure_ascii=False)+'\n', encoding='utf-8')"
+	@test -d data || exit 0
+	@find data -type f -name '*.json' -exec sh -c 'jq . "$$1" > "$$1.tmp" && mv "$$1.tmp" "$$1"' _ {} \;
 
 # Install swag CLI v2 into GOPATH/bin (same path as SWAG)
 install-swag:
@@ -147,7 +148,6 @@ migrate: build
 
 seed: build
 	./bin/fuse seed examples -l debug
-	make format-data-json
 
 # Bump release version across deploy manifests. Usage: make bump-version VERSION=0.3.0
 bump-version:
