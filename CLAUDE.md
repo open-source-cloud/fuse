@@ -35,6 +35,12 @@ make ha-down            # Tear down HA stack
 
 **Quality gate order before committing: `make lint && make build && make test`**
 
+## Architecture Decisions
+
+Significant architectural decisions are recorded as ADRs in [`docs/adr/`](docs/adr/README.md)
+(MADR format). Consult them for rationale, and add a new ADR when making a decision that
+is costly to reverse or shapes the architecture.
+
 ## Architecture
 
 ### Layered Structure
