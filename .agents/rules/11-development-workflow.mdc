@@ -193,7 +193,7 @@ If any gate fails:
 3. **Re-run** - Verify the gate passes
 4. **Proceed** - Only after all gates pass
 
-See `.cursor/rules/12-quality-gates.mdc` for detailed quality gate requirements.
+See `.agents/rules/12-quality-gates.mdc` for detailed quality gate requirements.
 
 ## Before Submitting PR
 
@@ -699,7 +699,7 @@ If any gate fails:
 3. **Re-run** - Verify the gate passes
 4. **Proceed** - Only after all gates pass
 
-See `.cursor/rules/12-quality-gates.mdc` for detailed quality gate requirements.
+See `.agents/rules/12-quality-gates.mdc` for detailed quality gate requirements.
 
 ## Before Submitting PR
 

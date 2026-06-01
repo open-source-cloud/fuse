@@ -64,11 +64,11 @@ FUSE leverages the ergo actor model to provide:
 - `internal/services/*` - Service layer implementations
 - `pkg/workflow/*` - Public workflow API
 - `.specify/memory/constitution.md` - Project constitution and governing principles
-- `.cursor/skills/` - Go senior developer skills and expertise
+- `.agents/skills/` - Go senior developer skills and expertise
 
 ## Cursor Skills
 
-Comprehensive Go senior developer skills are available in `.cursor/skills/`:
+Comprehensive Go senior developer skills are available in `.agents/skills/`:
 
 - `go-senior-developer/` - Go best practices, SOLID principles, clean code
 - `microservices-architecture/` - Microservices patterns and practices
@@ -87,7 +87,7 @@ Mandatory quality gates enforce test-first development:
 - **Test** - All tests must pass (`make test`)
 - **Coverage** - Coverage thresholds must be met
 
-See `.cursor/rules/12-quality-gates.mdc` for detailed requirements.
+See `.agents/rules/12-quality-gates.mdc` for detailed requirements.
 
 ## Spec-Kit Integration
 
@@ -96,7 +96,7 @@ The project uses spec-kit for spec-driven development:
 - `.specify/memory/constitution.md` - Project constitution
 - `.specify/templates/` - Spec-kit templates
 - `.specify/scripts/` - Spec-kit automation scripts
-- `.cursor/commands/speckit.*` - Spec-kit slash commands
+- `.agents/commands/speckit.*` - Spec-kit slash commands
 
 Use `/speckit.constitution`, `/speckit.specify`, `/speckit.plan`, `/speckit.tasks`, and `/speckit.implement` commands for structured development.
 

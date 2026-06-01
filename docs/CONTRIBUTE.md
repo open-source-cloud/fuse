@@ -17,6 +17,11 @@ Thank you for your interest in contributing to FUSE (Utility for Stateful Events
 3. Set up upstream remote: `git remote add upstream https://github.com/open-source-cloud/fuse.git`
 4. Create a new branch for your changes: `git checkout -b feature/your-feature-name`
 
+> **AI guidance & symlinks:** Shared agent guidance (rules, skills, Spec Kit commands) lives in
+> [`.agents/`](../.agents); `.cursor/` and `.claude/` are symlinks into it (see
+> [ADR-0009](adr/0009-portable-ai-agent-guidance.md)). On Windows, enable symlink checkout with
+> `git config core.symlinks true` (and Developer Mode), or those paths appear as plain text files.
+
 ### API and documentation changes
 
 When you add or change HTTP behavior:

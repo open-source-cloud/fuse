@@ -156,7 +156,7 @@ This directory contains modular cursor rules for the FUSE Workflow Engine projec
 
 ## Cursor Skills
 
-Comprehensive Go senior developer skills are available in `.cursor/skills/`:
+Comprehensive Go senior developer skills are available in `.agents/skills/`:
 
 - **go-senior-developer/** - Go best practices, SOLID principles, clean code
 - **microservices-architecture/** - Microservices patterns and practices
@@ -173,7 +173,7 @@ The project uses spec-kit for spec-driven development:
 - `.specify/memory/constitution.md` - Project constitution and governing principles
 - `.specify/templates/` - Spec-kit templates (spec, plan, tasks)
 - `.specify/scripts/` - Spec-kit automation scripts
-- `.cursor/commands/speckit.*` - Spec-kit slash commands
+- `.agents/commands/speckit.*` - Spec-kit slash commands
 
 Use `/speckit.constitution`, `/speckit.specify`, `/speckit.plan`, `/speckit.tasks`, and `/speckit.implement` commands for structured development.
 
@@ -383,7 +383,7 @@ This directory contains modular cursor rules for the FUSE Workflow Engine projec
 
 ## Cursor Skills
 
-Comprehensive Go senior developer skills are available in `.cursor/skills/`:
+Comprehensive Go senior developer skills are available in `.agents/skills/`:
 
 - **go-senior-developer/** - Go best practices, SOLID principles, clean code
 - **microservices-architecture/** - Microservices patterns and practices
@@ -400,7 +400,7 @@ The project uses spec-kit for spec-driven development:
 - `.specify/memory/constitution.md` - Project constitution and governing principles
 - `.specify/templates/` - Spec-kit templates (spec, plan, tasks)
 - `.specify/scripts/` - Spec-kit automation scripts
-- `.cursor/commands/speckit.*` - Spec-kit slash commands
+- `.agents/commands/speckit.*` - Spec-kit slash commands
 
 Use `/speckit.constitution`, `/speckit.specify`, `/speckit.plan`, `/speckit.tasks`, and `/speckit.implement` commands for structured development.
 

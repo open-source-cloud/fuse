@@ -1,3 +1,25 @@
+# AGENTS.md
+
+Canonical, tool-agnostic guidance for AI agents working in this repository (Claude Code,
+Cursor, and others). Tool-specific entry points point here.
+
+## AI guidance map
+
+Project guidance lives in a tool-agnostic home and is shared with every tool via symlinks:
+
+- **`.agents/rules/`** — coding rules (Go conventions, actors, repositories, handlers,
+  testing, DI, concurrency, …). Indexed in [`.agents/rules/README.mdc`](.agents/rules/README.mdc).
+- **`.agents/skills/`** — reusable skill packs (architecture patterns) plus ADR-authoring
+  skills (`write-adr`, `spec-to-adr`).
+- **`.agents/commands/`** — GitHub Spec Kit commands (`speckit.*`).
+- **`docs/adr/`** — Architecture Decision Records ([index](docs/adr/README.md)); see
+  [ADR-0009](docs/adr/0009-portable-ai-agent-guidance.md) for why guidance lives in `.agents/`.
+- **`.specify/memory/constitution.md`** — project constitution (governing principles).
+
+Tool wiring: `.cursor/{rules,skills,commands}` and `.claude/{rules,skills,commands}` are
+symlinks into `.agents/`; `CLAUDE.md` imports this file via `@AGENTS.md`. Edit content under
+`.agents/` (the single source of truth), never the symlinks.
+
 ## Learned User Preferences
 
 - Prefer dev tooling to be installable from the Makefile so `make test` and `make lint` work on fresh machines without manual binary setup.

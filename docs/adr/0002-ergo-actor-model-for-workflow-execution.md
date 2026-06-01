@@ -70,6 +70,6 @@ failure.
 
 - Implementation: `internal/actors/` — `WorkflowSupervisor`, `WorkflowInstanceSupervisor`,
   `WorkflowHandler`, `WorkflowFunc` (worker pool), plus trigger actors.
-- Actor patterns are also documented in `.cursor/rules/03-actor-patterns.mdc`.
+- Actor patterns are also documented in `.agents/rules/03-actor-patterns.mdc` (see [ADR-0009](0009-portable-ai-agent-guidance.md)).
 - Related: [ADR-0003](0003-in-memory-repositories-by-default.md) (persistence for resume/HA),
   [ADR-0004](0004-multi-trigger-workflow-initiation.md) (how actors are triggered).

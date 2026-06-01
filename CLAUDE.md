@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+Canonical, tool-agnostic guidance (and learned project facts) lives in `AGENTS.md`, imported here:
+
+@AGENTS.md
+
 ## Project Overview
 
 FUSE (FUSE Utility for Stateful Events) is a workflow engine built on the **ergo actor model** (ergo.services) for creating automation pipelines. Each workflow node runs as an independent actor with message passing, supervision, and fault tolerance. The project is pre-production and under active development.
@@ -101,4 +105,4 @@ pkg/                       → Public importable libraries (workflow metadata, t
 - **Test files**: Co-located as `*_test.go`, use table-driven tests and Arrange-Act-Assert
 - **Cyclomatic complexity**: Max 15 (enforced by golangci-lint)
 - **Actor logging**: Use `a.Log()` inside actors, not the global logger
-- Detailed coding rules are in `.cursor/rules/` (13 files covering Go conventions, actors, repos, handlers, testing, DI, concurrency, etc.)
+- Detailed coding rules are in `.agents/rules/` (13 files covering Go conventions, actors, repos, handlers, testing, DI, concurrency, etc.); `.cursor/rules` and `.claude/rules` are symlinks into it. See [ADR-0009](docs/adr/0009-portable-ai-agent-guidance.md).
