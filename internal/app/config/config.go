@@ -32,6 +32,28 @@ type (
 		HA          HAConfig
 		Idempotency IdempotencyConfig
 		Otel        OtelConfig
+		LLM         LLMConfig
+	}
+
+	// LLMConfig configures the available LLM provider connections. Each provider
+	// is disabled by default; set the matching *_ENABLED var to turn it on.
+	LLMConfig struct {
+		// DefaultProvider is the registry key used when an agent/chat node omits a provider.
+		DefaultProvider string            `env:"LLM_DEFAULT_PROVIDER" envDefault:"ollama"`
+		OpenAI          LLMProviderConfig `envPrefix:"LLM_OPENAI_"`
+		OpenRouter      LLMProviderConfig `envPrefix:"LLM_OPENROUTER_"`
+		Ollama          LLMProviderConfig `envPrefix:"LLM_OLLAMA_"`
+		Gemini          LLMProviderConfig `envPrefix:"LLM_GEMINI_"`
+		Anthropic       LLMProviderConfig `envPrefix:"LLM_ANTHROPIC_"`
+	}
+
+	// LLMProviderConfig configures a single LLM provider connection.
+	LLMProviderConfig struct {
+		Enabled     bool    `env:"ENABLED" envDefault:"false"`
+		APIKey      string  `env:"API_KEY"`
+		BaseURL     string  `env:"BASE_URL"`
+		Model       string  `env:"MODEL"`
+		Temperature float32 `env:"TEMPERATURE" envDefault:"0.7"`
 	}
 
 	// ParamsConfig configuration parameters

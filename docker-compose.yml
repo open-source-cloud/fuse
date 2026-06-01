@@ -15,6 +15,7 @@
 #   S3 (rustfs) → localhost:9000
 #   etcd → localhost:2379
 #   fuse-1 → localhost:9091   fuse-2 → localhost:9092   fuse-3 → localhost:9093
+#   nginx LB (ha) → localhost:9090  (round-robins across the 3 ha nodes)
 
 # ─── Shared environment blocks ──────────────────────────────────────────────
 
@@ -239,6 +240,39 @@ services:
     environment:
       <<: *fuse-env-common
       HA_NODE_ID: "fuse-ha-node-3"
+
+  # nginx load balancer fronting the 3 ha nodes on a single host port.
+  fuse-lb:
+    image: nginx:1.27-alpine
+    container_name: fuse-lb
+    profiles: ["ha"]
+    ports:
+      - "${LB_PORT:-9090}:80"
+    volumes:
+      - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - fuse-network
+    # Only wait for the node containers to start (so their names resolve in
+    # Docker DNS), NOT for their healthchecks. Waiting on service_healthy makes
+    # the whole `up` abort if a node is slow to pass /fuse health. nginx passive
+    # health checks (max_fails/fail_timeout) handle nodes that aren't ready yet.
+    depends_on:
+      fuse-ha-1:
+        condition: service_started
+      fuse-ha-2:
+        condition: service_started
+      fuse-ha-3:
+        condition: service_started
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://127.0.0.1/lb-health >/dev/null 2>&1 || exit 1",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
 
   # ─── E2E profile: 3 Fuse nodes (pre-built image) ────────────────────────
 
