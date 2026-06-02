@@ -3,7 +3,6 @@ package packages
 import (
 	"fmt"
 
-	"github.com/open-source-cloud/fuse/internal/actors/actor"
 	"github.com/open-source-cloud/fuse/internal/packages/functions/ai"
 	"github.com/open-source-cloud/fuse/internal/packages/functions/logic"
 	"github.com/open-source-cloud/fuse/internal/packages/functions/system"
@@ -73,17 +72,18 @@ func (a *AgentToolRegistry) ListTools() []ai.ToolDescriptor {
 	return tools
 }
 
-// InvokeTool runs the function with the given full id in-process and returns its
-// result. The function must belong to a registered package; for a synchronous
-// function the result is returned inline (Async == false).
-func (a *AgentToolRegistry) InvokeTool(handle actor.Handle, functionID string, execInfo *workflow.ExecutionInfo) (workflow.FunctionResult, error) {
+// InvokeTool runs the function with the given full id synchronously in-process and
+// returns its result inline (Async == false). The function must belong to a
+// registered package. No worker handle is used: only synchronous functions are
+// exposed as tools, so the actor system is never reached.
+func (a *AgentToolRegistry) InvokeTool(functionID string, execInfo *workflow.ExecutionInfo) (workflow.FunctionResult, error) {
 	pkgs, err := a.registry.List()
 	if err != nil {
 		return workflow.FunctionResult{}, err
 	}
 	for _, pkg := range pkgs {
 		if _, ok := pkg.Functions[functionID]; ok {
-			return pkg.ExecuteFunction(handle, functionID, execInfo)
+			return pkg.ExecuteFunctionSync(functionID, execInfo)
 		}
 	}
 	return workflow.FunctionResult{}, fmt.Errorf("tool function %q not found", functionID)

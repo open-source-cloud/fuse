@@ -74,10 +74,12 @@ specs/001-ai-agent-node/
 
 ```text
 pkg/workflow/
-└── execution_info.go            # MODIFY: add `Handle any`
+└── execution_info.go            # clean {WorkflowID, ExecID, Input, Finish} contract — no Handle field
 
 internal/packages/
-├── transport/internal.go        # MODIFY: set execInfo.Handle = handle in Execute()
+├── transport/function.go        # ExecuteSync(*ExecutionInfo) added to FunctionTransport
+├── transport/internal.go        # InternalFunctionTransport.ExecuteSync (handle-free); Execute unchanged for async
+├── loaded_package.go            # ExecuteFunctionSync(functionID, execInfo) — handle-free
 ├── agent_tools.go               # NEW: registry adapter implementing ai.ToolRegistry + exclusion predicate
 ├── internal_packages.go         # MODIFY: NewInternal(providers, registry) → build adapter → ai.New(providers, tools)
 └── functions/ai/
@@ -99,17 +101,18 @@ docs/adr/
 └── README.md                    # MODIFY: status bump
 ```
 
-**Structure Decision**: Single Go module; the feature lives in the existing `internal/packages`
-layer (function registry + node functions) plus a one-field addition to `pkg/workflow`. No new
-top-level packages; the only new files are the agent node, its tool seam, and the registry
-adapter.
+**Structure Decision**: Single Go module; the feature lives entirely in the existing
+`internal/packages` layer (function registry + node functions), leaving `pkg/workflow`'s
+`ExecutionInfo` contract unchanged. No new top-level packages; the only new files are the agent
+node, its tool seam, and the registry adapter.
 
 ## Phase 0 — Research
 
-See [research.md](research.md). Key decisions: (R1) handle-threading via the transport choke
-point; (R2) the `ai.ToolRegistry` seam to break the import cycle; (R3) sync-only tool execution
-semantics; (R4) the exclusion predicate; (R5) `ParameterSchema` → JSON-Schema mapping; (R6) name
-mangling; (R7) loop termination & single-`Finish` discipline.
+See [research.md](research.md). Key decisions: (R1) tool invocation via a construction-injected
+`ai.ToolRegistry` port over a **handle-free** `ExecuteSync` path (no `ExecutionInfo.Handle`); (R2)
+the `ai.ToolRegistry` seam to break the import cycle; (R3) sync-only tool execution semantics; (R4)
+the exclusion predicate; (R5) `ParameterSchema` → JSON-Schema mapping; (R6) name mangling; (R7)
+loop termination & single-`Finish` discipline.
 
 ## Phase 1 — Design & Contracts
 

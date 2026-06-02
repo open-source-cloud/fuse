@@ -43,6 +43,20 @@ correlation registry keyed by child exec id, delivering to a per-agent waiter ch
 timeout, reuses the proven async path with the least new machinery and keeps results routable for
 replay. Option B is the natural escalation if tool calls need full sub-workflow semantics.
 
+**How the capability is surfaced (deferred design constraint).** The per-execution worker handle
+(and the waiter/correlation registry) is the *async* counterpart to Phase B's synchronous,
+construction-injected `ai.ToolRegistry`. When this lands it MUST be modelled as a **second, typed
+per-execution runtime port** — e.g. `ExecRuntime` with
+`InvokeAsync(ctx, functionID, *FunctionInput) (<-chan FunctionResult, error)` — **injected into
+orchestrating nodes**, with the worker handle provided **positionally and adapted in the
+runtime/transport layer**. It must **not** be added back as a field on `workflow.ExecutionInfo`
+(the earlier `Handle any` field was removed precisely to keep that contract clean — see
+[ADR-0007](0007-agent-reasoning-loop-and-tools-from-functions.md)). The sync `ToolRegistry`
+(process-singleton lifetime) and the async `ExecRuntime` (per-activation lifetime) stay two
+distinct ports. This is also where the sync-only exclusion denylist
+(`internal/packages/agent_tools.go`) is revisited, since async/intercepted functions become
+invocable through `ExecRuntime`.
+
 ### Consequences
 
 - Good: lifts the sync-only limitation; unblocks orchestrator mode and richer agents.

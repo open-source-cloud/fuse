@@ -31,27 +31,34 @@ Single Go module; paths are repo-relative from `/home/gustavo/fuse/core`.
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-**⚠️ No user story can be implemented until this phase is complete** — the handle plumbing and the
-tool seam/adapter are prerequisites for any tool call.
+**⚠️ No user story can be implemented until this phase is complete** — the handle-free sync exec
+path and the tool seam/adapter are prerequisites for any tool call.
 
-- [ ] T002 [P] Add `Handle any` field to `workflow.ExecutionInfo` in
-  `pkg/workflow/execution_info.go`; add `pkg/workflow/execution_info_test.go` asserting default
-  `nil` and settability. (Test-first.)
-- [ ] T003 Populate the handle: in `internal/packages/transport/internal.go` `Execute`, set
-  `execInfo.Handle = handle` after the nil check, before `t.fn(execInfo)`. Extend/add
-  `internal/packages/transport/internal_test.go` asserting the function receives a non-nil
-  `Handle`. (Depends on T002.)
+> **Design revision:** an earlier iteration of T002/T003 added `ExecutionInfo.Handle any` populated
+> by the transport. That was superseded — the agent invokes synchronous tools through a
+> **handle-free** path, so `ExecutionInfo` stays a clean input/output contract and the `ai` package
+> imports no actor types (see [research.md](research.md) R1).
+
+- [ ] T002 [P] Add a handle-free synchronous execution path: `ExecuteSync(*ExecutionInfo)` on the
+  `FunctionTransport` interface (`internal/packages/transport/function.go`), implemented in
+  `InternalFunctionTransport` (`internal/packages/transport/internal.go`) with a guard `Finish`
+  and no actor handle; add `LoadedPackage.ExecuteFunctionSync` (`internal/packages/loaded_package.go`).
+  Test in `internal/packages/transport/internal_test.go` (`ExecuteSync` runs the fn and returns a
+  sync result). (Test-first.)
+- [ ] T003 Keep `pkg/workflow/execution_info.go` a clean `{WorkflowID, ExecID, Input, Finish}`
+  contract — **no** `Handle` field. (`Execute`'s async path is unchanged; it closes over the
+  handle directly.)
 - [ ] T004 [P] Create `internal/packages/functions/ai/tools.go`: `ToolRegistry`/`ToolDescriptor`
-  port types, `toolHandle` assertion interface (`Node() gen.Node` + `Send`), `mangle`/`demangle`,
-  `parameterSchemaToJSONSchema`. Add `internal/packages/functions/ai/tools_test.go` (table-driven:
-  mangle/demangle round-trips; per-type JSON-Schema mapping; required list; empty-params object).
-  (Test-first.)
+  port types (no actor types), `MangleToolName`/`DemangleToolName`, `ParameterSchemaToJSONSchema`.
+  Add `internal/packages/functions/ai/tools_test.go` (table-driven: mangle/demangle round-trips;
+  per-type JSON-Schema mapping; required list; empty-params object). (Test-first.)
 - [ ] T005 Create `internal/packages/agent_tools.go` (package `packages`):
-  `NewAgentToolRegistry(registry Registry) ai.ToolRegistry`, `ListTools`, `InvokeTool`,
-  `isExposableTool`. Add `internal/packages/agent_tools_test.go` asserting `InvokeTool` returns a
-  sync result inline and unknown id → error. (Depends on T004 for the `ai.ToolRegistry` type.)
+  `NewAgentToolRegistry(registry Registry) ai.ToolRegistry`, `ListTools`, `isExposableTool`, and
+  `InvokeTool(functionID, execInfo)` delegating to `ExecuteFunctionSync` (no handle). Add
+  `internal/packages/agent_tools_test.go` asserting `InvokeTool` returns a sync result inline and
+  unknown id → error. (Depends on T004 for the `ai.ToolRegistry` type.)
 
-**Checkpoint**: handle reaches functions; tools can be listed and invoked in-process.
+**Checkpoint**: tools can be listed and invoked in-process via the handle-free sync path.
 
 ---
 

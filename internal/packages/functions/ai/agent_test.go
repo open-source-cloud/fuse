@@ -7,8 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"ergo.services/ergo/gen"
-	"github.com/open-source-cloud/fuse/internal/actors/actor"
 	"github.com/open-source-cloud/fuse/pkg/llm"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 	"github.com/stretchr/testify/assert"
@@ -48,24 +46,19 @@ func (s *scriptedProvider) Chat(_ context.Context, req llm.ChatRequest) (llm.Cha
 
 type fakeToolRegistry struct {
 	descriptors []ToolDescriptor
-	invoke      func(actor.Handle, string, *workflow.ExecutionInfo) (workflow.FunctionResult, error)
+	invoke      func(string, *workflow.ExecutionInfo) (workflow.FunctionResult, error)
 	invoked     []string
 }
 
 func (f *fakeToolRegistry) ListTools() []ToolDescriptor { return f.descriptors }
 
-func (f *fakeToolRegistry) InvokeTool(h actor.Handle, id string, e *workflow.ExecutionInfo) (workflow.FunctionResult, error) {
+func (f *fakeToolRegistry) InvokeTool(id string, e *workflow.ExecutionInfo) (workflow.FunctionResult, error) {
 	f.invoked = append(f.invoked, id)
 	if f.invoke != nil {
-		return f.invoke(h, id, e)
+		return f.invoke(id, e)
 	}
 	return workflow.NewFunctionResultSuccessWith(map[string]any{"ok": true}), nil
 }
-
-type fakeAgentHandle struct{}
-
-func (fakeAgentHandle) Send(any, any) error { return nil }
-func (fakeAgentHandle) Node() gen.Node      { return nil }
 
 // --- helpers ----------------------------------------------------------------
 
@@ -106,14 +99,13 @@ func registryWith(prov llm.Provider) llm.Registry {
 	return llm.NewRegistry(map[string]llm.Provider{prov.Name(): prov}, prov.Name())
 }
 
-func runAgent(t *testing.T, providers llm.Registry, tools ToolRegistry, handle actor.Handle, input map[string]any) (workflow.FunctionResult, workflow.FunctionOutput) {
+func runAgent(t *testing.T, providers llm.Registry, tools ToolRegistry, input map[string]any) (workflow.FunctionResult, workflow.FunctionOutput) {
 	t.Helper()
 	fnInput, err := workflow.NewFunctionInputWith(input)
 	require.NoError(t, err)
 
 	done := make(chan workflow.FunctionOutput, 1)
 	execInfo := workflow.NewExecutionInfo("wf-1", workflow.NewExecID(1), fnInput)
-	execInfo.Handle = handle
 	execInfo.Finish = func(out workflow.FunctionOutput) { done <- out }
 
 	res, err := makeAgentFunction(providers, tools)(execInfo)
@@ -151,12 +143,12 @@ func TestAgent_HappyPathSingleToolCall(t *testing.T) {
 	}
 	tools := &fakeToolRegistry{
 		descriptors: []ToolDescriptor{sumDescriptor},
-		invoke: func(_ actor.Handle, _ string, _ *workflow.ExecutionInfo) (workflow.FunctionResult, error) {
+		invoke: func(_ string, _ *workflow.ExecutionInfo) (workflow.FunctionResult, error) {
 			return workflow.NewFunctionResultSuccessWith(map[string]any{"sum": 5}), nil
 		},
 	}
 
-	res, out := runAgent(t, registryWith(prov), tools, fakeAgentHandle{}, map[string]any{"input": "add 2 and 3"})
+	res, out := runAgent(t, registryWith(prov), tools, map[string]any{"input": "add 2 and 3"})
 
 	require.True(t, res.Async)
 	assert.Equal(t, workflow.FunctionSuccess, out.Status)
@@ -195,7 +187,7 @@ func TestAgent_DirectAnswerNoTools(t *testing.T) {
 	prov := &scriptedProvider{name: "stub", responses: []llm.ChatResponse{finalAnswer("hello there")}}
 	tools := &fakeToolRegistry{}
 
-	_, out := runAgent(t, registryWith(prov), tools, fakeAgentHandle{}, map[string]any{"input": "say hello"})
+	_, out := runAgent(t, registryWith(prov), tools, map[string]any{"input": "say hello"})
 
 	assert.Equal(t, workflow.FunctionSuccess, out.Status)
 	assert.Equal(t, "hello there", out.Data["output"])
@@ -207,24 +199,16 @@ func TestAgent_DirectAnswerNoTools(t *testing.T) {
 
 func TestAgent_MissingInputReturnsSyncError(t *testing.T) {
 	prov := &scriptedProvider{name: "stub"}
-	res, _ := runAgent(t, registryWith(prov), &fakeToolRegistry{}, fakeAgentHandle{}, map[string]any{"input": ""})
+	res, _ := runAgent(t, registryWith(prov), &fakeToolRegistry{}, map[string]any{"input": ""})
 	assert.False(t, res.Async)
 	assert.Equal(t, workflow.FunctionError, res.Output.Status)
 }
 
 func TestAgent_UnknownProviderReturnsSyncError(t *testing.T) {
 	prov := &scriptedProvider{name: "stub"}
-	res, _ := runAgent(t, registryWith(prov), &fakeToolRegistry{}, fakeAgentHandle{}, map[string]any{"input": "hi", "provider": "nope"})
+	res, _ := runAgent(t, registryWith(prov), &fakeToolRegistry{}, map[string]any{"input": "hi", "provider": "nope"})
 	assert.False(t, res.Async)
 	assert.Equal(t, workflow.FunctionError, res.Output.Status)
-}
-
-func TestAgent_NilHandleReturnsSyncError(t *testing.T) {
-	prov := &scriptedProvider{name: "stub"}
-	res, _ := runAgent(t, registryWith(prov), &fakeToolRegistry{}, nil, map[string]any{"input": "hi"})
-	assert.False(t, res.Async)
-	assert.Equal(t, workflow.FunctionError, res.Output.Status)
-	assert.Contains(t, res.Output.Data["error"], "handle")
 }
 
 func TestAgent_UnknownToolFedBackAndContinues(t *testing.T) {
@@ -237,7 +221,7 @@ func TestAgent_UnknownToolFedBackAndContinues(t *testing.T) {
 	}
 	tools := &fakeToolRegistry{descriptors: []ToolDescriptor{sumDescriptor}}
 
-	_, out := runAgent(t, registryWith(prov), tools, fakeAgentHandle{}, map[string]any{"input": "use a tool"})
+	_, out := runAgent(t, registryWith(prov), tools, map[string]any{"input": "use a tool"})
 
 	assert.Equal(t, workflow.FunctionSuccess, out.Status)
 	assert.Equal(t, "recovered", out.Data["output"])
@@ -261,12 +245,12 @@ func TestAgent_MaxIterationsReached(t *testing.T) {
 	}
 	tools := &fakeToolRegistry{
 		descriptors: []ToolDescriptor{sumDescriptor},
-		invoke: func(_ actor.Handle, _ string, _ *workflow.ExecutionInfo) (workflow.FunctionResult, error) {
+		invoke: func(_ string, _ *workflow.ExecutionInfo) (workflow.FunctionResult, error) {
 			return workflow.NewFunctionResultSuccessWith(map[string]any{"sum": 0}), nil
 		},
 	}
 
-	_, out := runAgent(t, registryWith(prov), tools, fakeAgentHandle{}, map[string]any{"input": "loop forever", "maxIterations": 3})
+	_, out := runAgent(t, registryWith(prov), tools, map[string]any{"input": "loop forever", "maxIterations": 3})
 
 	assert.Equal(t, workflow.FunctionError, out.Status)
 	assert.Contains(t, out.Data["error"], "max iterations")
@@ -283,12 +267,12 @@ func TestAgent_ToolErrorSurfacedAndContinues(t *testing.T) {
 	}
 	tools := &fakeToolRegistry{
 		descriptors: []ToolDescriptor{sumDescriptor},
-		invoke: func(_ actor.Handle, _ string, _ *workflow.ExecutionInfo) (workflow.FunctionResult, error) {
+		invoke: func(_ string, _ *workflow.ExecutionInfo) (workflow.FunctionResult, error) {
 			return workflow.NewFunctionResult(workflow.FunctionError, map[string]any{"error": "boom"}), nil
 		},
 	}
 
-	_, out := runAgent(t, registryWith(prov), tools, fakeAgentHandle{}, map[string]any{"input": "use tool"})
+	_, out := runAgent(t, registryWith(prov), tools, map[string]any{"input": "use tool"})
 
 	assert.Equal(t, workflow.FunctionSuccess, out.Status)
 	steps := out.Data["steps"].([]map[string]any)
@@ -306,12 +290,12 @@ func TestAgent_AsyncToolUnsupported(t *testing.T) {
 	}
 	tools := &fakeToolRegistry{
 		descriptors: []ToolDescriptor{sumDescriptor},
-		invoke: func(_ actor.Handle, _ string, _ *workflow.ExecutionInfo) (workflow.FunctionResult, error) {
+		invoke: func(_ string, _ *workflow.ExecutionInfo) (workflow.FunctionResult, error) {
 			return workflow.NewFunctionResultAsync(), nil
 		},
 	}
 
-	_, out := runAgent(t, registryWith(prov), tools, fakeAgentHandle{}, map[string]any{"input": "use async tool"})
+	_, out := runAgent(t, registryWith(prov), tools, map[string]any{"input": "use async tool"})
 
 	assert.Equal(t, workflow.FunctionSuccess, out.Status)
 	steps := out.Data["steps"].([]map[string]any)
@@ -323,7 +307,7 @@ func TestAgent_AllowedToolsFilter(t *testing.T) {
 	prov := &scriptedProvider{name: "stub", responses: []llm.ChatResponse{finalAnswer("ok")}}
 	tools := &fakeToolRegistry{descriptors: []ToolDescriptor{sumDescriptor, randDescriptor}}
 
-	_, out := runAgent(t, registryWith(prov), tools, fakeAgentHandle{}, map[string]any{
+	_, out := runAgent(t, registryWith(prov), tools, map[string]any{
 		"input":        "do it",
 		"allowedTools": []any{"fuse/pkg/logic/sum"},
 	})
@@ -336,7 +320,7 @@ func TestAgent_AllowedToolsFilter(t *testing.T) {
 
 func TestAgent_ProviderErrorDeliveredAsErrorOutput(t *testing.T) {
 	prov := &scriptedProvider{name: "stub", err: errors.New("upstream boom"), errOnCall: 0}
-	_, out := runAgent(t, registryWith(prov), &fakeToolRegistry{}, fakeAgentHandle{}, map[string]any{"input": "hi"})
+	_, out := runAgent(t, registryWith(prov), &fakeToolRegistry{}, map[string]any{"input": "hi"})
 	assert.Equal(t, workflow.FunctionError, out.Status)
 	assert.Contains(t, out.Data["error"], "boom")
 }

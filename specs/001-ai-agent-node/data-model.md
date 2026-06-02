@@ -75,6 +75,5 @@ Final assistant message (no tool calls) --> output (+ usage + steps) --> Finish
 - `input` non-empty → else synchronous `FunctionError` (FR-015).
 - `maxIterations` clamped to `[1, 25]` (FR-007).
 - `provider` resolvable → else synchronous `FunctionError`.
-- `Handle` present and assertable to `actor.Handle` → else synchronous `FunctionError`.
 - Each tool call: `Name` resolvable to an allowed real id, `Arguments` valid JSON → else recorded
   error tool message, loop continues (FR-009).

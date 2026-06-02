@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/open-source-cloud/fuse/internal/actors/actor"
 	"github.com/open-source-cloud/fuse/internal/packages/transport"
 	"github.com/open-source-cloud/fuse/pkg/llm"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
@@ -28,10 +27,6 @@ const (
 
 // ErrAgentInputRequired is returned when the required task input is missing.
 var ErrAgentInputRequired = errors.New("ai/agent: input is required")
-
-// ErrAgentNoHandle is returned when the execution info carries no usable worker
-// handle (it is populated by the internal transport in normal operation).
-var ErrAgentNoHandle = errors.New("ai/agent: no worker handle available")
 
 // AgentFunctionMetadata returns the metadata for the agent function.
 func AgentFunctionMetadata() workflow.FunctionMetadata {
@@ -80,16 +75,10 @@ func makeAgentFunction(providers llm.Registry, tools ToolRegistry) workflow.Func
 			return workflow.NewFunctionResultError(err)
 		}
 
-		handle, ok := execInfo.Handle.(actor.Handle)
-		if !ok || handle == nil {
-			return workflow.NewFunctionResultError(ErrAgentNoHandle)
-		}
-
 		llmTools, byMangled := buildTools(tools.ListTools(), allowedToolSet(input))
 
 		executor := &agentExecutor{
 			provider:  provider,
-			handle:    handle,
 			tools:     tools,
 			byMangled: byMangled,
 			llmTools:  llmTools,
@@ -121,7 +110,6 @@ func makeAgentFunction(providers llm.Registry, tools ToolRegistry) workflow.Func
 // agentExecutor holds the immutable per-run parameters for the reasoning loop.
 type agentExecutor struct {
 	provider  llm.Provider
-	handle    actor.Handle
 	tools     ToolRegistry
 	byMangled map[string]string // mangled tool name -> real function id
 	llmTools  []llm.Tool
@@ -193,7 +181,7 @@ func (e *agentExecutor) executeToolCall(tc llm.ToolCall) (llm.Message, map[strin
 		return e.toolError(tc, realID, args, fmt.Sprintf("failed to build tool input: %v", err))
 	}
 
-	result, err := e.tools.InvokeTool(e.handle, realID, workflow.NewExecutionInfo(e.wfID, e.execID, nestedInput))
+	result, err := e.tools.InvokeTool(realID, workflow.NewExecutionInfo(e.wfID, e.execID, nestedInput))
 	if err != nil {
 		return e.toolError(tc, realID, args, err.Error())
 	}

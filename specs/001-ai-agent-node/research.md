@@ -3,25 +3,30 @@
 All decisions below were validated against the current code on branch `main`. They are the
 substance of the implementation and resolve the unknowns the agent loop introduces.
 
-## R1 — How does the agent goroutine get an actor handle to invoke tools?
+## R1 — How does the agent invoke other functions in-process?
 
-**Decision**: Add `Handle any` to `workflow.ExecutionInfo` and populate it in
-`InternalFunctionTransport.Execute` (`internal/packages/transport/internal.go`), which already
-receives both `handle actor.Handle` and `execInfo`.
+**Decision**: The agent receives its tool capability as an **injected port** (`ai.ToolRegistry`,
+provided at `makeAgentFunction` construction). Synchronous tools run through a **handle-free**
+path: `ToolRegistry.InvokeTool(functionID, execInfo)` → `LoadedPackage.ExecuteFunctionSync` →
+`InternalFunctionTransport.ExecuteSync`, which executes the function inline with **no actor
+handle**. `workflow.ExecutionInfo` stays a clean input/output + completion contract — it gains
+**no** `Handle` field, and the `ai` node package imports no actor/runtime types.
 
-**Rationale**: The `workflow.Function` signature is `func(*ExecutionInfo) (FunctionResult, error)`
-— the function never sees the actor handle directly. The transport is the single choke point that
-runs every internal function and already rebinds `execInfo.Finish` using the handle, so setting
-`execInfo.Handle = handle` there threads the handle to *all* internal functions (and to nested
-tool calls) with one line and zero changes to `workflow_func.go`.
+**Rationale**: The `workflow.Function` signature is `func(*ExecutionInfo) (FunctionResult, error)`;
+sub-invocation is a capability of a *distinct, function-orchestrated* node class (the agent), not
+of the universal execution context. Every surveyed engine (n8n, Temporal, LangGraph, Prefect,
+Dagster, Airflow, Camunda) injects this capability into the orchestrating component rather than
+exposing it on a leaf step's run-context. And because Phase B exposes only synchronous tools —
+which return inline and never fire `Finish` — the worker actor handle is genuinely unnecessary
+here.
 
-**Alternatives considered**: Populate at the worker (`workflow_func.go:136`) — works but touches a
-hotter file and doesn't automatically cover nested calls. Change the `workflow.Function` signature
-to take the handle — large blast radius across every function and test.
+**Superseded approach**: an earlier iteration added `ExecutionInfo.Handle any`, populated by the
+transport. It was removed: the field leaked runtime access onto the shared contract, was untyped,
+and was never actually dereferenced for sync tools.
 
-**Layering note**: `ExecutionInfo.Handle` is typed `any` (not `actor.Handle`) so `pkg/workflow`
-keeps zero dependency on `internal/*`; the `ai` package type-asserts it to `actor.Handle`. The
-codebase already uses `any` widely (`FunctionInput`, edge values).
+**Deferred (Phase C)**: async tool invocation needs the per-execution worker handle plus a
+correlation channel. That is a *separate, typed* per-execution runtime port injected into
+orchestrating nodes — never a field on `ExecutionInfo`. See ADR-0027.
 
 ## R2 — How does `ai` enumerate/invoke registry functions without an import cycle?
 
@@ -41,10 +46,10 @@ Reflection-based discovery — fragile, untyped.
 ## R3 — How are synchronous tool results read back inline?
 
 **Decision**: A synchronous internal function returns `workflow.FunctionResult{Async:false,
-Output:{Status, Data}}`; the agent reads `result.Output.Data` immediately. The agent passes the
-real worker handle so `handle.Node()` is valid inside `Execute`, but the rebound `Finish` is never
-invoked for a sync tool. Any tool returning `Async:true` is treated as "unsupported" feedback
-(not awaited).
+Output:{Status, Data}}`; the agent reads `result.Output.Data` immediately. The handle-free
+`ExecuteSync` path (R1) runs the function with no handle and binds a guard `Finish` that
+logs-and-ignores any unexpected async-completion attempt. Any tool returning `Async:true` is
+treated as "unsupported" feedback (not awaited).
 
 **Rationale**: `InternalFunctionTransport.Execute` rebinds `Finish` to send an
 `AsyncFunctionResultMessage` to the WorkflowHandler. For an async tool that result would be routed

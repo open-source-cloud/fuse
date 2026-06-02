@@ -4,7 +4,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/open-source-cloud/fuse/internal/actors/actor"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 )
 
@@ -23,9 +22,10 @@ type ToolRegistry interface {
 	// excluded by the implementation.
 	ListTools() []ToolDescriptor
 	// InvokeTool runs the function identified by its full id (e.g.
-	// "fuse/pkg/logic/sum") in-process and returns its result. For a synchronous
-	// function the result is returned inline (FunctionResult.Async == false).
-	InvokeTool(handle actor.Handle, functionID string, execInfo *workflow.ExecutionInfo) (workflow.FunctionResult, error)
+	// "fuse/pkg/logic/sum") synchronously in-process and returns its result inline
+	// (FunctionResult.Async == false). No worker handle is involved: Phase B exposes
+	// only synchronous tools, so the actor system is never reached.
+	InvokeTool(functionID string, execInfo *workflow.ExecutionInfo) (workflow.FunctionResult, error)
 }
 
 // ToolDescriptor describes one function exposed to the model as a tool.

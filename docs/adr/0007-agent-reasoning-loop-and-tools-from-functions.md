@@ -51,8 +51,11 @@ Constraints for Phase B:
   (e.g. `logic/if`) are also excluded from auto-exposure.
 - **Tool-name mangling**: tool names use `package__function` (`/`↔`__`) to satisfy
   provider name constraints, mapped back to the real function ID on invocation.
-- **`ExecutionInfo` gains a `Handle`** so the agent goroutine can call
-  `ExecuteFunction` (the goroutine uses `handle.Node()`, never `handle.Send`).
+- **Tool capability is injected, not ambient.** The agent receives a `ToolRegistry` port at
+  construction (`makeAgentFunction`); synchronous tools run via a **handle-free** path
+  (`ExecuteFunctionSync`), so `ExecutionInfo` stays a clean input/output contract and the `ai`
+  package depends on no actor/runtime types. The per-execution worker handle needed for *async*
+  tools is deferred to [ADR-0027](0027-async-tool-invocation-sub-execution-channel.md).
 
 ### Consequences
 
@@ -68,8 +71,8 @@ Constraints for Phase B:
 ### Async in-function loop + functions-as-tools (chosen)
 
 - Good: non-blocking; reuses functions, schemas, and the proven async pattern; stays a
-  single node.
-- Bad: async-tool support deferred; needs the `ExecutionInfo.Handle` addition.
+  single node; the tool capability is an injected port, leaving `ExecutionInfo` clean.
+- Bad: async-tool support deferred (it needs the per-execution runtime introduced in ADR-0027).
 
 ### Synchronous in-worker loop
 
@@ -87,10 +90,11 @@ Constraints for Phase B:
 - Code: `internal/packages/functions/ai/agent.go` (reasoning loop + metadata) and
   `internal/packages/functions/ai/tools.go` (the `ToolRegistry` seam, `package__function`
   name mangling, and `ParameterSchema`→JSON-Schema conversion); the registry adapter and
-  exclusion predicate live in `internal/packages/agent_tools.go`. The worker handle reaches
-  the agent goroutine via `workflow.ExecutionInfo.Handle`, populated at the single choke point
-  `internal/packages/transport/internal.go`. Tool invocation goes through
-  `internal/packages/loaded_package.go` (`ExecuteFunction`); precedent for the async pattern is
+  exclusion predicate live in `internal/packages/agent_tools.go`. Synchronous tools execute
+  through a handle-free path — `AgentToolRegistry.InvokeTool` →
+  `internal/packages/loaded_package.go` (`ExecuteFunctionSync`) →
+  `internal/packages/transport/internal.go` (`ExecuteSync`) — so no actor handle and no
+  `ExecutionInfo` field are involved. Precedent for the outer async completion is
   `internal/packages/functions/logic/timer.go`.
 - Specified and delivered through the spec-driven flow under `specs/001-ai-agent-node/`.
 - Accepted: Phase B shipped — the `ai/agent` node exposes synchronous, declared-parameter

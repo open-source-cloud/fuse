@@ -6,7 +6,6 @@ import (
 	"ergo.services/ergo/gen"
 	"ergo.services/ergo/lib"
 	"ergo.services/ergo/testing/unit"
-	"github.com/open-source-cloud/fuse/internal/actors/actor"
 	"github.com/open-source-cloud/fuse/internal/actors/actornames"
 	"github.com/open-source-cloud/fuse/internal/messaging"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
@@ -14,8 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// fakeHandle is a minimal actor.Handle for transport tests. Node() returns nil
-// because the sync functions under test never invoke the rebound Finish.
+// fakeHandle is a minimal actor.Handle for the async Execute path tests. Node()
+// returns nil because these tests never reach the rebound Finish.
 type fakeHandle struct{}
 
 func (fakeHandle) Send(any, any) error { return nil }
@@ -53,26 +52,33 @@ func TestSendAsyncFunctionResult_NilNode(t *testing.T) {
 	require.ErrorIs(t, err, errNilNode)
 }
 
-func TestExecute_PopulatesHandleOnExecutionInfo(t *testing.T) {
+func TestExecuteSync_RunsFunctionWithoutHandle(t *testing.T) {
 	t.Parallel()
 
-	var seen any
-	fn := func(execInfo *workflow.ExecutionInfo) (workflow.FunctionResult, error) {
-		seen = execInfo.Handle
-		return workflow.NewFunctionResultSuccess(), nil
+	called := false
+	fn := func(_ *workflow.ExecutionInfo) (workflow.FunctionResult, error) {
+		called = true
+		return workflow.NewFunctionResultSuccessWith(map[string]any{"ok": true}), nil
 	}
 	tr := NewInternalFunctionTransport(fn)
 
-	var h actor.Handle = fakeHandle{}
 	execInfo := workflow.NewExecutionInfo("wf-1", workflow.NewExecID(1), nil)
-
-	_, err := tr.Execute(h, execInfo)
+	res, err := tr.ExecuteSync(execInfo)
 	require.NoError(t, err)
+	require.True(t, called, "the function should run")
+	assert.False(t, res.Async, "a synchronous invocation returns its result inline")
+	assert.Equal(t, workflow.FunctionSuccess, res.Output.Status)
+	assert.Equal(t, true, res.Output.Data["ok"])
+}
 
-	require.NotNil(t, seen, "the function should observe a non-nil Handle")
-	gotHandle, ok := seen.(actor.Handle)
-	require.True(t, ok, "Handle should be assertable to actor.Handle")
-	assert.Equal(t, h, gotHandle)
+func TestExecuteSync_NilExecutionInfoReturnsError(t *testing.T) {
+	t.Parallel()
+
+	tr := NewInternalFunctionTransport(func(*workflow.ExecutionInfo) (workflow.FunctionResult, error) {
+		return workflow.NewFunctionResultSuccess(), nil
+	})
+	_, err := tr.ExecuteSync(nil)
+	require.ErrorIs(t, err, errNilExecutionInfo)
 }
 
 func TestExecute_NilExecutionInfoReturnsError(t *testing.T) {

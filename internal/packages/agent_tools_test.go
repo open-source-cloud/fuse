@@ -3,7 +3,6 @@ package packages
 import (
 	"testing"
 
-	"ergo.services/ergo/gen"
 	"github.com/open-source-cloud/fuse/internal/packages/functions/ai"
 	"github.com/open-source-cloud/fuse/internal/packages/functions/logic"
 	"github.com/open-source-cloud/fuse/internal/packages/functions/system"
@@ -12,13 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-// fakeHandle is a minimal actor.Handle for adapter tests. The synchronous tools
-// under test never call the rebound Finish, so Node() returning nil is fine.
-type fakeHandle struct{}
-
-func (fakeHandle) Send(any, any) error { return nil }
-func (fakeHandle) Node() gen.Node      { return nil }
 
 // newTestRegistry builds an isolated registry (not the NewPackageRegistry global)
 // populated with the real system + logic packages and a fake ai package.
@@ -93,7 +85,7 @@ func TestInvokeTool_RunsSyncFunctionInline(t *testing.T) {
 	require.NoError(t, err)
 	execInfo := workflow.NewExecutionInfo("wf-1", workflow.NewExecID(1), input)
 
-	res, err := adapter.InvokeTool(fakeHandle{}, "fuse/pkg/logic/sum", execInfo)
+	res, err := adapter.InvokeTool("fuse/pkg/logic/sum", execInfo)
 	require.NoError(t, err)
 	assert.False(t, res.Async, "a synchronous tool returns its result inline")
 	assert.Equal(t, workflow.FunctionSuccess, res.Output.Status)
@@ -106,7 +98,7 @@ func TestInvokeTool_UnknownFunctionReturnsError(t *testing.T) {
 	adapter := NewAgentToolRegistry(newTestRegistry(t))
 	execInfo := workflow.NewExecutionInfo("wf-1", workflow.NewExecID(1), nil)
 
-	_, err := adapter.InvokeTool(fakeHandle{}, "does/not/exist", execInfo)
+	_, err := adapter.InvokeTool("does/not/exist", execInfo)
 	require.Error(t, err)
 }
 
