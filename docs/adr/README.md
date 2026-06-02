@@ -34,7 +34,7 @@ copying [`template.md`](template.md).
 | 0005 | [AI agents as workflow nodes; phased roadmap](0005-ai-agents-as-workflow-nodes-phased-roadmap.md) | Accepted | 2026-06-01 |
 | 0006 | [LLM provider abstraction & multi-provider strategy](0006-llm-provider-abstraction-and-multi-provider-strategy.md) | Accepted | 2026-06-01 |
 | 0007 | [Agent reasoning loop & tools-from-functions](0007-agent-reasoning-loop-and-tools-from-functions.md) | Accepted | 2026-06-01 |
-| 0008 | [Settings, environments & secrets management](0008-settings-environments-and-secrets-management.md) | Proposed | 2026-06-01 |
+| 0008 | [Settings, environments & secrets management](0008-settings-environments-and-secrets-management.md) | Superseded by [0031](0031-settings-secrets-and-environments.md) | 2026-06-01 |
 | 0009 | [Portable AI agent guidance in `.agents/`](0009-portable-ai-agent-guidance.md)         | Accepted | 2026-06-01 |
 | 0010 | [Durable execution via an append-only journal](0010-durable-execution-journal-and-replay.md) | Accepted | 2026-06-01 |
 | 0011 | [Thread model for fork/join and ForEach](0011-threading-model-and-foreach.md)            | Accepted | 2026-06-01 |
@@ -57,3 +57,4 @@ copying [`template.md`](template.md).
 | 0028 | [Agent prompt/context & conversation-memory model](0028-agent-prompt-context-and-memory-model.md) | Proposed | 2026-06-02 |
 | 0029 | [LLM cost & token-usage tracking and budgets](0029-llm-cost-and-usage-tracking-and-budgets.md) | Proposed | 2026-06-02 |
 | 0030 | [Structured/JSON output enforcement for ai nodes](0030-structured-output-enforcement.md) | Proposed | 2026-06-02 |
+| 0031 | [Settings, secrets & environments: a SecretStore seam](0031-settings-secrets-and-environments.md) | Accepted | 2026-06-02 |
