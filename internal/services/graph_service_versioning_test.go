@@ -16,7 +16,7 @@ func newVersioningGraphService(t *testing.T) services.GraphService {
 	t.Helper()
 	memGraphRepo := repositories.NewMemoryGraphRepository()
 	pkgRegistry := packages.NewPackageRegistry()
-	internalPackages := packages.NewInternal(llm.NewRegistry(nil, ""))
+	internalPackages := packages.NewInternal(llm.NewRegistry(nil, ""), pkgRegistry)
 	pkgSvc := services.NewPackageService(repositories.NewMemoryPackageRepository(), pkgRegistry, internalPackages)
 	require.NoError(t, pkgSvc.RegisterInternalPackages())
 	return services.NewGraphService(memGraphRepo, pkgRegistry, nil)

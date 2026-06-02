@@ -41,6 +41,11 @@ func (t *InternalFunctionTransport) Execute(handle actor.Handle, execInfo *workf
 	if execInfo == nil {
 		return workflow.FunctionResult{}, errNilExecutionInfo
 	}
+	// Thread the worker handle onto the execution info so long-running functions
+	// (e.g. ai/agent) can invoke other functions in-process and reach the node
+	// from a goroutine via handle.Node(). This is the single choke point through
+	// which every internal function runs, so nested tool calls inherit it too.
+	execInfo.Handle = handle
 	execInfo.Finish = func(result workflow.FunctionOutput) {
 		if execInfo == nil {
 			log.Error().Msg("async Finish invoked with nil ExecutionInfo")

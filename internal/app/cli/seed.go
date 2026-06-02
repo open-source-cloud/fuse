@@ -186,6 +186,10 @@ func shouldSkipExampleWorkflow(fileName string, raw []byte) bool {
 	case "github-request-example.json":
 		return true
 	default:
-		return strings.Contains(string(raw), "fuse/pkg/logic/timer")
+		// Skip workflows that the default CI path cannot complete: async timer
+		// flows, and ai nodes that need a live LLM provider (e.g. ai/agent, ai/chat).
+		content := string(raw)
+		return strings.Contains(content, "fuse/pkg/logic/timer") ||
+			strings.Contains(content, "fuse/pkg/ai/")
 	}
 }

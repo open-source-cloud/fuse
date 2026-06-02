@@ -17,15 +17,20 @@ type (
 	}
 )
 
-// NewInternal creates new InternalPackages service. The LLM provider registry
-// is injected so the ai package can expose chat/agent functions.
-func NewInternal(providers llm.Registry) InternalPackages {
-	return &DefaultInternalPackages{providers: providers}
+// NewInternal creates new InternalPackages service. The LLM provider registry is
+// injected so the ai package can expose chat/agent functions, and the package
+// registry backs the agent's tool catalog (synchronous functions become tools).
+func NewInternal(providers llm.Registry, registry Registry) InternalPackages {
+	return &DefaultInternalPackages{
+		providers: providers,
+		tools:     NewAgentToolRegistry(registry),
+	}
 }
 
 // DefaultInternalPackages service for registering internal packages
 type DefaultInternalPackages struct {
 	providers llm.Registry
+	tools     ai.ToolRegistry
 }
 
 // List returns the list of internal packages
@@ -35,6 +40,6 @@ func (p *DefaultInternalPackages) List() []*workflow.Package {
 		logic.New(),
 		http.New(),
 		system.New(),
-		ai.New(p.providers),
+		ai.New(p.providers, p.tools),
 	}
 }
