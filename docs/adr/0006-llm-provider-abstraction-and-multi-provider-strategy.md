@@ -86,6 +86,9 @@ substituted later without touching callers.
 - Code: `pkg/llm/` (interface + registry), `internal/llm/providers/openaicompat/`,
   `internal/app/di/llm.go`; config in `internal/app/config/config.go` (`LLMConfig`).
 - Shipped in PR #69 (Phase A).
+- Native **Anthropic** provider (Phase C): `internal/llm/providers/anthropic/` via
+  `anthropic-sdk-go`, registered under the `anthropic` key in `internal/app/di/llm.go`. Specified
+  under `specs/002-anthropic-provider/`. (Streaming and prompt caching remain Phase C follow-ups.)
 - Related: [ADR-0005](0005-ai-agents-as-workflow-nodes-phased-roadmap.md),
   [ADR-0007](0007-agent-reasoning-loop-and-tools-from-functions.md),
   [ADR-0008](0008-settings-environments-and-secrets-management.md).

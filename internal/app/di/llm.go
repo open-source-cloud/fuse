@@ -2,6 +2,7 @@ package di
 
 import (
 	"github.com/open-source-cloud/fuse/internal/app/config"
+	"github.com/open-source-cloud/fuse/internal/llm/providers/anthropic"
 	"github.com/open-source-cloud/fuse/internal/llm/providers/openaicompat"
 	"github.com/open-source-cloud/fuse/pkg/llm"
 	"github.com/rs/zerolog/log"
@@ -54,9 +55,15 @@ func provideLLMRegistry(cfg *config.Config) llm.Registry {
 		log.Info().Str("provider", p.name).Str("model", p.conf.Model).Msg("LLM provider registered")
 	}
 
-	// Anthropic (native protocol) is added in Phase C.
+	// Anthropic uses its own native protocol, so it has a separate implementation.
 	if cfg.LLM.Anthropic.Enabled {
-		log.Warn().Msg("LLM_ANTHROPIC_ENABLED is set but the Anthropic provider is not yet implemented (Phase C)")
+		providers[providerAnthropic] = anthropic.New(anthropic.Config{
+			Name:    providerAnthropic,
+			APIKey:  cfg.LLM.Anthropic.APIKey,
+			BaseURL: cfg.LLM.Anthropic.BaseURL,
+			Model:   cfg.LLM.Anthropic.Model,
+		})
+		log.Info().Str("provider", providerAnthropic).Str("model", cfg.LLM.Anthropic.Model).Msg("LLM provider registered")
 	}
 
 	if len(providers) == 0 {
