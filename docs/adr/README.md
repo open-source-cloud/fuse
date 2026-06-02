@@ -48,3 +48,6 @@ copying [`template.md`](template.md).
 | 0019 | [Externalize large payloads to a pluggable object store](0019-object-store-payload-externalization.md) | Accepted | 2026-06-01 |
 | 0020 | [Observability: metrics, tracing, execution traces](0020-observability-metrics-tracing-execution-traces.md) | Accepted | 2026-06-01 |
 | 0021 | [Deployment and delivery architecture (CI/CD, Docker, Helm)](0021-deployment-and-delivery-architecture.md) | Accepted | 2026-06-01 |
+| 0022 | [Retry and error-handling model](0022-retry-and-error-handling-model.md)                 | Accepted | 2026-06-01 |
+| 0023 | [Timeout enforcement via actor timers](0023-timeout-enforcement-model.md)                | Accepted | 2026-06-01 |
+| 0024 | [Function packages: registry with declarative metadata](0024-package-registry-and-function-metadata.md) | Accepted | 2026-06-01 |
