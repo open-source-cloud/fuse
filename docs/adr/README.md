@@ -33,7 +33,7 @@ copying [`template.md`](template.md).
 | 0004 | [Multi-trigger workflow initiation](0004-multi-trigger-workflow-initiation.md)               | Accepted | 2026-06-01 |
 | 0005 | [AI agents as workflow nodes; phased roadmap](0005-ai-agents-as-workflow-nodes-phased-roadmap.md) | Accepted | 2026-06-01 |
 | 0006 | [LLM provider abstraction & multi-provider strategy](0006-llm-provider-abstraction-and-multi-provider-strategy.md) | Accepted | 2026-06-01 |
-| 0007 | [Agent reasoning loop & tools-from-functions](0007-agent-reasoning-loop-and-tools-from-functions.md) | Proposed | 2026-06-01 |
+| 0007 | [Agent reasoning loop & tools-from-functions](0007-agent-reasoning-loop-and-tools-from-functions.md) | Accepted | 2026-06-01 |
 | 0008 | [Settings, environments & secrets management](0008-settings-environments-and-secrets-management.md) | Proposed | 2026-06-01 |
 | 0009 | [Portable AI agent guidance in `.agents/`](0009-portable-ai-agent-guidance.md)         | Accepted | 2026-06-01 |
 | 0010 | [Durable execution via an append-only journal](0010-durable-execution-journal-and-replay.md) | Accepted | 2026-06-01 |
@@ -52,3 +52,8 @@ copying [`template.md`](template.md).
 | 0023 | [Timeout enforcement via actor timers](0023-timeout-enforcement-model.md)                | Accepted | 2026-06-01 |
 | 0024 | [Function packages: registry with declarative metadata](0024-package-registry-and-function-metadata.md) | Accepted | 2026-06-01 |
 | 0025 | [Browser automation & web-scraping package](0025-browser-automation-and-web-scraping-package.md) | Proposed | 2026-06-01 |
+| 0026 | [Agent-as-orchestrator mode](0026-agent-as-orchestrator-mode.md)                       | Proposed | 2026-06-02 |
+| 0027 | [Async tool invocation via a sub-execution channel](0027-async-tool-invocation-sub-execution-channel.md) | Proposed | 2026-06-02 |
+| 0028 | [Agent prompt/context & conversation-memory model](0028-agent-prompt-context-and-memory-model.md) | Proposed | 2026-06-02 |
+| 0029 | [LLM cost & token-usage tracking and budgets](0029-llm-cost-and-usage-tracking-and-budgets.md) | Proposed | 2026-06-02 |
+| 0030 | [Structured/JSON output enforcement for ai nodes](0030-structured-output-enforcement.md) | Proposed | 2026-06-02 |

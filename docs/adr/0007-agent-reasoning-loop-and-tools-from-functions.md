@@ -1,6 +1,6 @@
 # 0007. Agent reasoning loop & tools-from-functions
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-06-01
 - Deciders: FUSE maintainers
 
@@ -84,10 +84,18 @@ Constraints for Phase B:
 
 ## More Information
 
-- Planned code: `internal/packages/functions/ai/agent.go`; precedent for the async
-  pattern: `internal/packages/functions/logic/timer.go`; tool invocation via
-  `internal/packages/loaded_package.go` (`ExecuteFunction`); schema source
-  `pkg/workflow/metadata.go` (`ParameterSchema`).
-- Status is **Proposed** until Phase B lands; this ADR will move to Accepted then.
+- Code: `internal/packages/functions/ai/agent.go` (reasoning loop + metadata) and
+  `internal/packages/functions/ai/tools.go` (the `ToolRegistry` seam, `package__function`
+  name mangling, and `ParameterSchema`→JSON-Schema conversion); the registry adapter and
+  exclusion predicate live in `internal/packages/agent_tools.go`. The worker handle reaches
+  the agent goroutine via `workflow.ExecutionInfo.Handle`, populated at the single choke point
+  `internal/packages/transport/internal.go`. Tool invocation goes through
+  `internal/packages/loaded_package.go` (`ExecuteFunction`); precedent for the async pattern is
+  `internal/packages/functions/logic/timer.go`.
+- Specified and delivered through the spec-driven flow under `specs/001-ai-agent-node/`.
+- Accepted: Phase B shipped — the `ai/agent` node exposes synchronous, declared-parameter
+  functions as tools. The async-tool limitation is lifted by a future sub-execution correlation
+  channel (see [ADR-0027](0027-async-tool-invocation-sub-execution-channel.md)); streaming and a
+  native Anthropic provider remain Phase C.
 - Related: [ADR-0005](0005-ai-agents-as-workflow-nodes-phased-roadmap.md),
   [ADR-0006](0006-llm-provider-abstraction-and-multi-provider-strategy.md).
