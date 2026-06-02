@@ -9,8 +9,16 @@ import (
 	"github.com/open-source-cloud/fuse/internal/actors/actornames"
 	"github.com/open-source-cloud/fuse/internal/messaging"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// fakeHandle is a minimal actor.Handle for the async Execute path tests. Node()
+// returns nil because these tests never reach the rebound Finish.
+type fakeHandle struct{}
+
+func (fakeHandle) Send(any, any) error { return nil }
+func (fakeHandle) Node() gen.Node      { return nil }
 
 func TestSendAsyncFunctionResult_UsesHandlerAtom(t *testing.T) {
 	t.Parallel()
@@ -42,4 +50,43 @@ func TestSendAsyncFunctionResult_NilNode(t *testing.T) {
 
 	err := sendAsyncFunctionResult(nil, "wf", workflow.NewExecID(0), workflow.FunctionOutput{})
 	require.ErrorIs(t, err, errNilNode)
+}
+
+func TestExecuteSync_RunsFunctionWithoutHandle(t *testing.T) {
+	t.Parallel()
+
+	called := false
+	fn := func(_ *workflow.ExecutionInfo) (workflow.FunctionResult, error) {
+		called = true
+		return workflow.NewFunctionResultSuccessWith(map[string]any{"ok": true}), nil
+	}
+	tr := NewInternalFunctionTransport(fn)
+
+	execInfo := workflow.NewExecutionInfo("wf-1", workflow.NewExecID(1), nil)
+	res, err := tr.ExecuteSync(execInfo)
+	require.NoError(t, err)
+	require.True(t, called, "the function should run")
+	assert.False(t, res.Async, "a synchronous invocation returns its result inline")
+	assert.Equal(t, workflow.FunctionSuccess, res.Output.Status)
+	assert.Equal(t, true, res.Output.Data["ok"])
+}
+
+func TestExecuteSync_NilExecutionInfoReturnsError(t *testing.T) {
+	t.Parallel()
+
+	tr := NewInternalFunctionTransport(func(*workflow.ExecutionInfo) (workflow.FunctionResult, error) {
+		return workflow.NewFunctionResultSuccess(), nil
+	})
+	_, err := tr.ExecuteSync(nil)
+	require.ErrorIs(t, err, errNilExecutionInfo)
+}
+
+func TestExecute_NilExecutionInfoReturnsError(t *testing.T) {
+	t.Parallel()
+
+	tr := NewInternalFunctionTransport(func(*workflow.ExecutionInfo) (workflow.FunctionResult, error) {
+		return workflow.NewFunctionResultSuccess(), nil
+	})
+	_, err := tr.Execute(fakeHandle{}, nil)
+	require.ErrorIs(t, err, errNilExecutionInfo)
 }

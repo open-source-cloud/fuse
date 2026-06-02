@@ -41,6 +41,18 @@ func (p *LoadedPackage) ExecuteFunction(handle actor.Handle, functionID string, 
 	return function.Transport.Execute(handle, execInfo)
 }
 
+// ExecuteFunctionSync executes a function synchronously, without a worker handle.
+// It is used for in-process tool invocation (ai/agent) of synchronous functions,
+// where the result is returned inline rather than via the actor system.
+func (p *LoadedPackage) ExecuteFunctionSync(functionID string, execInfo *workflow.ExecutionInfo) (workflow.FunctionResult, error) {
+	function, exists := p.Functions[functionID]
+	if !exists {
+		return workflow.FunctionResult{}, fmt.Errorf("function %s not found", functionID)
+	}
+
+	return function.Transport.ExecuteSync(execInfo)
+}
+
 // MapToRegistryPackage converts from pkg/packages.Package into internal/packages.LoadedPackage
 func MapToRegistryPackage(pkg *workflow.Package) *LoadedPackage {
 	functions := make(map[string]*LoadedFunction, len(pkg.Functions))

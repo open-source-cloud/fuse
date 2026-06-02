@@ -1,0 +1,38 @@
+{
+  "id": "ai-agent-example",
+  "name": "AI Agent (Phase B) example",
+  "nodes": [
+    {
+      "id": "trigger",
+      "function": "fuse/pkg/debug/nil"
+    },
+    {
+      "id": "ai-agent",
+      "function": "fuse/pkg/ai/agent"
+    }
+  ],
+  "edges": [
+    {
+      "id": "0196cf0f-8a70-7463-a594-3e2a734be200",
+      "from": "trigger",
+      "to": "ai-agent",
+      "input": [
+        {
+          "source": "schema",
+          "value": "Use your tools to add the numbers 2 and 3, then tell me the result.",
+          "mapTo": "input"
+        },
+        {
+          "source": "schema",
+          "value": "You are a helpful assistant. Use the available tools to compute answers rather than guessing.",
+          "mapTo": "systemPrompt"
+        },
+        {
+          "source": "schema",
+          "value": 5,
+          "mapTo": "maxIterations"
+        }
+      ]
+    }
+  ]
+}

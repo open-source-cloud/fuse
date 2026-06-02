@@ -12,10 +12,12 @@ import (
 const PackageID = "fuse/pkg/ai"
 
 // New creates a new ai Package. The LLM provider registry is closed over by the
-// function implementations so they can resolve providers at execution time.
-func New(providers llm.Registry) *workflow.Package {
+// function implementations so they can resolve providers at execution time; the
+// tool registry lets the agent expose existing functions as tools and invoke them.
+func New(providers llm.Registry, tools ToolRegistry) *workflow.Package {
 	return workflow.NewPackage(
 		PackageID,
 		workflow.NewFunction(ChatFunctionID, ChatFunctionMetadata(), makeChatFunction(providers)),
+		workflow.NewFunction(AgentFunctionID, AgentFunctionMetadata(), makeAgentFunction(providers, tools)),
 	)
 }

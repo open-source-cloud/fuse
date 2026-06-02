@@ -56,3 +56,18 @@ func (t *InternalFunctionTransport) Execute(handle actor.Handle, execInfo *workf
 	}
 	return t.fn(execInfo)
 }
+
+// ExecuteSync runs the function synchronously with no worker handle. It is used
+// for in-process tool invocation (ai/agent), where only synchronous functions are
+// eligible, so the result is returned inline via FunctionResult and the worker
+// pool / actor system is never involved. Finish is bound to a guard that logs and
+// ignores any (unexpected) async-completion attempt rather than panicking.
+func (t *InternalFunctionTransport) ExecuteSync(execInfo *workflow.ExecutionInfo) (workflow.FunctionResult, error) {
+	if execInfo == nil {
+		return workflow.FunctionResult{}, errNilExecutionInfo
+	}
+	execInfo.Finish = func(workflow.FunctionOutput) {
+		log.Error().Msg("synchronous tool invocation attempted async Finish; ignored (only sync functions are exposed as tools)")
+	}
+	return t.fn(execInfo)
+}
