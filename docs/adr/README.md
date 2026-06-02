@@ -51,3 +51,4 @@ copying [`template.md`](template.md).
 | 0022 | [Retry and error-handling model](0022-retry-and-error-handling-model.md)                 | Accepted | 2026-06-01 |
 | 0023 | [Timeout enforcement via actor timers](0023-timeout-enforcement-model.md)                | Accepted | 2026-06-01 |
 | 0024 | [Function packages: registry with declarative metadata](0024-package-registry-and-function-metadata.md) | Accepted | 2026-06-01 |
+| 0025 | [Browser automation & web-scraping package](0025-browser-automation-and-web-scraping-package.md) | Proposed | 2026-06-01 |
