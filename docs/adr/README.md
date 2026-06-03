@@ -58,3 +58,15 @@ copying [`template.md`](template.md).
 | 0029 | [LLM cost & token-usage tracking and budgets](0029-llm-cost-and-usage-tracking-and-budgets.md) | Proposed | 2026-06-02 |
 | 0030 | [Structured/JSON output enforcement for ai nodes](0030-structured-output-enforcement.md) | Proposed | 2026-06-02 |
 | 0031 | [Settings, secrets & environments: a SecretStore seam](0031-settings-secrets-and-environments.md) | Accepted | 2026-06-02 |
+| 0032 | [Sub-workflow composition: child workflows as first-class instances](0032-sub-workflow-composition.md) | Accepted | 2026-06-03 |
+| 0033 | [Dependency injection & app composition with uber-go/fx](0033-dependency-injection-and-app-composition.md) | Accepted | 2026-06-03 |
+
+### Proposed backlog (not yet implemented)
+
+ADRs **0026–0030** are a cohesive **agent-capabilities** series exploring the next phase of the AI
+agent ([ADR-0005](0005-ai-agents-as-workflow-nodes-phased-roadmap.md)) — orchestrator mode (0026),
+async tool invocation (0027), prompt/context & memory (0028), cost/usage tracking & budgets (0029),
+and structured-output enforcement (0030). They cross-reference one another and remain `Proposed`
+(none implemented yet). **0025** (browser-automation package) is an independent, parallel stream,
+not part of that series. These stay `Proposed` until scheduled; when one is implemented its status
+moves to `Accepted` and its "More Information" records what shipped (as 0031 does).
