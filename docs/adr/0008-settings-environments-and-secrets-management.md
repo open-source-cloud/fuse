@@ -1,8 +1,14 @@
 # 0008. Settings, environments & secrets management
 
-- Status: Proposed — **decision DEFERRED**
+- Status: Superseded by [ADR-0031](0031-settings-secrets-and-environments.md)
 - Date: 2026-06-01
 - Deciders: FUSE maintainers
+
+> **Superseded:** this ADR recorded the problem and deferred the decision.
+> [ADR-0031](0031-settings-secrets-and-environments.md) makes the decision — a pluggable
+> `SecretStore` seam with secret references (Option A) as the foundation, credential objects
+> (B) and external backends (C) as layers, environment/workflow scoping, input-mapping-time
+> resolution, and mandatory redaction — with a phased roadmap.
 
 ## Context and Problem Statement
 
