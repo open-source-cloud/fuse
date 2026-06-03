@@ -10,29 +10,33 @@ import (
 
 // ExecuteFunctionMessage defines a ExecuteFunction message
 type ExecuteFunctionMessage struct {
-	WorkflowID workflow.ID     `json:"workflow_id"`
-	ExecID     workflow.ExecID `json:"exec_id"`
-	ThreadID   uint16          `json:"thread_id"`
-	PackageID  string          `json:"package_id"`
-	FunctionID string          `json:"function_id"`
-	Input      map[string]any  `json:"input"`
+	WorkflowID  workflow.ID     `json:"workflow_id"`
+	ExecID      workflow.ExecID `json:"exec_id"`
+	ThreadID    uint16          `json:"thread_id"`
+	PackageID   string          `json:"package_id"`
+	FunctionID  string          `json:"function_id"`
+	Input       map[string]any  `json:"input"`
+	Environment string          `json:"environment"`
 }
 
 // NewExecuteFunctionMessage creates a new ExecuteFunction message.
-// Pass a non-nil traceCarrier to propagate the calling span's context to the worker.
-func NewExecuteFunctionMessage(workflowID workflow.ID, execAction *workflowactions.RunFunctionAction, traceCarrier map[string]string) Message {
+// environment is the workflow's resolution scope (ADR-0031), carried to the function so the
+// engine can resolve per-context capabilities. Pass a non-nil traceCarrier to propagate the
+// calling span's context to the worker.
+func NewExecuteFunctionMessage(workflowID workflow.ID, execAction *workflowactions.RunFunctionAction, environment string, traceCarrier map[string]string) Message {
 	lastSlashIndex := strings.LastIndex(execAction.FunctionID, "/")
 
 	return Message{
 		Type:         ExecuteFunction,
 		TraceCarrier: traceCarrier,
 		Args: ExecuteFunctionMessage{
-			WorkflowID: workflowID,
-			ExecID:     execAction.FunctionExecID,
-			ThreadID:   execAction.ThreadID,
-			PackageID:  execAction.FunctionID[:lastSlashIndex],
-			FunctionID: execAction.FunctionID,
-			Input:      execAction.Args,
+			WorkflowID:  workflowID,
+			ExecID:      execAction.FunctionExecID,
+			ThreadID:    execAction.ThreadID,
+			PackageID:   execAction.FunctionID[:lastSlashIndex],
+			FunctionID:  execAction.FunctionID,
+			Input:       execAction.Args,
+			Environment: environment,
 		},
 	}
 }

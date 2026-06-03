@@ -12,6 +12,7 @@ import (
 	"github.com/open-source-cloud/fuse/internal/dtos"
 	"github.com/open-source-cloud/fuse/internal/idempotency"
 	"github.com/open-source-cloud/fuse/internal/messaging"
+	"github.com/open-source-cloud/fuse/internal/services"
 )
 
 type (
@@ -21,6 +22,7 @@ type (
 		idempotencyStore   idempotency.Store
 		idempotencyTTL     config.IdempotencyConfig
 		defaultEnvironment string
+		environmentService services.EnvironmentService
 	}
 	// TriggerWorkflowHandlerFactory is a factory for creating TriggerWorkflowHandler actors
 	TriggerWorkflowHandlerFactory HandlerFactory[*TriggerWorkflowHandler]
@@ -36,13 +38,14 @@ const (
 )
 
 // NewTriggerWorkflowHandlerFactory creates a new TriggerWorkflowHandlerFactory
-func NewTriggerWorkflowHandlerFactory(store idempotency.Store, cfg *config.Config) *TriggerWorkflowHandlerFactory {
+func NewTriggerWorkflowHandlerFactory(store idempotency.Store, cfg *config.Config, environmentService services.EnvironmentService) *TriggerWorkflowHandlerFactory {
 	return &TriggerWorkflowHandlerFactory{
 		Factory: func() gen.ProcessBehavior {
 			return &TriggerWorkflowHandler{
 				idempotencyStore:   store,
 				idempotencyTTL:     cfg.Idempotency,
 				defaultEnvironment: cfg.Environment,
+				environmentService: environmentService,
 			}
 		},
 	}
@@ -86,6 +89,9 @@ func (h *TriggerWorkflowHandler) HandlePost(from gen.PID, w http.ResponseWriter,
 	environment := req.Environment
 	if environment == "" {
 		environment = h.defaultEnvironment
+	}
+	if !h.environmentService.IsValid(environment) {
+		return h.SendBadRequest(w, fmt.Errorf("unknown environment %q", environment), []string{"environment"})
 	}
 
 	workflowID := workflow.NewID()

@@ -118,9 +118,28 @@ drivers with the smallest, most incremental change and gives B and C a stable se
   `pkg/secrets` (`SecretValue` → `***` everywhere; `FunctionInput.GetStr` reveals plaintext), the
   **memory** + **encrypted-Postgres** backends (`pkg/secrets/memory.go`,
   `internal/repositories/postgres/secret.go` + migration `000008_create_secrets`), the
-  `SECRETS_DRIVER` selection (`internal/app/di/secrets.go`), and the `fuse secrets` CLI. Infisical
-  (Phase 1's read-only external backend) is a fast-follow; credential objects (Phase 2) and
-  per-context provider keys (Phase 3) remain scheduled.
+  `SECRETS_DRIVER` selection (`internal/app/di/secrets.go`), and the `fuse secrets` CLI.
+- **Phase 3 — explicit environments model shipped**: `environment` is now a per-execution
+  scoping dimension. It is chosen at trigger time (`environment` on `TriggerWorkflowRequest`,
+  `fuse workflow -e`), threaded through the trigger → supervisor → `WorkflowHandler` chain, and
+  persisted on the `workflows` row (migration `000009`) so journal replay / recovery resolve
+  secrets against the same environment; the engine builds a per-workflow `secrets.Resolver`
+  scoped to it (replacing the process-wide one) and sub-workflows inherit the parent's
+  environment. A first-class environments registry (`Environment` domain, memory +
+  Postgres `EnvironmentRepository` + migration `000010` seeding `default`, `EnvironmentService`,
+  CRUD at `/v1/environments`) makes environments declarable, and triggers naming an unknown
+  environment are rejected (HTTP 400).
+- **Phase 3 — per-context LLM provider keys shipped**: a provider's API key / base URL
+  (`LLM_<PROVIDER>_API_KEY`, `LLM_<PROVIDER>_BASE_URL`) may be a `{{secret:NAME}}` reference
+  resolved from the `SecretStore` against the running workflow's `environment`. `provideLLMRegistry`
+  now builds per-provider `llm.ProviderFactory` closures instead of fixed providers
+  (`internal/app/di/llm.go`): fully-static config is built once (fast path), reference-bearing
+  config resolves and constructs a provider per execution. The `environment` reaches the
+  ai/chat & ai/agent functions via `ExecutionInfo.Environment` (carried on
+  `messaging.ExecuteFunctionMessage`); resolution runs in the function's async goroutine and the
+  resolved key is `Reveal()`'d only into the SDK client, never logged. Different workflows in one
+  process can now use different provider credentials per environment. Credential objects (Phase 2)
+  and Infisical (the read-only external backend) remain scheduled.
 - Supersedes [ADR-0008](0008-settings-environments-and-secrets-management.md) (which recorded the
   problem and deferred the decision).
 - Current state this changes: `internal/app/config/config.go` (env-var secrets),

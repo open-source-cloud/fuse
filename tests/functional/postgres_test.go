@@ -182,6 +182,32 @@ func TestPostgresPackageRepository_Contract(t *testing.T) {
 	})
 }
 
+// --- Postgres Environment Repository ---
+
+func TestPostgresEnvironmentRepository_Contract(t *testing.T) {
+	pool := setupTestPool(t)
+	contractTestEnvironmentRepository(t, func() repositories.EnvironmentRepository {
+		return postgres.NewEnvironmentRepository(pool)
+	}, func() {
+		// Keep the migration-seeded 'default' row; clear everything else for a clean slate.
+		_, err := pool.Exec(context.Background(),
+			"DELETE FROM environments WHERE name <> 'default'")
+		require.NoError(t, err)
+	})
+}
+
+// --- Postgres Credential Repository ---
+
+func TestPostgresCredentialRepository_Contract(t *testing.T) {
+	pool := setupTestPool(t)
+	contractTestCredentialRepository(t, func() repositories.CredentialRepository {
+		return postgres.NewCredentialRepository(pool)
+	}, func() {
+		_, err := pool.Exec(context.Background(), "TRUNCATE TABLE credentials")
+		require.NoError(t, err)
+	})
+}
+
 // --- Postgres Claim Repository ---
 
 func TestPostgresClaimRepository_Contract(t *testing.T) {

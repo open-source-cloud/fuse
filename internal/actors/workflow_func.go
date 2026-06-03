@@ -136,7 +136,7 @@ func (a *WorkflowFunc) HandleMessage(from gen.PID, message any) error {
 	result, err := pkg.ExecuteFunction(
 		a,
 		msgPayload.FunctionID,
-		workflow.NewExecutionInfo(msgPayload.WorkflowID, msgPayload.ExecID, input),
+		workflow.NewExecutionInfo(msgPayload.WorkflowID, msgPayload.ExecID, msgPayload.Environment, input),
 	)
 	if err != nil {
 		if result.Output.Status != workflow.FunctionError {

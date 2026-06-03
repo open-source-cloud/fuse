@@ -37,7 +37,7 @@ func runChat(t *testing.T, reg llm.Registry, input map[string]any) (workflow.Fun
 	require.NoError(t, err)
 
 	done := make(chan workflow.FunctionOutput, 1)
-	execInfo := workflow.NewExecutionInfo("wf-1", "exec-1", fnInput)
+	execInfo := workflow.NewExecutionInfo("wf-1", "exec-1", "", fnInput)
 	execInfo.Finish = func(out workflow.FunctionOutput) { done <- out }
 
 	res, err := makeChatFunction(reg)(execInfo)
@@ -63,7 +63,7 @@ func TestChat_SuccessDeliversOutputViaFinish(t *testing.T) {
 			Usage:   llm.Usage{PromptTokens: 3, CompletionTokens: 4, TotalTokens: 7},
 		},
 	}
-	reg := llm.NewRegistry(map[string]llm.Provider{"stub": prov}, "stub")
+	reg := llm.NewStaticRegistry(map[string]llm.Provider{"stub": prov}, "stub")
 
 	res, out := runChat(t, reg, map[string]any{
 		"input":        "what is the answer?",
@@ -84,22 +84,56 @@ func TestChat_SuccessDeliversOutputViaFinish(t *testing.T) {
 }
 
 func TestChat_MissingInputReturnsSyncError(t *testing.T) {
-	reg := llm.NewRegistry(map[string]llm.Provider{"stub": &stubProvider{name: "stub"}}, "stub")
+	reg := llm.NewStaticRegistry(map[string]llm.Provider{"stub": &stubProvider{name: "stub"}}, "stub")
 	res, _ := runChat(t, reg, map[string]any{"input": ""})
 	assert.False(t, res.Async)
 	assert.Equal(t, workflow.FunctionError, res.Output.Status)
 }
 
-func TestChat_UnknownProviderReturnsSyncError(t *testing.T) {
-	reg := llm.NewRegistry(map[string]llm.Provider{"stub": &stubProvider{name: "stub"}}, "stub")
-	res, _ := runChat(t, reg, map[string]any{"input": "hi", "provider": "nope"})
-	assert.False(t, res.Async)
-	assert.Equal(t, workflow.FunctionError, res.Output.Status)
+func TestChat_UnknownProviderDeliveredAsErrorOutput(t *testing.T) {
+	// Provider resolution happens inside the async goroutine (it may hit the secret store for
+	// per-context keys), so an unknown provider surfaces as an async FunctionError, not a sync one.
+	reg := llm.NewStaticRegistry(map[string]llm.Provider{"stub": &stubProvider{name: "stub"}}, "stub")
+	res, out := runChat(t, reg, map[string]any{"input": "hi", "provider": "nope"})
+	assert.True(t, res.Async)
+	assert.Equal(t, workflow.FunctionError, out.Status)
+}
+
+func TestChat_ResolvesProviderForExecutionEnvironment(t *testing.T) {
+	// A factory registry returns a different provider per environment; the chat function must
+	// resolve using execInfo.Environment so per-context keys (ADR-0031) bind to the right env.
+	staging := &stubProvider{name: "staging", resp: llm.ChatResponse{Message: llm.Message{Content: "from staging"}}}
+	prod := &stubProvider{name: "prod", resp: llm.ChatResponse{Message: llm.Message{Content: "from prod"}}}
+	reg := llm.NewRegistry(map[string]llm.ProviderFactory{
+		"openai": func(_ context.Context, env string) (llm.Provider, error) {
+			if env == "staging" {
+				return staging, nil
+			}
+			return prod, nil
+		},
+	}, "openai")
+
+	fnInput, err := workflow.NewFunctionInputWith(map[string]any{"input": "hi"})
+	require.NoError(t, err)
+	done := make(chan workflow.FunctionOutput, 1)
+	execInfo := workflow.NewExecutionInfo("wf-1", "exec-1", "staging", fnInput)
+	execInfo.Finish = func(out workflow.FunctionOutput) { done <- out }
+
+	res, err := makeChatFunction(reg)(execInfo)
+	require.NoError(t, err)
+	require.True(t, res.Async)
+	select {
+	case out := <-done:
+		assert.Equal(t, workflow.FunctionSuccess, out.Status)
+		assert.Equal(t, "from staging", out.Data["output"])
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for async Finish")
+	}
 }
 
 func TestChat_ProviderErrorDeliveredAsErrorOutput(t *testing.T) {
 	prov := &stubProvider{name: "stub", err: errors.New("boom")}
-	reg := llm.NewRegistry(map[string]llm.Provider{"stub": prov}, "stub")
+	reg := llm.NewStaticRegistry(map[string]llm.Provider{"stub": prov}, "stub")
 	res, out := runChat(t, reg, map[string]any{"input": "hi"})
 	assert.True(t, res.Async)
 	assert.Equal(t, workflow.FunctionError, out.Status)
