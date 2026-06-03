@@ -28,6 +28,8 @@ var ServicesModule = fx.Module(
 		),
 		services.NewGraphService,
 		services.NewPackageService,
+		services.NewEnvironmentService,
+		services.NewCredentialService,
 	),
 	fx.Invoke(bindSchemaReplicationPublisher),
 )

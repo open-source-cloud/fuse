@@ -96,7 +96,7 @@ var randDescriptor = ToolDescriptor{
 }
 
 func registryWith(prov llm.Provider) llm.Registry {
-	return llm.NewRegistry(map[string]llm.Provider{prov.Name(): prov}, prov.Name())
+	return llm.NewStaticRegistry(map[string]llm.Provider{prov.Name(): prov}, prov.Name())
 }
 
 func runAgent(t *testing.T, providers llm.Registry, tools ToolRegistry, input map[string]any) (workflow.FunctionResult, workflow.FunctionOutput) {
@@ -105,7 +105,7 @@ func runAgent(t *testing.T, providers llm.Registry, tools ToolRegistry, input ma
 	require.NoError(t, err)
 
 	done := make(chan workflow.FunctionOutput, 1)
-	execInfo := workflow.NewExecutionInfo("wf-1", workflow.NewExecID(1), fnInput)
+	execInfo := workflow.NewExecutionInfo("wf-1", workflow.NewExecID(1), "", fnInput)
 	execInfo.Finish = func(out workflow.FunctionOutput) { done <- out }
 
 	res, err := makeAgentFunction(providers, tools)(execInfo)
@@ -204,11 +204,13 @@ func TestAgent_MissingInputReturnsSyncError(t *testing.T) {
 	assert.Equal(t, workflow.FunctionError, res.Output.Status)
 }
 
-func TestAgent_UnknownProviderReturnsSyncError(t *testing.T) {
+func TestAgent_UnknownProviderDeliveredAsErrorOutput(t *testing.T) {
+	// Provider resolution happens inside the async goroutine (it may hit the secret store for
+	// per-context keys), so an unknown provider surfaces as an async FunctionError, not a sync one.
 	prov := &scriptedProvider{name: "stub"}
-	res, _ := runAgent(t, registryWith(prov), &fakeToolRegistry{}, map[string]any{"input": "hi", "provider": "nope"})
-	assert.False(t, res.Async)
-	assert.Equal(t, workflow.FunctionError, res.Output.Status)
+	res, out := runAgent(t, registryWith(prov), &fakeToolRegistry{}, map[string]any{"input": "hi", "provider": "nope"})
+	assert.True(t, res.Async)
+	assert.Equal(t, workflow.FunctionError, out.Status)
 }
 
 func TestAgent_UnknownToolFedBackAndContinues(t *testing.T) {
