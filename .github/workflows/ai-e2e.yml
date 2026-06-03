@@ -1,0 +1,81 @@
+name: AI E2E
+
+# Runs example AI workflows (ai/chat, ai/agent) against a real, local Ollama model using the
+# Fuse CLI runner (`fuse workflow -c <spec>`), which boots the engine in-memory, triggers the
+# workflow, waits for completion, prints the result snapshot, and exits non-zero on failure.
+#
+# Deliberately OFF the per-PR critical path (pulling a model is minutes, cached by ollama-action):
+# runs nightly, on demand, on pushes to main, and on PRs carrying the "ai-e2e" label.
+
+on:
+  schedule:
+    - cron: "0 3 * * *" # nightly 03:00 UTC
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ai-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ai-e2e:
+    name: "AI workflows vs Ollama (Fuse CLI)"
+    # On PRs, only when labeled "ai-e2e"; always for main pushes, nightly, and manual runs.
+    if: >-
+      github.event_name != 'pull_request' ||
+      contains(github.event.pull_request.labels.*.name, 'ai-e2e')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      OLLAMA_MODEL: "llama3.1:8b" # small, stable tool-calling model (avoid qwen3/llama3.2-vision)
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          check-latest: true
+          cache: true
+          cache-dependency-path: |
+            **/go.sum
+            **/go.mod
+
+      - name: Build fuse
+        run: make build
+
+      # Installs Ollama, starts a persistent `ollama serve` daemon on :11434, pulls + warms the
+      # model, and caches ~/.ollama (cache: true is the default). The daemon outlives this step,
+      # so the Fuse CLI can connect to it below.
+      - name: Setup Ollama + warm model
+        uses: ai-action/ollama-action@v2
+        with:
+          model: ${{ env.OLLAMA_MODEL }}
+          prompt: "Reply with the single word: ready."
+
+      - name: Run AI workflows via the Fuse CLI (in-memory) against Ollama
+        env:
+          LLM_DEFAULT_PROVIDER: "ollama"
+          LLM_OLLAMA_ENABLED: "true"
+          LLM_OLLAMA_BASE_URL: "http://localhost:11434/v1"
+          LLM_OLLAMA_MODEL: ${{ env.OLLAMA_MODEL }}
+          # In-memory engine: no Postgres / S3 / etcd needed (these are the defaults; set explicitly).
+          DB_DRIVER: "memory"
+          OBJECT_STORE_DRIVER: "memory"
+        run: |
+          # Wait for the ollama daemon left running by ollama-action.
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:11434/api/tags >/dev/null && break
+            sleep 1
+          done
+          set -x
+          # Reliable baseline: a plain chat completion (no tools).
+          ./bin/fuse workflow -c examples/workflows/ai-chat-example.json -l info
+          # Agent reasoning loop with an in-process tool call (sum).
+          ./bin/fuse workflow -c examples/workflows/ai-agent-example.json -l info

@@ -1,0 +1,87 @@
+{
+  "id": "ai-agent-conditional-branch",
+  "name": "AI Agent conditional branch",
+  "nodes": [
+    {
+      "id": "trigger",
+      "function": "fuse/pkg/debug/nil"
+    },
+    {
+      "id": "ai-agent",
+      "function": "fuse/pkg/ai/agent"
+    },
+    {
+      "id": "if-conditional",
+      "function": "fuse/pkg/logic/if"
+    },
+    {
+      "id": "nil-yes",
+      "function": "fuse/pkg/debug/nil"
+    },
+    {
+      "id": "nil-no",
+      "function": "fuse/pkg/debug/nil"
+    }
+  ],
+  "edges": [
+    {
+      "id": "0196d0a1-1111-7000-a001-000000000001",
+      "from": "trigger",
+      "to": "ai-agent",
+      "input": [
+        {
+          "source": "schema",
+          "value": "Question: Is the number 7 a prime number? Answer strictly with a single word: yes or no.",
+          "mapTo": "input"
+        },
+        {
+          "source": "schema",
+          "value": "You are a precise classifier. Respond with exactly one word, either \"yes\" or \"no\", and nothing else. Do not explain.",
+          "mapTo": "systemPrompt"
+        },
+        {
+          "source": "schema",
+          "value": 3,
+          "mapTo": "maxIterations"
+        }
+      ]
+    },
+    {
+      "id": "0196d0a1-1111-7000-a001-000000000002",
+      "from": "ai-agent",
+      "to": "if-conditional",
+      "input": [
+        {
+          "source": "flow",
+          "variable": "ai-agent.output",
+          "mapTo": "answer"
+        },
+        {
+          "source": "schema",
+          "value": "lower(trim(answer)) contains \"yes\"",
+          "mapTo": "expression"
+        }
+      ]
+    },
+    {
+      "id": "0196d0a1-1111-7000-a001-000000000003",
+      "from": "if-conditional",
+      "to": "nil-yes",
+      "conditional": {
+        "name": "if-true",
+        "value": true
+      },
+      "input": []
+    },
+    {
+      "id": "0196d0a1-1111-7000-a001-000000000004",
+      "from": "if-conditional",
+      "to": "nil-no",
+      "conditional": {
+        "name": "if-false",
+        "value": false
+      },
+      "input": []
+    }
+  ]
+}
