@@ -63,10 +63,13 @@ type (
 
 	// LLMProviderConfig configures a single LLM provider connection.
 	LLMProviderConfig struct {
-		Enabled     bool    `env:"ENABLED" envDefault:"false"`
-		APIKey      string  `env:"API_KEY"`
-		BaseURL     string  `env:"BASE_URL"`
-		Model       string  `env:"MODEL"`
+		Enabled bool   `env:"ENABLED" envDefault:"false"`
+		APIKey  string `env:"API_KEY"`
+		BaseURL string `env:"BASE_URL"`
+		Model   string `env:"MODEL"`
+		// Credential references a credential id (ADR-0031); when set and API_KEY is not given, the
+		// provider's apiKey is taken from that credential's apiKey field (resolved per environment).
+		Credential  string  `env:"CREDENTIAL"`
 		Temperature float32 `env:"TEMPERATURE" envDefault:"0.7"`
 	}
 
