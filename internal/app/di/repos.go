@@ -22,6 +22,7 @@ var RepoModule = fx.Module(
 		provideAwakeableRepository,
 		provideClaimRepository,
 		provideTraceRepository,
+		provideEnvironmentRepository,
 	),
 )
 
@@ -84,6 +85,15 @@ func provideClaimRepository(p repoParams) repositories.ClaimRepository {
 	}
 	log.Debug().Msg("using memory claim repository (no-op)")
 	return repositories.NewMemoryClaimRepository()
+}
+
+func provideEnvironmentRepository(p repoParams) repositories.EnvironmentRepository {
+	if p.Config.Database.Driver == config.DBDriverPostgres && p.Pool != nil {
+		log.Debug().Msg("using postgres environment repository")
+		return postgres.NewEnvironmentRepository(p.Pool)
+	}
+	log.Debug().Msg("using memory environment repository")
+	return repositories.NewMemoryEnvironmentRepository()
 }
 
 func provideTraceRepository(p repoParams) repositories.TraceRepository {
