@@ -11,6 +11,9 @@ type UpsertSchemaResponse struct {
 type TriggerWorkflowRequest struct {
 	SchemaID       string `json:"schemaID" validate:"required"`
 	IdempotencyKey string `json:"idempotencyKey,omitempty"`
+	// Environment scopes secret resolution for this execution (ADR-0031). Empty defaults to
+	// the engine's configured environment (FUSE_ENVIRONMENT).
+	Environment string `json:"environment,omitempty" example:"staging"`
 }
 
 // TriggerWorkflowResponse represents trigger workflow response
@@ -19,6 +22,7 @@ type TriggerWorkflowResponse struct {
 	WorkflowID   string `json:"workflowId" example:"550e8400-e29b-41d4-a716-446655440000"`
 	Code         string `json:"code" example:"OK"`
 	Deduplicated bool   `json:"deduplicated,omitempty" example:"false"`
+	Environment  string `json:"environment,omitempty" example:"staging"`
 }
 
 // AsyncFunctionRequest is the request body for the AsyncFunctionHandler

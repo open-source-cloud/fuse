@@ -275,7 +275,7 @@ func TestWorkflow_StateCancelled(t *testing.T) {
 	graph, err := NewGraph(schema)
 	require.NoError(t, err)
 
-	wf := New(workflow.NewID(), graph)
+	wf := New(workflow.NewID(), graph, "default")
 
 	wf.SetState(StateRunning)
 	assert.Equal(t, StateRunning, wf.State())

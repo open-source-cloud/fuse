@@ -11,13 +11,13 @@ import (
 	"go.uber.org/fx"
 )
 
-// SecretsModule provides the SecretStore (selected by SECRETS_DRIVER) and the
-// narrow Resolver the workflow engine uses to resolve secret references.
+// SecretsModule provides the SecretStore (selected by SECRETS_DRIVER). The workflow engine
+// builds a per-workflow, environment-scoped Resolver from this store at execution time
+// (ADR-0031), so no process-wide Resolver is provided here.
 var SecretsModule = fx.Module(
 	"secrets",
 	fx.Provide(
 		provideSecretStore,
-		provideSecretResolver,
 	),
 )
 
@@ -47,9 +47,4 @@ func provideSecretStore(p secretStoreParams) (secrets.SecretStore, error) {
 		log.Debug().Str("environment", p.Config.Environment).Msg("using memory secret store")
 		return secrets.NewMemorySecretStoreFromEnv(p.Config.Environment), nil
 	}
-}
-
-// provideSecretResolver binds the store + configured environment into a Resolver.
-func provideSecretResolver(store secrets.SecretStore, cfg *config.Config) secrets.Resolver {
-	return secrets.NewResolver(store, cfg.Environment)
 }

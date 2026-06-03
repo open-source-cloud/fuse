@@ -25,6 +25,10 @@ import (
 // workflowSpecFile is the path to the workflow spec file (-c/--config).
 var workflowSpecFile string
 
+// workflowEnvironment scopes secret resolution for the run (-e/--environment); empty uses the
+// engine default (FUSE_ENVIRONMENT).
+var workflowEnvironment string
+
 const (
 	workflowRunHealthAttempts = 60
 	workflowRunPollInterval   = 250 * time.Millisecond
@@ -43,6 +47,7 @@ func newWorkflowCommand() *cobra.Command {
 		RunE: func(*cobra.Command, []string) error { return runWorkflowApp() },
 	}
 	workflowCmd.Flags().StringVarP(&workflowSpecFile, "config", "c", "", "Path to the workflow spec JSON file")
+	workflowCmd.Flags().StringVarP(&workflowEnvironment, "environment", "e", "", "Environment scope for secret resolution (defaults to FUSE_ENVIRONMENT)")
 	return workflowCmd
 }
 
@@ -110,7 +115,7 @@ func runWorkflowOnce(cfg *config.Config, gs services.GraphService, spec []byte) 
 		return fmt.Errorf("upsert workflow graph: %w", err)
 	}
 
-	wfID, err := workflowTrigger(client, base, graph.ID())
+	wfID, err := workflowTrigger(client, base, graph.ID(), workflowEnvironment)
 	if err != nil {
 		return err
 	}
@@ -144,8 +149,12 @@ func workflowWaitHealth(client *http.Client, base string) error {
 	return errors.New("workflow runner: in-process server did not become healthy")
 }
 
-func workflowTrigger(client *http.Client, base, schemaID string) (string, error) {
-	payload, _ := json.Marshal(map[string]string{"schemaID": schemaID})
+func workflowTrigger(client *http.Client, base, schemaID, environment string) (string, error) {
+	reqBody := map[string]string{"schemaID": schemaID}
+	if environment != "" {
+		reqBody["environment"] = environment
+	}
+	payload, _ := json.Marshal(reqBody)
 	resp, err := client.Post(base+"/v1/workflows/trigger", "application/json", bytes.NewReader(payload)) //nolint:noctx // short-lived CLI call
 	if err != nil {
 		return "", fmt.Errorf("trigger workflow: %w", err)

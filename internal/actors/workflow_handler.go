@@ -44,7 +44,7 @@ func NewWorkflowHandlerFactory(
 	eventBus events.EventBus,
 	fuseMetrics *metrics.FuseMetrics,
 	tracingProvider *tracing.Provider,
-	secretResolver secrets.Resolver,
+	secretStore secrets.SecretStore,
 ) *WorkflowHandlerFactory {
 	return &WorkflowHandlerFactory{
 		Factory: func() gen.ProcessBehavior {
@@ -59,7 +59,7 @@ func NewWorkflowHandlerFactory(
 				eventBus:           eventBus,
 				fuseMetrics:        fuseMetrics,
 				tracingProvider:    tracingProvider,
-				secretResolver:     secretResolver,
+				secretStore:        secretStore,
 			}
 		},
 	}
@@ -80,7 +80,7 @@ type (
 		eventBus           events.EventBus
 		fuseMetrics        *metrics.FuseMetrics
 		tracingProvider    *tracing.Provider
-		secretResolver     secrets.Resolver
+		secretStore        secrets.SecretStore
 
 		workflow       *internalworkflow.Workflow
 		executionTimer *ExecutionTimer
@@ -98,8 +98,9 @@ type (
 
 	// WorkflowHandlerInitArgs defines the typed arguments for the WorkflowHandler Actor Init message
 	WorkflowHandlerInitArgs struct {
-		schemaID   string
-		workflowID workflow.ID
+		schemaID    string
+		workflowID  workflow.ID
+		environment string
 	}
 )
 
@@ -123,7 +124,9 @@ func (a *WorkflowHandler) Init(args ...any) error {
 
 	if a.workflowRepository.Exists(initArgs.workflowID.String()) {
 		a.workflow, _ = a.workflowRepository.Get(initArgs.workflowID.String())
-		a.workflow.SetSecretResolver(a.secretResolver)
+		// Replay: the environment comes from the reconstructed workflow, not init args, so
+		// resolution stays deterministic across restart/recovery (ADR-0031).
+		a.workflow.SetSecretResolver(a.newSecretResolver(a.workflow.Environment()))
 		if err := a.graphService.EnsureNodeMetadata(a.workflow.Graph()); err != nil {
 			a.Log().Error("failed to populate graph node metadata for workflow %s: %s", initArgs.workflowID, err)
 			return gen.TerminateReasonPanic
@@ -155,8 +158,12 @@ func (a *WorkflowHandler) Init(args ...any) error {
 		a.Log().Error("failed to get graph for schema id %s: %s", initArgs.schemaID, err)
 		return gen.TerminateReasonPanic
 	}
-	a.workflow = internalworkflow.New(initArgs.workflowID, graphRef)
-	a.workflow.SetSecretResolver(a.secretResolver)
+	env := initArgs.environment
+	if env == "" {
+		env = a.config.Environment
+	}
+	a.workflow = internalworkflow.New(initArgs.workflowID, graphRef, env)
+	a.workflow.SetSecretResolver(a.newSecretResolver(env))
 	if a.workflowRepository.Save(a.workflow) != nil {
 		a.Log().Error("failed to save workflow for id %s: %s", initArgs.workflowID, err)
 		return nil
@@ -169,6 +176,16 @@ func (a *WorkflowHandler) Init(args ...any) error {
 	a.startWorkflowTimeout()
 	a.handleWorkflowAction(action)
 	return nil
+}
+
+// newSecretResolver builds a secret resolver scoped to the workflow's environment, falling
+// back to the engine default when none was recorded (ADR-0031). Each workflow gets its own
+// resolver so different executions can resolve against different environments.
+func (a *WorkflowHandler) newSecretResolver(environment string) secrets.Resolver {
+	if environment == "" {
+		environment = a.config.Environment
+	}
+	return secrets.NewResolver(a.secretStore, environment)
 }
 
 // startRootSpan begins the OTel root span for this workflow and increments active workflow metrics.
@@ -858,7 +875,8 @@ func (a *WorkflowHandler) handleSubWorkflowAction(action *workflowactions.RunSub
 		},
 	})
 
-	triggerMsg := messaging.NewTriggerWorkflowMessage(action.SchemaID, childWorkflowID)
+	// Sub-workflows inherit the parent's environment so secret resolution stays consistent (ADR-0031).
+	triggerMsg := messaging.NewTriggerWorkflowWithEnvMessage(action.SchemaID, childWorkflowID, a.workflow.Environment())
 	if err := a.Send(gen.Atom(actornames.WorkflowSupervisorName), triggerMsg); err != nil {
 		a.Log().Error("failed to trigger sub-workflow: %s", err)
 		return

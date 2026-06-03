@@ -10,6 +10,9 @@ type TriggerWorkflowMessage struct {
 	SchemaID   string
 	WorkflowID workflow.ID
 	Input      map[string]any
+	// Environment scopes secret resolution for this execution (ADR-0031). Empty means the
+	// engine default applies (resolved by the WorkflowHandler).
+	Environment string
 }
 
 // NewTriggerWorkflowMessage creates a new TriggerWorkflow message
@@ -19,6 +22,18 @@ func NewTriggerWorkflowMessage(schemaID string, workflowID workflow.ID) Message 
 		Args: TriggerWorkflowMessage{
 			SchemaID:   schemaID,
 			WorkflowID: workflowID,
+		},
+	}
+}
+
+// NewTriggerWorkflowWithEnvMessage creates a TriggerWorkflow message scoped to an environment.
+func NewTriggerWorkflowWithEnvMessage(schemaID string, workflowID workflow.ID, environment string) Message {
+	return Message{
+		Type: TriggerWorkflow,
+		Args: TriggerWorkflowMessage{
+			SchemaID:    schemaID,
+			WorkflowID:  workflowID,
+			Environment: environment,
 		},
 	}
 }

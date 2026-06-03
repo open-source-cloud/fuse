@@ -39,6 +39,19 @@ func contractTestWorkflowRepository(t *testing.T, newRepo func() repositories.Wo
 		assert.Equal(t, internalworkflow.StateRunning, found.State())
 	})
 
+	t.Run("Save and Get preserves environment for deterministic replay", func(t *testing.T) {
+		reset()
+		repo := newRepo()
+		wf := newTestWorkflowWithEnv(t, "staging")
+		wf.SetState(internalworkflow.StateSleeping)
+
+		saveWf(t, repo, wf)
+		found, err := repo.Get(wf.ID().String())
+
+		require.NoError(t, err)
+		assert.Equal(t, "staging", found.Environment())
+	})
+
 	t.Run("Exists returns true for saved workflow", func(t *testing.T) {
 		reset()
 		repo := newRepo()

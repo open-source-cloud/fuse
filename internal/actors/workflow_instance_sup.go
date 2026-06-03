@@ -53,21 +53,26 @@ type (
 func (a *WorkflowInstanceSupervisor) Init(args ...any) (act.SupervisorSpec, error) {
 	a.Log().Info("starting process %s with args %s", a.PID(), args)
 
-	if len(args) != 2 {
-		return act.SupervisorSpec{}, fmt.Errorf("workflow instance supervisor init args must be 2 == [workflowID, workflowSchemaID]")
+	if len(args) != 3 {
+		return act.SupervisorSpec{}, fmt.Errorf("workflow instance supervisor init args must be 3 == [workflowID, workflowSchemaID, environment]")
 	}
 	workflowID, ok := args[0].(workflow.ID)
 	if !ok {
-		return act.SupervisorSpec{}, fmt.Errorf("workflow instance supervisor init args must be 2 == [workflowID, workflowSchemaID]; first arg must be a workflow.ID, got %T", args[0])
+		return act.SupervisorSpec{}, fmt.Errorf("workflow instance supervisor init args must be 3 == [workflowID, workflowSchemaID, environment]; first arg must be a workflow.ID, got %T", args[0])
 	}
 	schemaID, ok := args[1].(string)
 	if !ok {
-		return act.SupervisorSpec{}, fmt.Errorf("workflow instance supervisor init args must be 2 == [workflowID, workflowSchemaID]; second arg must be a string, got %T", args[1])
+		return act.SupervisorSpec{}, fmt.Errorf("workflow instance supervisor init args must be 3 == [workflowID, workflowSchemaID, environment]; second arg must be a string, got %T", args[1])
+	}
+	environment, ok := args[2].(string)
+	if !ok {
+		return act.SupervisorSpec{}, fmt.Errorf("workflow instance supervisor init args must be 3 == [workflowID, workflowSchemaID, environment]; third arg must be a string, got %T", args[2])
 	}
 
 	handlerInitArgs := WorkflowHandlerInitArgs{
-		schemaID:   schemaID,
-		workflowID: workflowID,
+		schemaID:    schemaID,
+		workflowID:  workflowID,
+		environment: environment,
 	}
 
 	// supervisor specification

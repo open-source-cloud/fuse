@@ -22,7 +22,7 @@ func TestHandleNodeFailure_RoutesOnErrorEdgeWhenRetriesExhausted(t *testing.T) {
 	g, err := NewGraph(schema)
 	require.NoError(t, err)
 
-	w := New(pkgwf.ID("wf-error-edge"), g)
+	w := New(pkgwf.ID("wf-error-edge"), g, "default")
 
 	failNode, err := g.FindNode("fail-node")
 	require.NoError(t, err)
@@ -54,7 +54,7 @@ func TestHandleNodeFailure_RetriesWhenPolicyAllows(t *testing.T) {
 	g, err := NewGraph(schema)
 	require.NoError(t, err)
 
-	w := New(pkgwf.ID("wf-parallel-retry"), g)
+	w := New(pkgwf.ID("wf-parallel-retry"), g, "default")
 
 	branchB, err := g.FindNode("branch-b")
 	require.NoError(t, err)

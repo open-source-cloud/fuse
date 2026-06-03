@@ -115,7 +115,7 @@ func (a *WorkflowSupervisor) HandleMessage(from gen.PID, message any) error {
 			a.releaseMap[triggerMsg.WorkflowID] = release
 		}
 
-		err = a.spawnWorkflowActor(triggerMsg.SchemaID, triggerMsg.WorkflowID)
+		err = a.spawnWorkflowActor(triggerMsg.SchemaID, triggerMsg.WorkflowID, triggerMsg.Environment)
 		if err != nil {
 			a.Log().Error("failed to spawn workflow actor for schema id %s : %s", triggerMsg.SchemaID, err)
 			// Release concurrency slot on spawn failure
@@ -153,7 +153,7 @@ func (a *WorkflowSupervisor) HandleMessage(from gen.PID, message any) error {
 				a.Log().Error("failed to get workflow %s for retry: %s", retryMsg.WorkflowID, getErr)
 				return nil
 			}
-			if spawnErr := a.spawnWorkflowActor(wf.Graph().ID(), retryMsg.WorkflowID); spawnErr != nil {
+			if spawnErr := a.spawnWorkflowActor(wf.Graph().ID(), retryMsg.WorkflowID, wf.Environment()); spawnErr != nil {
 				a.Log().Error("failed to respawn workflow %s for retry: %s", retryMsg.WorkflowID, spawnErr)
 				return nil
 			}
@@ -228,14 +228,14 @@ func (a *WorkflowSupervisor) recoverWorkflows() {
 			continue
 		}
 		schemaID := wf.Schema().ID
-		if spawnErr := a.spawnWorkflowActor(schemaID, wf.ID()); spawnErr != nil {
+		if spawnErr := a.spawnWorkflowActor(schemaID, wf.ID(), wf.Environment()); spawnErr != nil {
 			a.Log().Error("failed to recover workflow %s: %s", id, spawnErr)
 		}
 	}
 }
 
-func (a *WorkflowSupervisor) spawnWorkflowActor(schemaID string, workflowID workflow.ID) error {
-	err := a.StartChild(actornames.WorkflowInstanceSupervisor, workflowID, schemaID)
+func (a *WorkflowSupervisor) spawnWorkflowActor(schemaID string, workflowID workflow.ID, environment string) error {
+	err := a.StartChild(actornames.WorkflowInstanceSupervisor, workflowID, schemaID, environment)
 	if err != nil {
 		a.Log().Error("failed to spawn child for schema id %s : %s", schemaID, err)
 		return err
