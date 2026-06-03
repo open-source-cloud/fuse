@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/open-source-cloud/fuse/internal/app/config"
 	"github.com/open-source-cloud/fuse/internal/app/di"
@@ -59,11 +60,19 @@ func newSecretsListCommand() *cobra.Command {
 				if err != nil {
 					return err
 				}
+				// Hide credential-backed secrets (cred/<id>/<field>); they are managed via
+				// `fuse credentials`, not exposed in the plain secret surface (ADR-0031).
+				visible := make([]string, 0, len(names))
+				for _, n := range names {
+					if !strings.HasPrefix(n, "cred/") {
+						visible = append(visible, n)
+					}
+				}
 				fmt.Printf("secrets in environment %q:\n", env)
-				if len(names) == 0 {
+				if len(visible) == 0 {
 					fmt.Println("  (none)")
 				}
-				for _, n := range names {
+				for _, n := range visible {
 					fmt.Printf("  - %s\n", n)
 				}
 				return nil

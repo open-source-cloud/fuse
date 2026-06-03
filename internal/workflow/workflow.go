@@ -77,21 +77,28 @@ func (w *Workflow) SetSecretResolver(r secrets.Resolver) {
 	w.secretResolver = r
 }
 
-// resolveSchemaValue resolves any {{secret:NAME}} references embedded in a schema
-// string value, wrapping the whole result as a SecretValue so it is redacted in
-// every sink. Non-string or reference-free values pass through unchanged.
+// resolveSchemaValue resolves any {{secret:NAME}} and {{credential:ID.FIELD}} references embedded
+// in a schema string value, wrapping the whole result as a SecretValue so it is redacted in every
+// sink. Non-string or reference-free values pass through unchanged.
 func (w *Workflow) resolveSchemaValue(value any) (any, error) {
 	s, ok := value.(string)
-	if !ok || !secrets.HasSecretRef(s) {
+	if !ok || (!secrets.HasSecretRef(s) && !secrets.HasCredentialRef(s)) {
 		return value, nil
 	}
-	resolved, err := secrets.ReplaceSecretRefs(s, func(name string) (string, error) {
+	reveal := func(name string) (string, error) {
 		sv, err := w.secretValueByName(name)
 		if err != nil {
 			return "", err
 		}
 		return sv.Reveal(), nil
-	})
+	}
+	resolved, err := secrets.ReplaceSecretRefs(s, reveal)
+	if err != nil {
+		return nil, err
+	}
+	// Credential refs map to the reserved cred/<id>/<field> secret name and resolve via the same
+	// environment-scoped resolver.
+	resolved, err = secrets.ReplaceCredentialRefs(resolved, reveal)
 	if err != nil {
 		return nil, err
 	}
@@ -101,6 +108,17 @@ func (w *Workflow) resolveSchemaValue(value any) (any, error) {
 // resolveSecret resolves a SourceSecret mapping (the secret name) to a SecretValue.
 func (w *Workflow) resolveSecret(name string) (secrets.SecretValue, error) {
 	return w.secretValueByName(name)
+}
+
+// resolveCredential resolves a SourceCredential mapping. variable holds "<id>.<field>"; it is
+// split on the LAST dot (so ids may contain dots) and read from the reserved cred/<id>/<field>
+// secret name, scoped to this workflow's environment (ADR-0031).
+func (w *Workflow) resolveCredential(variable string) (secrets.SecretValue, error) {
+	dot := strings.LastIndex(variable, ".")
+	if dot <= 0 || dot == len(variable)-1 {
+		return secrets.SecretValue{}, fmt.Errorf("invalid credential reference %q: expected \"<id>.<field>\"", variable)
+	}
+	return w.secretValueByName(secrets.CredentialSecretName(variable[:dot], variable[dot+1:]))
 }
 
 // secretValueByName resolves a secret by name, scoped to this workflow's environment.
@@ -685,118 +703,133 @@ func (w *Workflow) inputMapping(edge *Edge, mappings []InputMapping) map[string]
 				continue
 			}
 			args.Set(mapping.MapTo, sv)
+		case SourceCredential:
+			sv, err := w.resolveCredential(mapping.Variable)
+			if err != nil {
+				log.Error().Err(err).Str("edge", edge.ID()).Str("param", mapping.MapTo).
+					Str("credential", mapping.Variable).Msg("failed to resolve credential")
+				continue
+			}
+			args.Set(mapping.MapTo, sv)
 		case SourceFlow:
-			outputParamName := strutil.AfterFirstDot(mapping.Variable)
-
-			nodeFrom := edge.From()
-			if nodeFrom == nil {
-				log.Error().Str("edge", edge.ID()).Str("param", outputParamName).
-					Msg("Node from is nil")
-				break
-			}
-			nodeFromMetadata := nodeFrom.FunctionMetadata()
-			if nodeFromMetadata == nil {
-				log.Error().Str("edge", edge.ID()).Str("param", outputParamName).
-					Msg("Node from metadata is nil")
-				break
-			}
-
-			outputParamSchema, exists := nodeFromMetadata.Output.Parameters[outputParamName]
-			if !allowCustomInputParameters && !exists {
-				log.Error().Str("edge", edge.ID()).Str("param", outputParamName).
-					Msgf("Output ParamSchema not found for input mapping")
-				continue
-			}
-
-			isArray := strings.HasPrefix(inputParamSchema.Type, "[]")
-			rawValue := w.aggregatedOutput.Get(mapping.Variable)
-			var value any
-			switch {
-			case inputParamSchema.Type == "" && allowCustomInputParameters:
-				value = rawValue
-			case isArray:
-				// Parallel branches each contribute one element; validate against the upstream
-				// output type (e.g. int from rand), then coerce to the slice-typed destination.
-				var parsedScalar any
-				var err error
-				if outputParamSchema.Type == "" {
-					parsedScalar = rawValue
-				} else {
-					parsedScalar, err = typeschema.ParseValue(outputParamSchema.Type, rawValue)
-					if err != nil {
-						log.Error().
-							Err(err).
-							Str("edge", edge.ID()).
-							Str("param", mapping.MapTo).
-							Any("value", rawValue).
-							Msg(logMsgErrorParsingValue)
-						continue
-					}
-				}
-				if outputParamSchema.Type != "" && !w.validateInputMapping(&outputParamSchema, parsedScalar) {
-					log.Error().
-						Str("edge", edge.ID()).
-						Str("param", mapping.MapTo).
-						Any("value", parsedScalar).
-						Msg(logMsgFailedParamValidation)
-					continue
-				}
-				value, err = typeschema.ParseValue(inputParamSchema.Type, parsedScalar)
-				if err != nil {
-					log.Error().
-						Err(err).
-						Str("edge", edge.ID()).
-						Str("param", mapping.MapTo).
-						Any("value", parsedScalar).
-						Msg(logMsgErrorParsingValue)
-					continue
-				}
-			default:
-				var err error
-				value, err = typeschema.ParseValue(inputParamSchema.Type, rawValue)
-				if err != nil {
-					log.Error().
-						Err(err).
-						Str("edge", edge.ID()).
-						Str("param", mapping.MapTo).
-						Any("value", mapping.Value).
-						Msg(logMsgErrorParsingValue)
-					continue
-				}
-				if !w.validateInputMapping(&inputParamSchema, value) {
-					log.Error().
-						Str("edge", edge.ID()).
-						Str("param", mapping.MapTo).
-						Any("value", value).
-						Msg(logMsgFailedParamValidation)
-					continue
-				}
-			}
-
-			if isArray {
-				currentArray := args.Get(mapping.MapTo)
-				if currentArray != nil {
-					currentArraySlice := reflect.ValueOf(currentArray)
-					valueSlice := reflect.ValueOf(value)
-					args.Set(mapping.MapTo, reflect.AppendSlice(currentArraySlice, valueSlice).Interface())
-				} else {
-					args.Set(mapping.MapTo, value)
-				}
-				continue
-			}
-
-			// if the value is nil, and there is a default value, use the default value
-			if value == nil && inputParamSchema.Default != nil {
-				value = inputParamSchema.Default
-			}
-
-			args.Set(mapping.MapTo, value)
+			w.applyFlowMapping(args, edge, mapping, inputParamSchema, allowCustomInputParameters)
 		}
 	}
 
 	log.Debug().Msgf("Args: %+v", args.Raw())
 
 	return args.Raw()
+}
+
+// applyFlowMapping resolves a SourceFlow input mapping (a value forwarded from an upstream node's
+// output) and writes it into args. It is split out of inputMapping to keep that method's
+// cyclomatic complexity in check; the early returns here mirror the original per-mapping skips.
+func (w *Workflow) applyFlowMapping(args *store.KV, edge *Edge, mapping InputMapping, inputParamSchema workflow.ParameterSchema, allowCustomInputParameters bool) {
+	outputParamName := strutil.AfterFirstDot(mapping.Variable)
+
+	nodeFrom := edge.From()
+	if nodeFrom == nil {
+		log.Error().Str("edge", edge.ID()).Str("param", outputParamName).
+			Msg("Node from is nil")
+		return
+	}
+	nodeFromMetadata := nodeFrom.FunctionMetadata()
+	if nodeFromMetadata == nil {
+		log.Error().Str("edge", edge.ID()).Str("param", outputParamName).
+			Msg("Node from metadata is nil")
+		return
+	}
+
+	outputParamSchema, exists := nodeFromMetadata.Output.Parameters[outputParamName]
+	if !allowCustomInputParameters && !exists {
+		log.Error().Str("edge", edge.ID()).Str("param", outputParamName).
+			Msgf("Output ParamSchema not found for input mapping")
+		return
+	}
+
+	isArray := strings.HasPrefix(inputParamSchema.Type, "[]")
+	rawValue := w.aggregatedOutput.Get(mapping.Variable)
+	var value any
+	switch {
+	case inputParamSchema.Type == "" && allowCustomInputParameters:
+		value = rawValue
+	case isArray:
+		// Parallel branches each contribute one element; validate against the upstream
+		// output type (e.g. int from rand), then coerce to the slice-typed destination.
+		var parsedScalar any
+		var err error
+		if outputParamSchema.Type == "" {
+			parsedScalar = rawValue
+		} else {
+			parsedScalar, err = typeschema.ParseValue(outputParamSchema.Type, rawValue)
+			if err != nil {
+				log.Error().
+					Err(err).
+					Str("edge", edge.ID()).
+					Str("param", mapping.MapTo).
+					Any("value", rawValue).
+					Msg(logMsgErrorParsingValue)
+				return
+			}
+		}
+		if outputParamSchema.Type != "" && !w.validateInputMapping(&outputParamSchema, parsedScalar) {
+			log.Error().
+				Str("edge", edge.ID()).
+				Str("param", mapping.MapTo).
+				Any("value", parsedScalar).
+				Msg(logMsgFailedParamValidation)
+			return
+		}
+		value, err = typeschema.ParseValue(inputParamSchema.Type, parsedScalar)
+		if err != nil {
+			log.Error().
+				Err(err).
+				Str("edge", edge.ID()).
+				Str("param", mapping.MapTo).
+				Any("value", parsedScalar).
+				Msg(logMsgErrorParsingValue)
+			return
+		}
+	default:
+		var err error
+		value, err = typeschema.ParseValue(inputParamSchema.Type, rawValue)
+		if err != nil {
+			log.Error().
+				Err(err).
+				Str("edge", edge.ID()).
+				Str("param", mapping.MapTo).
+				Any("value", mapping.Value).
+				Msg(logMsgErrorParsingValue)
+			return
+		}
+		if !w.validateInputMapping(&inputParamSchema, value) {
+			log.Error().
+				Str("edge", edge.ID()).
+				Str("param", mapping.MapTo).
+				Any("value", value).
+				Msg(logMsgFailedParamValidation)
+			return
+		}
+	}
+
+	if isArray {
+		currentArray := args.Get(mapping.MapTo)
+		if currentArray != nil {
+			currentArraySlice := reflect.ValueOf(currentArray)
+			valueSlice := reflect.ValueOf(value)
+			args.Set(mapping.MapTo, reflect.AppendSlice(currentArraySlice, valueSlice).Interface())
+		} else {
+			args.Set(mapping.MapTo, value)
+		}
+		return
+	}
+
+	// if the value is nil, and there is a default value, use the default value
+	if value == nil && inputParamSchema.Default != nil {
+		value = inputParamSchema.Default
+	}
+
+	args.Set(mapping.MapTo, value)
 }
 
 func (w *Workflow) validateInputMapping(schema *workflow.ParameterSchema, value any) bool {

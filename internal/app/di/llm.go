@@ -80,12 +80,21 @@ func provideLLMRegistry(cfg *config.Config, secretStore secrets.SecretStore) llm
 	return llm.NewRegistry(factories, cfg.LLM.DefaultProvider)
 }
 
-// newProviderFactory returns a factory for one provider. When the config has no {{secret:NAME}}
-// references the provider is built once and the factory returns that singleton (preserving the
-// previous static behavior). Otherwise the factory resolves the references per call against the
-// given environment (falling back to defaultEnv when empty) and builds a fresh provider.
+// newProviderFactory returns a factory for one provider. When the config has no {{secret:NAME}} or
+// {{credential:ID.FIELD}} references the provider is built once and the factory returns that
+// singleton (preserving the previous static behavior). Otherwise the factory resolves the
+// references per call against the given environment (falling back to defaultEnv when empty) and
+// builds a fresh provider.
 func newProviderFactory(name string, conf config.LLMProviderConfig, build providerBuilder, store secrets.SecretStore, defaultEnv string) llm.ProviderFactory {
-	if !secrets.HasSecretRef(conf.APIKey) && !secrets.HasSecretRef(conf.BaseURL) {
+	// A configured credential id supplies the apiKey as a credential reference (ADR-0031) when the
+	// key is not set explicitly; it then resolves like any other reference, per environment. Only
+	// apiKey is mapped automatically — a base URL is provider-specific and rarely part of a
+	// credential, so set BASE_URL={{credential:<id>.baseUrl}} explicitly if needed.
+	if conf.Credential != "" && conf.APIKey == "" {
+		conf.APIKey = secrets.CredentialRefToken(conf.Credential, "apiKey")
+	}
+
+	if !hasAnyRef(conf.APIKey) && !hasAnyRef(conf.BaseURL) {
 		p := build(name, conf.APIKey, conf.BaseURL, conf.Model)
 		return func(_ context.Context, _ string) (llm.Provider, error) { return p, nil }
 	}
@@ -102,14 +111,29 @@ func newProviderFactory(name string, conf config.LLMProviderConfig, build provid
 			}
 			return v.Reveal(), nil
 		}
-		apiKey, err := secrets.ReplaceSecretRefs(conf.APIKey, resolve)
+		apiKey, err := resolveRefs(conf.APIKey, resolve)
 		if err != nil {
 			return nil, fmt.Errorf("llm[%s]: resolve api key for environment %q: %w", name, env, err)
 		}
-		baseURL, err := secrets.ReplaceSecretRefs(conf.BaseURL, resolve)
+		baseURL, err := resolveRefs(conf.BaseURL, resolve)
 		if err != nil {
 			return nil, fmt.Errorf("llm[%s]: resolve base url for environment %q: %w", name, env, err)
 		}
 		return build(name, apiKey, baseURL, conf.Model), nil
 	}
+}
+
+// hasAnyRef reports whether s contains a secret or credential reference.
+func hasAnyRef(s string) bool {
+	return secrets.HasSecretRef(s) || secrets.HasCredentialRef(s)
+}
+
+// resolveRefs resolves both {{secret:NAME}} and {{credential:ID.FIELD}} references in s via the
+// same per-environment resolve function (credential refs map to their reserved secret name).
+func resolveRefs(s string, resolve func(string) (string, error)) (string, error) {
+	out, err := secrets.ReplaceSecretRefs(s, resolve)
+	if err != nil {
+		return "", err
+	}
+	return secrets.ReplaceCredentialRefs(out, resolve)
 }
