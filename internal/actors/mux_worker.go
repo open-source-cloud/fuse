@@ -126,6 +126,26 @@ func NewWorkers() *Workers {
 				},
 			},
 			{
+				Name:    handlers.CredentialsHandlerName,
+				Pattern: "/v1/credentials",
+				Methods: []string{"GET"},
+				Timeout: 10 * time.Second,
+				PoolConfig: WorkerPoolConfig{
+					Name:     handlers.CredentialsHandlerPoolName,
+					PoolSize: 3,
+				},
+			},
+			{
+				Name:    handlers.CredentialHandlerName,
+				Pattern: "/v1/credentials/{id}",
+				Methods: []string{"GET", "PUT", "DELETE"},
+				Timeout: 10 * time.Second,
+				PoolConfig: WorkerPoolConfig{
+					Name:     handlers.CredentialHandlerPoolName,
+					PoolSize: 3,
+				},
+			},
+			{
 				Name:    handlers.ListSchemaVersionsHandlerName,
 				Pattern: "/v1/schemas/{schemaID}/versions",
 				Methods: []string{"GET"},

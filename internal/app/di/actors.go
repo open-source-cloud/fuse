@@ -35,6 +35,8 @@ type workerHandlerRegistrationParams struct {
 	GetSchemaVersionHandlerFactory      *handlers.GetSchemaVersionHandlerFactory
 	ActivateSchemaVersionHandlerFactory *handlers.ActivateSchemaVersionHandlerFactory
 	RollbackSchemaHandlerFactory        *handlers.RollbackSchemaHandlerFactory
+	CredentialsHandlerFactory           *handlers.CredentialsHandlerFactory
+	CredentialHandlerFactory            *handlers.CredentialHandlerFactory
 }
 
 // newWorkers builds the HTTP worker registry with all handler factories registered.
@@ -65,6 +67,8 @@ func newWorkers(p workerHandlerRegistrationParams) *actors.Workers {
 	w.AddFactory(handlers.GetSchemaVersionHandlerName, p.GetSchemaVersionHandlerFactory.Factory)
 	w.AddFactory(handlers.ActivateSchemaVersionHandlerName, p.ActivateSchemaVersionHandlerFactory.Factory)
 	w.AddFactory(handlers.RollbackSchemaHandlerName, p.RollbackSchemaHandlerFactory.Factory)
+	w.AddFactory(handlers.CredentialsHandlerName, p.CredentialsHandlerFactory.Factory)
+	w.AddFactory(handlers.CredentialHandlerName, p.CredentialHandlerFactory.Factory)
 	return w
 }
 
@@ -95,6 +99,8 @@ var WorkerModule = fx.Module(
 		handlers.NewGetSchemaVersionHandlerFactory,
 		handlers.NewActivateSchemaVersionHandlerFactory,
 		handlers.NewRollbackSchemaHandlerFactory,
+		handlers.NewCredentialsHandler,
+		handlers.NewCredentialHandler,
 		newWorkers,
 	),
 )

@@ -182,6 +182,18 @@ func TestPostgresPackageRepository_Contract(t *testing.T) {
 	})
 }
 
+// --- Postgres Credential Repository ---
+
+func TestPostgresCredentialRepository_Contract(t *testing.T) {
+	pool := setupTestPool(t)
+	contractTestCredentialRepository(t, func() repositories.CredentialRepository {
+		return postgres.NewCredentialRepository(pool)
+	}, func() {
+		_, err := pool.Exec(context.Background(), "TRUNCATE TABLE credentials")
+		require.NoError(t, err)
+	})
+}
+
 // --- Postgres Claim Repository ---
 
 func TestPostgresClaimRepository_Contract(t *testing.T) {
