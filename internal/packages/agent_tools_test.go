@@ -83,7 +83,7 @@ func TestInvokeTool_RunsSyncFunctionInline(t *testing.T) {
 	adapter := NewAgentToolRegistry(newTestRegistry(t))
 	input, err := workflow.NewFunctionInputWith(map[string]any{"values": []float64{2, 3}})
 	require.NoError(t, err)
-	execInfo := workflow.NewExecutionInfo("wf-1", workflow.NewExecID(1), input)
+	execInfo := workflow.NewExecutionInfo("wf-1", workflow.NewExecID(1), "", input)
 
 	res, err := adapter.InvokeTool("fuse/pkg/logic/sum", execInfo)
 	require.NoError(t, err)
@@ -96,7 +96,7 @@ func TestInvokeTool_UnknownFunctionReturnsError(t *testing.T) {
 	t.Parallel()
 
 	adapter := NewAgentToolRegistry(newTestRegistry(t))
-	execInfo := workflow.NewExecutionInfo("wf-1", workflow.NewExecID(1), nil)
+	execInfo := workflow.NewExecutionInfo("wf-1", workflow.NewExecID(1), "", nil)
 
 	_, err := adapter.InvokeTool("does/not/exist", execInfo)
 	require.Error(t, err)

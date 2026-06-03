@@ -610,7 +610,7 @@ func (a *WorkflowHandler) handleWorkflowAction(action workflowactions.Action) {
 		a.Log().Info("scheduling retry attempt %d for exec %s in %s",
 			retryAction.Attempt, retryAction.FunctionExecID, retryAction.Delay)
 		workflowPool := WorkflowFuncPoolName(a.workflow.ID())
-		retryMsg := messaging.NewExecuteFunctionMessage(a.workflow.ID(), &retryAction.RunFunctionAction, a.tracingProvider.InjectCarrier(a.spanCtx))
+		retryMsg := messaging.NewExecuteFunctionMessage(a.workflow.ID(), &retryAction.RunFunctionAction, a.workflow.Environment(), a.tracingProvider.InjectCarrier(a.spanCtx))
 		if _, err := a.SendAfter(gen.Atom(workflowPool), retryMsg, retryAction.Delay); err != nil {
 			a.Log().Error("failed to schedule retry: %s", err)
 		}
@@ -646,7 +646,7 @@ func (a *WorkflowHandler) handleWorkflowRunFunctionAction(action workflowactions
 		}
 	}
 
-	execFnMsg := messaging.NewExecuteFunctionMessage(a.workflow.ID(), execAction, a.tracingProvider.InjectCarrier(a.spanCtx))
+	execFnMsg := messaging.NewExecuteFunctionMessage(a.workflow.ID(), execAction, a.workflow.Environment(), a.tracingProvider.InjectCarrier(a.spanCtx))
 	err := a.Send(workflowPool, execFnMsg)
 	if err != nil {
 		a.Log().Error("failed to send execute function message to %s: %s", workflowPool, err)
@@ -991,7 +991,7 @@ func (a *WorkflowHandler) spawnForEachBatch(state *internalworkflow.ForEachState
 	a.iterThreadToForEach[iterThreadID] = state.ExecID.String()
 
 	workflowPool := WorkflowFuncPoolName(a.workflow.ID())
-	execFnMsg := messaging.NewExecuteFunctionMessage(a.workflow.ID(), runAction, a.tracingProvider.InjectCarrier(a.spanCtx))
+	execFnMsg := messaging.NewExecuteFunctionMessage(a.workflow.ID(), runAction, a.workflow.Environment(), a.tracingProvider.InjectCarrier(a.spanCtx))
 	if err := a.Send(workflowPool, execFnMsg); err != nil {
 		a.Log().Error("foreach: failed to dispatch iteration %d: %s", batchIndex, err)
 	}

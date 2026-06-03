@@ -62,7 +62,7 @@ func TestExecuteSync_RunsFunctionWithoutHandle(t *testing.T) {
 	}
 	tr := NewInternalFunctionTransport(fn)
 
-	execInfo := workflow.NewExecutionInfo("wf-1", workflow.NewExecID(1), nil)
+	execInfo := workflow.NewExecutionInfo("wf-1", workflow.NewExecID(1), "", nil)
 	res, err := tr.ExecuteSync(execInfo)
 	require.NoError(t, err)
 	require.True(t, called, "the function should run")

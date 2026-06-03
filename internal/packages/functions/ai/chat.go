@@ -93,10 +93,7 @@ func makeChatFunction(providers llm.Registry) workflow.Function {
 			return workflow.NewFunctionResultError(ErrInputRequired)
 		}
 
-		provider, err := resolveProvider(providers, input.GetStr("provider"))
-		if err != nil {
-			return workflow.NewFunctionResultError(err)
-		}
+		providerName := input.GetStr("provider")
 
 		messages := make([]llm.Message, 0, 2)
 		if systemPrompt := input.GetStr("systemPrompt"); systemPrompt != "" {
@@ -110,11 +107,20 @@ func makeChatFunction(providers llm.Registry) workflow.Function {
 			Temperature: optionalTemperature(input),
 		}
 
-		// The completion runs in its own goroutine and reports back via Finish so the
-		// WorkflowFunc pool worker is freed immediately (mirrors logic/timer).
+		// Provider resolution and the completion run in their own goroutine and report back via
+		// Finish so the WorkflowFunc pool worker is freed immediately (mirrors logic/timer).
+		// Resolution is in here too because per-context provider keys (ADR-0031) may hit the
+		// secret store, which is I/O we must keep off the pool worker.
 		go func() {
 			ctx, cancel := context.WithTimeout(context.Background(), chatTimeout)
 			defer cancel()
+
+			provider, err := resolveProvider(ctx, providers, execInfo.Environment, providerName)
+			if err != nil {
+				log.Error().Err(err).Str("provider", providerName).Msg("ai/chat provider resolution failed")
+				execInfo.Finish(workflow.NewFunctionOutput(workflow.FunctionError, map[string]any{"error": err.Error()}))
+				return
+			}
 
 			resp, err := provider.Chat(ctx, req)
 			if err != nil {
@@ -137,12 +143,13 @@ func makeChatFunction(providers llm.Registry) workflow.Function {
 	}
 }
 
-// resolveProvider returns the named provider, or the registry default when name is empty.
-func resolveProvider(providers llm.Registry, name string) (llm.Provider, error) {
+// resolveProvider returns the named provider, or the registry default when name is empty, built
+// for the given environment so per-context keys (ADR-0031) resolve against the running workflow.
+func resolveProvider(ctx context.Context, providers llm.Registry, environment, name string) (llm.Provider, error) {
 	if name != "" {
-		return providers.Get(name)
+		return providers.Get(ctx, environment, name)
 	}
-	return providers.Default()
+	return providers.Default(ctx, environment)
 }
 
 // optionalTemperature extracts the temperature input if present and numeric.

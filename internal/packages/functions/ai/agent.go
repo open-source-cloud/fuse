@@ -70,23 +70,20 @@ func makeAgentFunction(providers llm.Registry, tools ToolRegistry) workflow.Func
 			return workflow.NewFunctionResultError(ErrAgentInputRequired)
 		}
 
-		provider, err := resolveProvider(providers, input.GetStr("provider"))
-		if err != nil {
-			return workflow.NewFunctionResultError(err)
-		}
+		providerName := input.GetStr("provider")
 
 		llmTools, byMangled := buildTools(tools.ListTools(), allowedToolSet(input))
 
 		executor := &agentExecutor{
-			provider:  provider,
-			tools:     tools,
-			byMangled: byMangled,
-			llmTools:  llmTools,
-			model:     input.GetStr("model"),
-			temp:      optionalTemperature(input),
-			maxIters:  clampIterations(input.GetInt("maxIterations")),
-			wfID:      execInfo.WorkflowID,
-			execID:    execInfo.ExecID,
+			tools:       tools,
+			byMangled:   byMangled,
+			llmTools:    llmTools,
+			model:       input.GetStr("model"),
+			temp:        optionalTemperature(input),
+			maxIters:    clampIterations(input.GetInt("maxIterations")),
+			wfID:        execInfo.WorkflowID,
+			execID:      execInfo.ExecID,
+			environment: execInfo.Environment,
 		}
 
 		messages := make([]llm.Message, 0, 4)
@@ -95,11 +92,22 @@ func makeAgentFunction(providers llm.Registry, tools ToolRegistry) workflow.Func
 		}
 		messages = append(messages, llm.Message{Role: llm.RoleUser, Content: userInput})
 
-		// The reasoning loop runs in its own goroutine and reports back via Finish
-		// so the WorkflowFunc pool worker is freed immediately (mirrors ai/chat).
+		// Provider resolution and the reasoning loop run in their own goroutine and report back
+		// via Finish so the WorkflowFunc pool worker is freed immediately (mirrors ai/chat).
+		// Resolution is here too because per-context provider keys (ADR-0031) may hit the secret
+		// store. The provider is resolved ONCE and reused across the loop (stable within a run).
 		go func() {
 			ctx, cancel := context.WithTimeout(context.Background(), agentTimeout)
 			defer cancel()
+
+			provider, err := resolveProvider(ctx, providers, execInfo.Environment, providerName)
+			if err != nil {
+				log.Error().Err(err).Str("provider", providerName).Msg("ai/agent provider resolution failed")
+				execInfo.Finish(errorOutput(fmt.Sprintf("ai/agent: provider resolution failed: %v", err)))
+				return
+			}
+			executor.provider = provider
+
 			execInfo.Finish(executor.run(ctx, messages))
 		}()
 
@@ -109,15 +117,16 @@ func makeAgentFunction(providers llm.Registry, tools ToolRegistry) workflow.Func
 
 // agentExecutor holds the immutable per-run parameters for the reasoning loop.
 type agentExecutor struct {
-	provider  llm.Provider
-	tools     ToolRegistry
-	byMangled map[string]string // mangled tool name -> real function id
-	llmTools  []llm.Tool
-	model     string
-	temp      *float32
-	maxIters  int
-	wfID      workflow.ID
-	execID    workflow.ExecID
+	provider    llm.Provider
+	tools       ToolRegistry
+	byMangled   map[string]string // mangled tool name -> real function id
+	llmTools    []llm.Tool
+	model       string
+	temp        *float32
+	maxIters    int
+	wfID        workflow.ID
+	execID      workflow.ExecID
+	environment string
 }
 
 // run drives the reasoning loop until a final answer, an error, or the iteration
@@ -181,7 +190,7 @@ func (e *agentExecutor) executeToolCall(tc llm.ToolCall) (llm.Message, map[strin
 		return e.toolError(tc, realID, args, fmt.Sprintf("failed to build tool input: %v", err))
 	}
 
-	result, err := e.tools.InvokeTool(realID, workflow.NewExecutionInfo(e.wfID, e.execID, nestedInput))
+	result, err := e.tools.InvokeTool(realID, workflow.NewExecutionInfo(e.wfID, e.execID, e.environment, nestedInput))
 	if err != nil {
 		return e.toolError(tc, realID, args, err.Error())
 	}

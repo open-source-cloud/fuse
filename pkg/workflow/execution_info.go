@@ -1,11 +1,12 @@
 package workflow
 
 // NewExecutionInfo creates a new ExecutionInfo to pass to an executable function
-func NewExecutionInfo(workflowID ID, execID ExecID, input *FunctionInput) *ExecutionInfo {
+func NewExecutionInfo(workflowID ID, execID ExecID, environment string, input *FunctionInput) *ExecutionInfo {
 	return &ExecutionInfo{
-		WorkflowID: workflowID,
-		ExecID:     execID,
-		Input:      input,
+		WorkflowID:  workflowID,
+		ExecID:      execID,
+		Environment: environment,
+		Input:       input,
 	}
 }
 
@@ -13,6 +14,10 @@ func NewExecutionInfo(workflowID ID, execID ExecID, input *FunctionInput) *Execu
 type ExecutionInfo struct {
 	WorkflowID ID
 	ExecID     ExecID
-	Input      *FunctionInput
-	Finish     func(FunctionOutput)
+	// Environment is the resolution scope (ADR-0031) of the running workflow. It lets the engine
+	// resolve per-context capabilities (e.g. LLM provider keys) without the function touching the
+	// secret store; it is scope data, not a secret.
+	Environment string
+	Input       *FunctionInput
+	Finish      func(FunctionOutput)
 }

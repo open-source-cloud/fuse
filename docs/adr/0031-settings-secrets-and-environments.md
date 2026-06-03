@@ -121,6 +121,17 @@ drivers with the smallest, most incremental change and gives B and C a stable se
   `SECRETS_DRIVER` selection (`internal/app/di/secrets.go`), and the `fuse secrets` CLI. Infisical
   (Phase 1's read-only external backend) is a fast-follow; credential objects (Phase 2) and
   per-context provider keys (Phase 3) remain scheduled.
+- **Phase 3 — per-context LLM provider keys shipped**: a provider's API key / base URL
+  (`LLM_<PROVIDER>_API_KEY`, `LLM_<PROVIDER>_BASE_URL`) may be a `{{secret:NAME}}` reference
+  resolved from the `SecretStore` against the running workflow's `environment`. `provideLLMRegistry`
+  now builds per-provider `llm.ProviderFactory` closures instead of fixed providers
+  (`internal/app/di/llm.go`): fully-static config is built once (fast path), reference-bearing
+  config resolves and constructs a provider per execution. The `environment` reaches the
+  ai/chat & ai/agent functions via `ExecutionInfo.Environment` (carried on
+  `messaging.ExecuteFunctionMessage`); resolution runs in the function's async goroutine and the
+  resolved key is `Reveal()`'d only into the SDK client, never logged. Different workflows in one
+  process can now use different provider credentials per environment. Credential objects (Phase 2)
+  and Infisical (the read-only external backend) remain scheduled.
 - Supersedes [ADR-0008](0008-settings-environments-and-secrets-management.md) (which recorded the
   problem and deferred the decision).
 - Current state this changes: `internal/app/config/config.go` (env-var secrets),
