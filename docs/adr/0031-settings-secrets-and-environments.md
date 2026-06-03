@@ -113,6 +113,14 @@ drivers with the smallest, most incremental change and gives B and C a stable se
 
 ## More Information
 
+- **Phase 1 shipped**: the `SecretStore` seam + `{{secret:NAME}}`/`source:"secret"` references
+  (resolved in `internal/workflow/workflow.go` `inputMapping`), AES-256-GCM redaction via
+  `pkg/secrets` (`SecretValue` → `***` everywhere; `FunctionInput.GetStr` reveals plaintext), the
+  **memory** + **encrypted-Postgres** backends (`pkg/secrets/memory.go`,
+  `internal/repositories/postgres/secret.go` + migration `000008_create_secrets`), the
+  `SECRETS_DRIVER` selection (`internal/app/di/secrets.go`), and the `fuse secrets` CLI. Infisical
+  (Phase 1's read-only external backend) is a fast-follow; credential objects (Phase 2) and
+  per-context provider keys (Phase 3) remain scheduled.
 - Supersedes [ADR-0008](0008-settings-environments-and-secrets-management.md) (which recorded the
   problem and deferred the decision).
 - Current state this changes: `internal/app/config/config.go` (env-var secrets),

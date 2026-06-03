@@ -63,6 +63,7 @@ var FuseAppModule = fx.Module(
 var AllModules = fx.Options(
 	CommonModule,
 	LLMModule,
+	SecretsModule,
 	PackageModule,
 	DatabaseModule,
 	ObjectStoreModule,

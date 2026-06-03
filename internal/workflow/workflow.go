@@ -2,6 +2,7 @@
 package workflow
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"github.com/open-source-cloud/fuse/internal/workflow/workflowactions"
 
 	"github.com/open-source-cloud/fuse/internal/typeschema"
+	"github.com/open-source-cloud/fuse/pkg/secrets"
 	"github.com/open-source-cloud/fuse/pkg/store"
 	"github.com/open-source-cloud/fuse/pkg/strutil"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
@@ -63,6 +65,48 @@ func New(id workflow.ID, graph *Graph) *Workflow {
 	}
 }
 
+// SetSecretResolver injects the secret resolver used to resolve {{secret:NAME}}
+// references and source:"secret" mappings during input mapping. The actor calls
+// this at Init on both the new and replay paths, since the resolver is a runtime
+// dependency that is not persisted with the workflow.
+func (w *Workflow) SetSecretResolver(r secrets.Resolver) {
+	w.secretResolver = r
+}
+
+// resolveSchemaValue resolves any {{secret:NAME}} references embedded in a schema
+// string value, wrapping the whole result as a SecretValue so it is redacted in
+// every sink. Non-string or reference-free values pass through unchanged.
+func (w *Workflow) resolveSchemaValue(value any) (any, error) {
+	s, ok := value.(string)
+	if !ok || !secrets.HasSecretRef(s) {
+		return value, nil
+	}
+	resolved, err := secrets.ReplaceSecretRefs(s, func(name string) (string, error) {
+		sv, err := w.secretValueByName(name)
+		if err != nil {
+			return "", err
+		}
+		return sv.Reveal(), nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return secrets.NewSecretValue(resolved), nil
+}
+
+// resolveSecret resolves a SourceSecret mapping (the secret name) to a SecretValue.
+func (w *Workflow) resolveSecret(name string) (secrets.SecretValue, error) {
+	return w.secretValueByName(name)
+}
+
+// secretValueByName resolves a secret by name, scoped to this workflow's environment.
+func (w *Workflow) secretValueByName(name string) (secrets.SecretValue, error) {
+	if w.secretResolver == nil {
+		return secrets.SecretValue{}, fmt.Errorf("secret %q referenced but no secret store is configured", name)
+	}
+	return w.secretResolver.Resolve(context.Background(), string(w.id), name)
+}
+
 type (
 	// Workflow defines a Workflow
 	Workflow struct {
@@ -74,6 +118,10 @@ type (
 		threads          *threads
 		aggregatedOutput *store.KV
 		state            RunningState
+		// secretResolver resolves secret references during input mapping. It is a
+		// non-serializable runtime dependency injected by the actor at Init (set on
+		// both the new and replay paths); nil when no secret store is wired.
+		secretResolver secrets.Resolver
 	}
 
 	// RunningState defines the Workflow running state
@@ -611,7 +659,21 @@ func (w *Workflow) inputMapping(edge *Edge, mappings []InputMapping) map[string]
 					Msg(logMsgFailedParamValidation)
 				continue
 			}
-			args.Set(mapping.MapTo, mapping.Value)
+			value, err := w.resolveSchemaValue(mapping.Value)
+			if err != nil {
+				log.Error().Err(err).Str("edge", edge.ID()).Str("param", mapping.MapTo).
+					Msg("failed to resolve secret reference")
+				continue
+			}
+			args.Set(mapping.MapTo, value)
+		case SourceSecret:
+			sv, err := w.resolveSecret(mapping.Variable)
+			if err != nil {
+				log.Error().Err(err).Str("edge", edge.ID()).Str("param", mapping.MapTo).
+					Str("secret", mapping.Variable).Msg("failed to resolve secret")
+				continue
+			}
+			args.Set(mapping.MapTo, sv)
 		case SourceFlow:
 			outputParamName := strutil.AfterFirstDot(mapping.Variable)
 

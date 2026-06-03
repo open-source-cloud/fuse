@@ -25,6 +25,7 @@ import (
 	"github.com/open-source-cloud/fuse/internal/messaging"
 	"github.com/open-source-cloud/fuse/internal/repositories"
 	"github.com/open-source-cloud/fuse/pkg/objectstore"
+	"github.com/open-source-cloud/fuse/pkg/secrets"
 	"github.com/open-source-cloud/fuse/pkg/workflow"
 )
 
@@ -43,6 +44,7 @@ func NewWorkflowHandlerFactory(
 	eventBus events.EventBus,
 	fuseMetrics *metrics.FuseMetrics,
 	tracingProvider *tracing.Provider,
+	secretResolver secrets.Resolver,
 ) *WorkflowHandlerFactory {
 	return &WorkflowHandlerFactory{
 		Factory: func() gen.ProcessBehavior {
@@ -57,6 +59,7 @@ func NewWorkflowHandlerFactory(
 				eventBus:           eventBus,
 				fuseMetrics:        fuseMetrics,
 				tracingProvider:    tracingProvider,
+				secretResolver:     secretResolver,
 			}
 		},
 	}
@@ -77,6 +80,7 @@ type (
 		eventBus           events.EventBus
 		fuseMetrics        *metrics.FuseMetrics
 		tracingProvider    *tracing.Provider
+		secretResolver     secrets.Resolver
 
 		workflow       *internalworkflow.Workflow
 		executionTimer *ExecutionTimer
@@ -119,6 +123,7 @@ func (a *WorkflowHandler) Init(args ...any) error {
 
 	if a.workflowRepository.Exists(initArgs.workflowID.String()) {
 		a.workflow, _ = a.workflowRepository.Get(initArgs.workflowID.String())
+		a.workflow.SetSecretResolver(a.secretResolver)
 		if err := a.graphService.EnsureNodeMetadata(a.workflow.Graph()); err != nil {
 			a.Log().Error("failed to populate graph node metadata for workflow %s: %s", initArgs.workflowID, err)
 			return gen.TerminateReasonPanic
@@ -151,6 +156,7 @@ func (a *WorkflowHandler) Init(args ...any) error {
 		return gen.TerminateReasonPanic
 	}
 	a.workflow = internalworkflow.New(initArgs.workflowID, graphRef)
+	a.workflow.SetSecretResolver(a.secretResolver)
 	if a.workflowRepository.Save(a.workflow) != nil {
 		a.Log().Error("failed to save workflow for id %s: %s", initArgs.workflowID, err)
 		return nil
