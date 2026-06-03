@@ -126,6 +126,26 @@ func NewWorkers() *Workers {
 				},
 			},
 			{
+				Name:    handlers.EnvironmentsHandlerName,
+				Pattern: "/v1/environments",
+				Methods: []string{"GET"},
+				Timeout: 10 * time.Second,
+				PoolConfig: WorkerPoolConfig{
+					Name:     handlers.EnvironmentsHandlerPoolName,
+					PoolSize: 3,
+				},
+			},
+			{
+				Name:    handlers.EnvironmentHandlerName,
+				Pattern: "/v1/environments/{name}",
+				Methods: []string{"GET", "PUT", "DELETE"},
+				Timeout: 10 * time.Second,
+				PoolConfig: WorkerPoolConfig{
+					Name:     handlers.EnvironmentHandlerPoolName,
+					PoolSize: 3,
+				},
+			},
+			{
 				Name:    handlers.ListSchemaVersionsHandlerName,
 				Pattern: "/v1/schemas/{schemaID}/versions",
 				Methods: []string{"GET"},
