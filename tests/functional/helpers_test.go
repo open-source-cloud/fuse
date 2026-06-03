@@ -14,7 +14,7 @@ func newTestWorkflow(t *testing.T) *internalworkflow.Workflow {
 	schema := mocks.SmallTestGraphSchema()
 	graph, err := internalworkflow.NewGraph(schema)
 	require.NoError(t, err)
-	return internalworkflow.New(workflow.NewID(), graph)
+	return internalworkflow.New(workflow.NewID(), graph, "default")
 }
 
 func newTestWorkflowWithID(t *testing.T, id workflow.ID) *internalworkflow.Workflow {
@@ -22,5 +22,13 @@ func newTestWorkflowWithID(t *testing.T, id workflow.ID) *internalworkflow.Workf
 	schema := mocks.SmallTestGraphSchema()
 	graph, err := internalworkflow.NewGraph(schema)
 	require.NoError(t, err)
-	return internalworkflow.New(id, graph)
+	return internalworkflow.New(id, graph, "default")
+}
+
+func newTestWorkflowWithEnv(t *testing.T, environment string) *internalworkflow.Workflow {
+	t.Helper()
+	schema := mocks.SmallTestGraphSchema()
+	graph, err := internalworkflow.NewGraph(schema)
+	require.NoError(t, err)
+	return internalworkflow.New(workflow.NewID(), graph, environment)
 }

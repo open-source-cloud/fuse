@@ -16,7 +16,7 @@ func newTestWorkflow(t *testing.T) *internalworkflow.Workflow {
 	schema := mocks.SmallTestGraphSchema()
 	graph, err := internalworkflow.NewGraph(schema)
 	require.NoError(t, err)
-	return internalworkflow.New(workflow.NewID(), graph)
+	return internalworkflow.New(workflow.NewID(), graph, "default")
 }
 
 func TestMemoryWorkflowRepository_FindByState(t *testing.T) {

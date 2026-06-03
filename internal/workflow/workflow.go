@@ -49,11 +49,15 @@ const (
 	logMsgErrorParsingValue     = "Error parsing value"
 )
 
-// New creates a new Workflow from an already generated ID and a provided WorkflowGraph
-func New(id workflow.ID, graph *Graph) *Workflow {
+// New creates a new Workflow from an already generated ID and a provided WorkflowGraph.
+// environment is the resolution scope (ADR-0031) chosen at trigger time; it is persisted so
+// replay resolves secrets against the same environment. An empty value means the engine
+// default applies (the caller resolves it before building the resolver).
+func New(id workflow.ID, graph *Graph, environment string) *Workflow {
 	return &Workflow{
 		id:               id,
 		graph:            graph,
+		environment:      environment,
 		journal:          NewJournal(),
 		auditLog:         NewAuditLog(),
 		retryTracker:     NewRetryTracker(),
@@ -112,6 +116,7 @@ type (
 	Workflow struct {
 		id               workflow.ID
 		graph            *Graph
+		environment      string
 		journal          *Journal
 		auditLog         *AuditLog
 		retryTracker     *RetryTracker
@@ -503,6 +508,12 @@ func (w *Workflow) hasJournalEntryType(execID string, entryType JournalEntryType
 // ID Workflow ID
 func (w *Workflow) ID() workflow.ID {
 	return w.id
+}
+
+// Environment returns the resolution scope (ADR-0031) chosen at trigger time. It is persisted
+// with the workflow so replay resolves secrets against the same environment.
+func (w *Workflow) Environment() string {
+	return w.environment
 }
 
 // State Workflow state

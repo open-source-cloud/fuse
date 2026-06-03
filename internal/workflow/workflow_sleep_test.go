@@ -106,7 +106,7 @@ func newMinimalWorkflow(t *testing.T) *Workflow {
 	}
 	graph, err := NewGraph(schema)
 	require.NoError(t, err)
-	return New(workflow.NewID(), graph)
+	return New(workflow.NewID(), graph, "default")
 }
 
 func TestReplayJournalEntries_SleepState(t *testing.T) {

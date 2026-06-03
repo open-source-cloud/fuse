@@ -25,7 +25,7 @@ func loadTestGraph(t *testing.T) *Graph {
 func setupFailedWorkflow(t *testing.T) (*Workflow, workflow.ExecID) {
 	t.Helper()
 	graph := loadTestGraph(t)
-	wf := New(workflow.NewID(), graph)
+	wf := New(workflow.NewID(), graph, "default")
 
 	// Trigger the workflow
 	action := wf.Trigger()
@@ -79,7 +79,7 @@ func TestRetryNode_HappyPath(t *testing.T) {
 func TestRetryNode_WrongState(t *testing.T) {
 	// Arrange
 	graph := loadTestGraph(t)
-	wf := New(workflow.NewID(), graph)
+	wf := New(workflow.NewID(), graph, "default")
 	wf.SetState(StateRunning)
 
 	// Act
@@ -105,7 +105,7 @@ func TestRetryNode_ExecNotFound(t *testing.T) {
 func TestRetryNode_ExecNotFailed(t *testing.T) {
 	// Arrange — create a workflow with a completed (not failed) exec
 	graph := loadTestGraph(t)
-	wf := New(workflow.NewID(), graph)
+	wf := New(workflow.NewID(), graph, "default")
 
 	action := wf.Trigger()
 	execID := action.(*workflowactions.RunFunctionAction).FunctionExecID

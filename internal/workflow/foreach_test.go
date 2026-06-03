@@ -74,7 +74,7 @@ func buildForEachGraph(t *testing.T) *Graph {
 
 func TestStartForEachIteration_ReturnsActionForBodyNode(t *testing.T) {
 	g := buildForEachGraph(t)
-	wf := New(workflow.NewID(), g)
+	wf := New(workflow.NewID(), g, "default")
 
 	input := map[string]any{"item": "hello", "index": 0, "total": 1, "isLast": true}
 	action, threadID, err := wf.StartForEachIteration("foreach1", input)
@@ -88,7 +88,7 @@ func TestStartForEachIteration_ReturnsActionForBodyNode(t *testing.T) {
 
 func TestStartForEachIteration_AllocatesUniqueThreads(t *testing.T) {
 	g := buildForEachGraph(t)
-	wf := New(workflow.NewID(), g)
+	wf := New(workflow.NewID(), g, "default")
 
 	_, threadID1, err := wf.StartForEachIteration("foreach1", map[string]any{"index": 0})
 	require.NoError(t, err)
@@ -101,7 +101,7 @@ func TestStartForEachIteration_AllocatesUniqueThreads(t *testing.T) {
 
 func TestStartForEachIteration_WritesJournalEntries(t *testing.T) {
 	g := buildForEachGraph(t)
-	wf := New(workflow.NewID(), g)
+	wf := New(workflow.NewID(), g, "default")
 
 	_, threadID, err := wf.StartForEachIteration("foreach1", map[string]any{"item": "x"})
 	require.NoError(t, err)
@@ -126,7 +126,7 @@ func TestStartForEachIteration_WritesJournalEntries(t *testing.T) {
 
 func TestStartForEachIteration_ErrorOnMissingNode(t *testing.T) {
 	g := buildForEachGraph(t)
-	wf := New(workflow.NewID(), g)
+	wf := New(workflow.NewID(), g, "default")
 
 	_, _, err := wf.StartForEachIteration("does-not-exist", nil)
 	assert.Error(t, err)
@@ -159,7 +159,7 @@ func TestStartForEachIteration_ErrorOnMissingEachEdge(t *testing.T) {
 	g, err := NewGraph(schema)
 	require.NoError(t, err)
 
-	wf := New(workflow.NewID(), g)
+	wf := New(workflow.NewID(), g, "default")
 	_, _, err = wf.StartForEachIteration("foreach1", nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "each")
@@ -169,7 +169,7 @@ func TestStartForEachIteration_ErrorOnMissingEachEdge(t *testing.T) {
 
 func TestCompleteForEach_SetsResultAndPhase(t *testing.T) {
 	g := buildForEachGraph(t)
-	wf := New(workflow.NewID(), g)
+	wf := New(workflow.NewID(), g, "default")
 
 	// Simulate trigger then foreach node being executed so there's an audit log entry.
 	triggerExecID := workflow.NewExecID(0)
@@ -195,7 +195,7 @@ func TestCompleteForEach_SetsResultAndPhase(t *testing.T) {
 
 func TestLastResultForThread_ReturnsOutputData(t *testing.T) {
 	g := buildForEachGraph(t)
-	wf := New(workflow.NewID(), g)
+	wf := New(workflow.NewID(), g, "default")
 
 	execID := workflow.NewExecID(5)
 	wf.threads.New(5, execID)
@@ -212,13 +212,13 @@ func TestLastResultForThread_ReturnsOutputData(t *testing.T) {
 
 func TestLastResultForThread_UnknownThread_ReturnsNil(t *testing.T) {
 	g := buildForEachGraph(t)
-	wf := New(workflow.NewID(), g)
+	wf := New(workflow.NewID(), g, "default")
 	assert.Nil(t, wf.LastResultForThread(99))
 }
 
 func TestLastResultForThread_NoResult_ReturnsNil(t *testing.T) {
 	g := buildForEachGraph(t)
-	wf := New(workflow.NewID(), g)
+	wf := New(workflow.NewID(), g, "default")
 
 	execID := workflow.NewExecID(7)
 	wf.threads.New(7, execID)
@@ -253,7 +253,7 @@ func TestFindNamedOutputEdge_NotFound(t *testing.T) {
 
 func TestForEach_FullCycleRoutes_ToDoneEdge(t *testing.T) {
 	g := buildForEachGraph(t)
-	wf := New(workflow.NewID(), g)
+	wf := New(workflow.NewID(), g, "default")
 
 	// Simulate: trigger completes, then foreach is about to execute.
 	triggerExecID := workflow.NewExecID(0)

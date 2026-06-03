@@ -18,8 +18,9 @@ type (
 	// TriggerWorkflowHandler is the handler for the TriggerWorkflow endpoint
 	TriggerWorkflowHandler struct {
 		Handler
-		idempotencyStore idempotency.Store
-		idempotencyTTL   config.IdempotencyConfig
+		idempotencyStore   idempotency.Store
+		idempotencyTTL     config.IdempotencyConfig
+		defaultEnvironment string
 	}
 	// TriggerWorkflowHandlerFactory is a factory for creating TriggerWorkflowHandler actors
 	TriggerWorkflowHandlerFactory HandlerFactory[*TriggerWorkflowHandler]
@@ -39,8 +40,9 @@ func NewTriggerWorkflowHandlerFactory(store idempotency.Store, cfg *config.Confi
 	return &TriggerWorkflowHandlerFactory{
 		Factory: func() gen.ProcessBehavior {
 			return &TriggerWorkflowHandler{
-				idempotencyStore: store,
-				idempotencyTTL:   cfg.Idempotency,
+				idempotencyStore:   store,
+				idempotencyTTL:     cfg.Idempotency,
+				defaultEnvironment: cfg.Environment,
 			}
 		},
 	}
@@ -81,8 +83,13 @@ func (h *TriggerWorkflowHandler) HandlePost(from gen.PID, w http.ResponseWriter,
 		}
 	}
 
+	environment := req.Environment
+	if environment == "" {
+		environment = h.defaultEnvironment
+	}
+
 	workflowID := workflow.NewID()
-	if err := h.Send(WorkflowSupervisorName, messaging.NewTriggerWorkflowMessage(req.SchemaID, workflowID)); err != nil {
+	if err := h.Send(WorkflowSupervisorName, messaging.NewTriggerWorkflowWithEnvMessage(req.SchemaID, workflowID, environment)); err != nil {
 		return h.SendInternalError(w, err)
 	}
 
@@ -94,8 +101,9 @@ func (h *TriggerWorkflowHandler) HandlePost(from gen.PID, w http.ResponseWriter,
 	}
 
 	return h.SendJSON(w, http.StatusOK, dtos.TriggerWorkflowResponse{
-		SchemaID:   req.SchemaID,
-		WorkflowID: workflowID.String(),
-		Code:       "OK",
+		SchemaID:    req.SchemaID,
+		WorkflowID:  workflowID.String(),
+		Code:        "OK",
+		Environment: environment,
 	})
 }

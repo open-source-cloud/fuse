@@ -45,12 +45,12 @@ func (r *WorkflowRepository) Exists(id string) bool {
 func (r *WorkflowRepository) Get(id string) (*workflow.Workflow, error) {
 	ctx := context.Background()
 
-	var schemaID, state string
+	var schemaID, state, environment string
 	var outputRef *string
 	err := r.pool.QueryRow(ctx, `
-		SELECT schema_id, state, output_ref
+		SELECT schema_id, state, output_ref, environment
 		FROM workflows WHERE workflow_id = $1
-	`, id).Scan(&schemaID, &state, &outputRef)
+	`, id).Scan(&schemaID, &state, &outputRef, &environment)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, fmt.Errorf("workflow %s not found", id)
@@ -64,7 +64,7 @@ func (r *WorkflowRepository) Get(id string) (*workflow.Workflow, error) {
 		return nil, fmt.Errorf("postgres/workflow: load graph for %q: %w", schemaID, err)
 	}
 
-	wf := workflow.New(pkgwf.ID(id), graph)
+	wf := workflow.New(pkgwf.ID(id), graph, environment)
 
 	// Restore state without appending a journal entry.
 	// SetState() appends a state:changed journal entry, which is wrong during reconstruction.
@@ -96,14 +96,16 @@ func (r *WorkflowRepository) Save(wf *workflow.Workflow) error {
 		outputRef = &key
 	}
 
+	// environment is set once at create and intentionally excluded from the DO UPDATE clause:
+	// later saves happen on every state change and must not clobber the original scope (ADR-0031).
 	_, err := r.pool.Exec(ctx, `
-		INSERT INTO workflows (workflow_id, schema_id, state, output_ref, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, NOW(), NOW())
+		INSERT INTO workflows (workflow_id, schema_id, state, output_ref, environment, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
 		ON CONFLICT (workflow_id) DO UPDATE SET
 			state = EXCLUDED.state,
 			output_ref = EXCLUDED.output_ref,
 			updated_at = NOW()
-	`, wfID, wf.Schema().ID, wf.State().String(), outputRef)
+	`, wfID, wf.Schema().ID, wf.State().String(), outputRef, wf.Environment())
 	if err != nil {
 		return fmt.Errorf("postgres/workflow: save: %w", err)
 	}
