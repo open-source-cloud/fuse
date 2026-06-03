@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -43,11 +42,7 @@ func (s *WorkflowExecutionSuite) triggerAndWaitFinished(schemaID string) {
 	t := s.T()
 	t.Helper()
 
-	wfID := TriggerExampleWorkflow(t, s.client, s.baseURL, schemaID)
-	require.NotEmpty(t, wfID, "trigger should return a workflow ID")
-
-	resp, err := WaitForWorkflowTerminal(s.client, s.baseURL, wfID, FastStatusTimeout)
-	require.NoError(t, err, "workflow %s should reach terminal state", schemaID)
+	wfID, resp := TriggerAndWaitTerminal(t, s.client, s.baseURL, schemaID, FastStatusTimeout)
 	assert.Equal(t, wfID, resp.WorkflowID, "response should echo back the workflow ID")
 	assert.Equal(t, "finished", resp.Status, "workflow %s should finish successfully", schemaID)
 }
@@ -80,10 +75,6 @@ func (s *WorkflowExecutionSuite) TestDurableExecution_Finishes() {
 // TestSumRandBranch_Finishes runs a workflow with a 3s timer, three parallel rands, sum, and conditional branching.
 func (s *WorkflowExecutionSuite) TestSumRandBranch_Finishes() {
 	t := s.T()
-	wfID := TriggerExampleWorkflow(t, s.client, s.baseURL, "sum-rand-branch")
-	require.NotEmpty(t, wfID)
-
-	resp, err := WaitForWorkflowTerminal(s.client, s.baseURL, wfID, LongStatusTimeout)
-	require.NoError(t, err, "workflow should reach terminal state")
+	_, resp := TriggerAndWaitTerminal(t, s.client, s.baseURL, "sum-rand-branch", LongStatusTimeout)
 	assert.Equal(t, "finished", resp.Status, "sum-rand-branch should finish successfully")
 }
