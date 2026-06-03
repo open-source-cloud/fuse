@@ -69,7 +69,10 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:17
+        # AWS ECR public mirror of the official postgres image — byte-identical, but not subject to
+        # Docker Hub's unauthenticated pull rate limits / timeouts that flake the service-container
+        # startup ("registry-1.docker.io: context deadline exceeded") on shared GitHub runner IPs.
+        image: public.ecr.aws/docker/library/postgres:17
         env:
           POSTGRES_USER: fuse
           POSTGRES_PASSWORD: fuse
