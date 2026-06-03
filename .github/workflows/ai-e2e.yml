@@ -47,6 +47,16 @@ jobs:
             **/go.sum
             **/go.mod
 
+      # internal/actors/mux_server.go imports the generated `docs` package (gitignored),
+      # so swagger must be generated before building (same as the CI build job).
+      - name: Install swag
+        run: |
+          go install github.com/swaggo/swag/v2/cmd/swag@latest
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+
+      - name: Generate swagger docs
+        run: make swagger
+
       - name: Build fuse
         run: make build
 
