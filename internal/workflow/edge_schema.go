@@ -21,6 +21,10 @@ const (
 	// scoped by the workflow's environment. The resolved value is redacted in every
 	// engine sink (ADR-0031).
 	SourceSecret InputMappingSource = "secret"
+	// SourceCredential resolves a credential field, with Variable holding "<id>.<field>".
+	// The value is read from the SecretStore at cred/<id>/<field>, scoped by the workflow's
+	// environment, and redacted in every engine sink (ADR-0031).
+	SourceCredential InputMappingSource = "credential"
 )
 
 type (
