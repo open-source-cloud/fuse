@@ -8,9 +8,45 @@ import (
 	"net/http"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
+
+// untriggeredReTriggerAttempts bounds how many times TriggerAndWaitTerminal re-triggers a
+// workflow that gets stuck in "untriggered".
+const untriggeredReTriggerAttempts = 3
+
+// TriggerAndWaitTerminal triggers schemaID and waits for a terminal state, returning the final
+// status.
+//
+// It works around an intermittent e2e issue where a freshly-triggered workflow can remain in
+// "untriggered" — the trigger is accepted (a workflowId is returned) but the workflow actor is
+// not spawned/claimed in time on the multi-node HA stack. This is a pre-existing flake unrelated
+// to workflow logic (observed on main across unrelated workflows, and on the same commit both
+// passing and failing); tracked separately for a proper root-cause. Only the stuck-"untriggered"
+// state is retried by re-triggering (each trigger yields a fresh workflowId); a workflow that
+// reaches any terminal state — including "error" — is returned as-is so real failures still surface.
+func TriggerAndWaitTerminal(t *testing.T, client *http.Client, baseURL, schemaID string, timeout time.Duration) (string, *WorkflowStatusResponse) {
+	t.Helper()
+	var wfID string
+	var resp *WorkflowStatusResponse
+	var err error
+	for attempt := 1; attempt <= untriggeredReTriggerAttempts; attempt++ {
+		wfID = TriggerExampleWorkflow(t, client, baseURL, schemaID)
+		resp, err = WaitForWorkflowTerminal(client, baseURL, wfID, timeout)
+		if err == nil {
+			return wfID, resp
+		}
+		if resp == nil || resp.Status != "untriggered" {
+			break
+		}
+		t.Logf("e2e: workflow %s for %q stuck in 'untriggered' (attempt %d/%d); re-triggering [tracked flake]",
+			wfID, schemaID, attempt, untriggeredReTriggerAttempts)
+	}
+	require.NoError(t, err, "workflow %s should reach terminal state", schemaID)
+	return wfID, resp
+}
 
 // UpsertSchema PUTs the JSON schema without triggering it.
 // If an e2e overlay variant exists, it is used instead of the default schema.
