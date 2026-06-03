@@ -68,6 +68,13 @@ func (r *CredentialRepository) FindAll() ([]*workflow.Credential, error) {
 func (r *CredentialRepository) Save(cred *workflow.Credential) error {
 	ctx := context.Background()
 
+	// A nil slice encodes as SQL NULL and violates the NOT NULL fields column; the empty array is
+	// the correct "no fields" value.
+	fields := cred.Fields
+	if fields == nil {
+		fields = []string{}
+	}
+
 	_, err := r.pool.Exec(ctx, `
 		INSERT INTO credentials (id, type, description, fields, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, NOW(), NOW())
@@ -76,7 +83,7 @@ func (r *CredentialRepository) Save(cred *workflow.Credential) error {
 			description = EXCLUDED.description,
 			fields = EXCLUDED.fields,
 			updated_at = NOW()
-	`, cred.ID, cred.Type, cred.Description, cred.Fields)
+	`, cred.ID, cred.Type, cred.Description, fields)
 	if err != nil {
 		return fmt.Errorf("postgres/credential: upsert %q: %w", cred.ID, err)
 	}
