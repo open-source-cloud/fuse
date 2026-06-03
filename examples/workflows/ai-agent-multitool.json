@@ -1,0 +1,59 @@
+{
+  "id": "ai-agent-multitool",
+  "name": "AI Agent multi-tool (rand then sum)",
+  "nodes": [
+    {
+      "id": "trigger",
+      "function": "fuse/pkg/debug/nil"
+    },
+    {
+      "id": "ai-agent",
+      "function": "fuse/pkg/ai/agent"
+    },
+    {
+      "id": "report",
+      "function": "fuse/pkg/debug/print"
+    }
+  ],
+  "edges": [
+    {
+      "id": "01970a01-1111-7aaa-9001-aaaaaaaaaaaa",
+      "from": "trigger",
+      "to": "ai-agent",
+      "input": [
+        {
+          "source": "schema",
+          "value": "Generate a random integer between 1 and 5 using your tools, then add 10 to it using your tools, and report the final number.",
+          "mapTo": "input"
+        },
+        {
+          "source": "schema",
+          "value": "You are a precise assistant. Always use the provided tools to compute values; never do arithmetic or pick numbers yourself. First call the rand tool with min=1 and max=6 to get an integer in [1,5], then call the sum tool with that value and 10. Report only the final number in one short sentence.",
+          "mapTo": "systemPrompt"
+        },
+        {
+          "source": "schema",
+          "value": 6,
+          "mapTo": "maxIterations"
+        },
+        {
+          "source": "schema",
+          "value": ["fuse/pkg/logic/rand", "fuse/pkg/logic/sum"],
+          "mapTo": "allowedTools"
+        }
+      ]
+    },
+    {
+      "id": "01970a01-2222-7bbb-9002-bbbbbbbbbbbb",
+      "from": "ai-agent",
+      "to": "report",
+      "input": [
+        {
+          "source": "flow",
+          "variable": "ai-agent.output",
+          "mapTo": "message"
+        }
+      ]
+    }
+  ]
+}

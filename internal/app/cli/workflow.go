@@ -2,13 +2,19 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path"
+	"time"
 
+	"github.com/open-source-cloud/fuse/internal/app/config"
 	"github.com/open-source-cloud/fuse/internal/app/di"
+	"github.com/open-source-cloud/fuse/internal/logging"
 	"github.com/open-source-cloud/fuse/internal/services"
 	"github.com/open-source-cloud/fuse/internal/workflow"
 	"github.com/rs/zerolog/log"
@@ -16,86 +22,200 @@ import (
 	"go.uber.org/fx"
 )
 
+// workflowSpecFile is the path to the workflow spec file (-c/--config).
+var workflowSpecFile string
+
+const (
+	workflowRunHealthAttempts = 60
+	workflowRunPollInterval   = 250 * time.Millisecond
+	workflowRunTimeout        = 5 * time.Minute
+	workflowRunHTTPTimeout    = 30 * time.Second
+)
+
 func newWorkflowCommand() *cobra.Command {
 	workflowCmd := &cobra.Command{
 		Use:   "workflow",
-		Short: "Workflow runner",
-		Args:  cobra.NoArgs,
-		Run: func(_ *cobra.Command, _ []string) {
-			di.Run(fx.Options(
-				di.AllModules,
-				fx.Invoke(workflowRunner),
-			))
-		},
+		Short: "Run a workflow once, in-memory, and print its result",
+		Long: "Loads a workflow graph JSON, runs it once entirely in-memory (no external server needed), " +
+			"waits for it to finish, prints the execution snapshot, and exits non-zero if it errored. " +
+			"Configure AI providers via env (e.g. LLM_OLLAMA_*) to run ai/chat and ai/agent workflows.",
+		Args: cobra.NoArgs,
+		RunE: func(*cobra.Command, []string) error { return runWorkflowApp() },
 	}
-	setupWorkflowFlags(workflowCmd)
-
+	workflowCmd.Flags().StringVarP(&workflowSpecFile, "config", "c", "", "Path to the workflow spec JSON file")
 	return workflowCmd
 }
 
-// workflowSpecFile is the path to the workflow config file
-var workflowSpecFile string
+// runWorkflowApp boots the full app in-memory, runs the workflow once, and exits.
+func runWorkflowApp() error {
+	if workflowSpecFile == "" {
+		return errors.New("a workflow spec file is required (-c <file.json>)")
+	}
+	if path.Ext(workflowSpecFile) != ".json" {
+		return errors.New("only .json workflow spec files are supported")
+	}
+	spec, err := os.ReadFile(workflowSpecFile) //nolint:gosec // CLI reads a user-provided path
+	if err != nil {
+		return fmt.Errorf("read workflow spec: %w", err)
+	}
 
-// init initializes the workflow command flags
-func setupWorkflowFlags(workflowCmd *cobra.Command) {
-	workflowCmd.Flags().StringVarP(&workflowSpecFile, "config", "c", "", "Path to the workflow config file")
+	resultCh := make(chan error, 1)
+	app := fx.New(
+		di.AllModules,
+		fx.Invoke(func(cfg *config.Config, gs services.GraphService, lc fx.Lifecycle, sd fx.Shutdowner) {
+			lc.Append(fx.Hook{
+				OnStart: func(context.Context) error {
+					// Run the workflow off the lifecycle goroutine so the server's own
+					// OnStart hooks can finish; then shut the app down so Run() returns.
+					go func() {
+						resultCh <- runWorkflowOnce(cfg, gs, spec)
+						_ = sd.Shutdown()
+					}()
+					return nil
+				},
+			})
+		}),
+		fx.WithLogger(logging.NewFxLogger()),
+	)
+
+	app.Run()
+	if err := app.Err(); err != nil {
+		return err
+	}
+	select {
+	case err := <-resultCh:
+		return err
+	default:
+		return nil
+	}
 }
 
-// workflowRunner is the handler for the workflow command that runs the workflow once
-func workflowRunner(graphService services.GraphService) {
-	// We are ok with reading the file here because we are in the CLI
-	spec, err := os.ReadFile(workflowSpecFile) //nolint:gosec
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to read the workflow spec file")
-		return
+// runWorkflowOnce upserts the graph, triggers it against the in-process server,
+// waits for a terminal state, prints the snapshot, and returns an error if the
+// workflow did not finish successfully.
+func runWorkflowOnce(cfg *config.Config, gs services.GraphService, spec []byte) error {
+	base := "http://localhost:" + cfg.Server.Port
+	client := &http.Client{Timeout: workflowRunHTTPTimeout}
+
+	if err := workflowWaitHealth(client, base); err != nil {
+		return err
 	}
 
-	var graph *workflow.Graph
-	specFileExt := path.Ext(workflowSpecFile)
-	switch specFileExt {
-	case ".json":
-		schema, err := workflow.NewGraphSchemaFromJSON(spec)
-		if err != nil {
-			log.Error().Err(err).Msg("Failed to parse workflow JSON spec file")
-			return
+	schema, err := workflow.NewGraphSchemaFromJSON(spec)
+	if err != nil {
+		return fmt.Errorf("parse workflow spec: %w", err)
+	}
+	graph, err := gs.Upsert(schema.ID, schema)
+	if err != nil {
+		return fmt.Errorf("upsert workflow graph: %w", err)
+	}
+
+	wfID, err := workflowTrigger(client, base, graph.ID())
+	if err != nil {
+		return err
+	}
+	log.Info().Str("schemaID", graph.ID()).Str("workflowID", wfID).Msg("workflow triggered; waiting for completion")
+
+	status, err := workflowWaitTerminal(client, base, wfID)
+	if err != nil {
+		return err
+	}
+
+	printWorkflowResult(client, base, wfID, status)
+
+	if status != "finished" {
+		return fmt.Errorf("workflow %s ended in status %q", wfID, status)
+	}
+	return nil
+}
+
+func workflowWaitHealth(client *http.Client, base string) error {
+	for i := 0; i < workflowRunHealthAttempts; i++ {
+		resp, err := client.Get(base + "/health") //nolint:noctx // short-lived CLI poll
+		if err == nil {
+			_, _ = io.Copy(io.Discard, resp.Body)
+			_ = resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				return nil
+			}
 		}
-		graph, err = graphService.Upsert(schema.ID, schema)
-		if err != nil {
-			log.Error().Err(err).Msg("Failed to upsert workflow graph")
-			return
+		time.Sleep(workflowRunPollInterval)
+	}
+	return errors.New("workflow runner: in-process server did not become healthy")
+}
+
+func workflowTrigger(client *http.Client, base, schemaID string) (string, error) {
+	payload, _ := json.Marshal(map[string]string{"schemaID": schemaID})
+	resp, err := client.Post(base+"/v1/workflows/trigger", "application/json", bytes.NewReader(payload)) //nolint:noctx // short-lived CLI call
+	if err != nil {
+		return "", fmt.Errorf("trigger workflow: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return "", fmt.Errorf("trigger workflow: status %d: %s", resp.StatusCode, string(body))
+	}
+	var tr struct {
+		WorkflowID string `json:"workflowId"`
+	}
+	if err := json.Unmarshal(body, &tr); err != nil || tr.WorkflowID == "" {
+		return "", fmt.Errorf("trigger workflow: unexpected response: %s", string(body))
+	}
+	return tr.WorkflowID, nil
+}
+
+func workflowWaitTerminal(client *http.Client, base, wfID string) (string, error) {
+	deadline := time.Now().Add(workflowRunTimeout)
+	url := base + "/v1/workflows/" + wfID
+	for time.Now().Before(deadline) {
+		if status, ok := workflowFetchStatus(client, url); ok && isTerminalWorkflowStatus(status) {
+			return status, nil
 		}
+		time.Sleep(workflowRunPollInterval)
+	}
+	return "", fmt.Errorf("workflow %s did not reach a terminal state within %s", wfID, workflowRunTimeout)
+}
+
+func workflowFetchStatus(client *http.Client, url string) (string, bool) {
+	resp, err := client.Get(url) //nolint:noctx // short-lived CLI poll
+	if err != nil {
+		return "", false
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		return "", false
+	}
+	var s struct {
+		Status string `json:"status"`
+	}
+	if err := json.Unmarshal(body, &s); err != nil {
+		return "", false
+	}
+	return s.Status, true
+}
+
+func isTerminalWorkflowStatus(status string) bool {
+	switch status {
+	case "finished", "error", "cancelled":
+		return true
 	default:
-		log.Error().Msg("Unsupported workflow spec file type")
-		return
+		return false
 	}
+}
 
-	log.Info().Str("schemaID", graph.ID()).Msg("Workflow graph upserted")
-
-	// make http request to run the supplied workflow once
-	payload := map[string]string{"schemaID": graph.ID()}
-	jsonPayload, err := json.Marshal(payload)
+// printWorkflowResult prints the execution snapshot (node outputs) to stdout.
+func printWorkflowResult(client *http.Client, base, wfID, status string) {
+	resp, err := client.Get(base + "/v1/workflows/" + wfID + "/snapshot") //nolint:noctx // short-lived CLI call
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to trigger workflow: failed marshaling payload")
+		log.Warn().Err(err).Msg("could not fetch workflow snapshot")
 		return
 	}
-
-	resp, err := http.Post("http://localhost:9090/v1/workflows/trigger", "application/json", bytes.NewBuffer(jsonPayload))
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to trigger workflow: failed making http request")
-		return
+	defer func() { _ = resp.Body.Close() }()
+	body, _ := io.ReadAll(resp.Body)
+	var pretty bytes.Buffer
+	if json.Indent(&pretty, body, "", "  ") == nil {
+		body = pretty.Bytes()
 	}
-	defer func(Body io.ReadCloser) {
-		err = Body.Close()
-		if err != nil {
-			log.Error().Err(err).Msg("Failed to close response body")
-		}
-	}(resp.Body)
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to trigger workflow: failed reading response body")
-		return
-	}
-
-	log.Info().Msgf("Workflow triggered: %s", body)
+	fmt.Printf("\nworkflow %s status=%s\nresult snapshot:\n%s\n", wfID, status, string(body))
 }

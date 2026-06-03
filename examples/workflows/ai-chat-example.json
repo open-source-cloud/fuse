@@ -1,0 +1,33 @@
+{
+  "id": "ai-chat-example",
+  "name": "AI Chat (baseline) example",
+  "nodes": [
+    {
+      "id": "trigger",
+      "function": "fuse/pkg/debug/nil"
+    },
+    {
+      "id": "ai-chat",
+      "function": "fuse/pkg/ai/chat"
+    }
+  ],
+  "edges": [
+    {
+      "id": "0196cf2a-1b40-7c01-9a31-2f7d4e8b0a10",
+      "from": "trigger",
+      "to": "ai-chat",
+      "input": [
+        {
+          "source": "schema",
+          "value": "What is the capital of France? Answer with just the city name.",
+          "mapTo": "input"
+        },
+        {
+          "source": "schema",
+          "value": "You are a concise assistant. Answer factual questions in as few words as possible.",
+          "mapTo": "systemPrompt"
+        }
+      ]
+    }
+  ]
+}

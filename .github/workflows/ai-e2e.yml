@@ -1,11 +1,11 @@
 name: AI E2E
 
-# Runs the example AI workflows (ai/agent, and any future ai/chat examples) against a real,
-# local Ollama model — exercising the LLM provider layer, the agent reasoning loop, and
-# tool-calling end to end.
+# Runs example AI workflows (ai/chat, ai/agent) against a real, local Ollama model using the
+# Fuse CLI runner (`fuse workflow -c <spec>`), which boots the engine in-memory, triggers the
+# workflow, waits for completion, prints the result snapshot, and exits non-zero on failure.
 #
-# Deliberately OFF the per-PR critical path (pulling a model is minutes): this runs nightly,
-# on demand, on pushes to main, and on PRs that carry the "ai-e2e" label. The model is cached.
+# Deliberately OFF the per-PR critical path (pulling a model is minutes, cached by ollama-action):
+# runs nightly, on demand, on pushes to main, and on PRs carrying the "ai-e2e" label.
 
 on:
   schedule:
@@ -25,7 +25,7 @@ concurrency:
 
 jobs:
   ai-e2e:
-    name: "AI workflows vs Ollama"
+    name: "AI workflows vs Ollama (Fuse CLI)"
     # On PRs, only when labeled "ai-e2e"; always for main pushes, nightly, and manual runs.
     if: >-
       github.event_name != 'pull_request' ||
@@ -34,7 +34,6 @@ jobs:
     timeout-minutes: 25
     env:
       OLLAMA_MODEL: "llama3.1:8b" # small, stable tool-calling model (avoid qwen3/llama3.2-vision)
-      OLLAMA_HOST: "127.0.0.1:11434"
     steps:
       - uses: actions/checkout@v4
 
@@ -51,48 +50,32 @@ jobs:
       - name: Build fuse
         run: make build
 
-      - name: Cache Ollama model
-        uses: actions/cache@v4
+      # Installs Ollama, starts a persistent `ollama serve` daemon on :11434, pulls + warms the
+      # model, and caches ~/.ollama (cache: true is the default). The daemon outlives this step,
+      # so the Fuse CLI can connect to it below.
+      - name: Setup Ollama + warm model
+        uses: ai-action/ollama-action@v2
         with:
-          path: ~/.ollama
-          key: ollama-${{ env.OLLAMA_MODEL }}
+          model: ${{ env.OLLAMA_MODEL }}
+          prompt: "Reply with the single word: ready."
 
-      - name: Install and start Ollama
-        run: |
-          curl -fsSL https://ollama.com/install.sh | sh
-          # The installer may start a systemd service bound to :11434 as the 'ollama' user
-          # (models under /usr/share/ollama). Stop it and run our own serve as the runner user
-          # so models land in ~/.ollama and the cache step above applies.
-          sudo systemctl stop ollama 2>/dev/null || true
-          nohup ollama serve > /tmp/ollama.log 2>&1 &
-          for i in $(seq 1 30); do
-            curl -sf "http://${OLLAMA_HOST}/api/tags" >/dev/null && break
-            sleep 1
-          done
-          ollama pull "${OLLAMA_MODEL}"
-
-      - name: Start fuse server (in-memory) against Ollama
+      - name: Run AI workflows via the Fuse CLI (in-memory) against Ollama
         env:
           LLM_DEFAULT_PROVIDER: "ollama"
           LLM_OLLAMA_ENABLED: "true"
-          LLM_OLLAMA_BASE_URL: "http://127.0.0.1:11434/v1"
+          LLM_OLLAMA_BASE_URL: "http://localhost:11434/v1"
           LLM_OLLAMA_MODEL: ${{ env.OLLAMA_MODEL }}
+          # In-memory engine: no Postgres / S3 / etcd needed (these are the defaults; set explicitly).
+          DB_DRIVER: "memory"
+          OBJECT_STORE_DRIVER: "memory"
         run: |
-          # Single-node, in-memory mode (no Postgres/S3/etcd needed for workflow execution).
-          ./bin/fuse server -l debug -p 9090 > /tmp/fuse.log 2>&1 &
+          # Wait for the ollama daemon left running by ollama-action.
           for i in $(seq 1 30); do
-            curl -sf http://localhost:9090/health >/dev/null && break
+            curl -sf http://localhost:11434/api/tags >/dev/null && break
             sleep 1
           done
-
-      - name: Run AI e2e tests
-        env:
-          AI_E2E: "true"
-          E2E_API_URL: "http://localhost:9090"
-        run: go test -tags=e2e ./tests/e2e -run TestAIAgentExample_E2E -v -count=1 -timeout 20m
-
-      - name: Dump logs on failure
-        if: failure()
-        run: |
-          echo "::group::ollama"; tail -n 200 /tmp/ollama.log 2>/dev/null || true; echo "::endgroup::"
-          echo "::group::fuse";   tail -n 300 /tmp/fuse.log   2>/dev/null || true; echo "::endgroup::"
+          set -x
+          # Reliable baseline: a plain chat completion (no tools).
+          ./bin/fuse workflow -c examples/workflows/ai-chat-example.json -l info
+          # Agent reasoning loop with an in-process tool call (sum).
+          ./bin/fuse workflow -c examples/workflows/ai-agent-example.json -l info

@@ -1,0 +1,69 @@
+{
+  "id": "ai-chat-then-agent",
+  "name": "AI chat then agent (chained reasoning)",
+  "nodes": [
+    {
+      "id": "trigger",
+      "function": "fuse/pkg/debug/nil"
+    },
+    {
+      "id": "ai-chat",
+      "function": "fuse/pkg/ai/chat"
+    },
+    {
+      "id": "ai-agent",
+      "function": "fuse/pkg/ai/agent"
+    },
+    {
+      "id": "sink",
+      "function": "fuse/pkg/debug/nil"
+    }
+  ],
+  "edges": [
+    {
+      "id": "0196d1a0-1111-7000-a001-000000000001",
+      "from": "trigger",
+      "to": "ai-chat",
+      "input": [
+        {
+          "source": "schema",
+          "value": "Produce exactly one short imperative task that asks to add two specific small numbers using a tool. Respond with only that one line, no preamble.",
+          "mapTo": "input"
+        },
+        {
+          "source": "schema",
+          "value": "You write a single concise task description on one line. Do not solve it. Do not add commentary.",
+          "mapTo": "systemPrompt"
+        }
+      ]
+    },
+    {
+      "id": "0196d1a0-2222-7000-a002-000000000002",
+      "from": "ai-chat",
+      "to": "ai-agent",
+      "input": [
+        {
+          "source": "flow",
+          "variable": "ai-chat.output",
+          "mapTo": "input"
+        },
+        {
+          "source": "schema",
+          "value": "You are a tool-using agent. Use the available tools to carry out the task rather than guessing, then state the final answer plainly.",
+          "mapTo": "systemPrompt"
+        },
+        {
+          "source": "schema",
+          "value": 5,
+          "mapTo": "maxIterations"
+        }
+      ]
+    },
+    {
+      "id": "0196d1a0-3333-7000-a003-000000000003",
+      "from": "ai-agent",
+      "to": "sink",
+      "input": []
+    }
+  ]
+}
