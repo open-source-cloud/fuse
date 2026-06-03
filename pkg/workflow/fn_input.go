@@ -2,6 +2,7 @@
 package workflow
 
 import (
+	"github.com/open-source-cloud/fuse/pkg/secrets"
 	"github.com/open-source-cloud/fuse/pkg/store"
 )
 
@@ -26,8 +27,14 @@ func (i *FunctionInput) Get(key string) any {
 	return i.store.Get(key)
 }
 
-// GetStr returns the value for the given key as a string
+// GetStr returns the value for the given key as a string. A resolved secret
+// (secrets.SecretValue) is unwrapped to its plaintext here — the one place the
+// consuming function obtains the real value; everywhere else it renders as the
+// redaction marker.
 func (i *FunctionInput) GetStr(key string) string {
+	if sv, ok := i.store.Get(key).(secrets.SecretValue); ok {
+		return sv.Reveal()
+	}
 	return i.store.GetStr(key)
 }
 

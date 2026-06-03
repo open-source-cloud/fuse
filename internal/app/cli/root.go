@@ -50,6 +50,7 @@ func newRoot() *cobra.Command {
 	rootCmd.AddCommand(newServerCommand())
 	rootCmd.AddCommand(newMigrateCommand())
 	rootCmd.AddCommand(newSeedCommand())
+	rootCmd.AddCommand(newSecretsCommand())
 	rootCmd.AddCommand(newWorkflowCommand())
 	rootCmd.AddCommand(newMermaidCommand())
 	rootCmd.AddCommand(newHealthCommand())

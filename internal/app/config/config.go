@@ -24,6 +24,7 @@ type (
 	// Config represents the application configuration.
 	Config struct {
 		Name        string `env:"APP_NAME"`
+		Environment string `env:"FUSE_ENVIRONMENT" envDefault:"default"`
 		Params      ParamsConfig
 		Server      ServerConfig
 		Cluster     ClusterConfig
@@ -33,6 +34,19 @@ type (
 		Idempotency IdempotencyConfig
 		Otel        OtelConfig
 		LLM         LLMConfig
+		Secrets     SecretsConfig
+	}
+
+	// SecretsConfig configures the secret store backend (ADR-0031). Schemas
+	// reference secrets by name; the engine resolves them per environment at
+	// input-mapping time and redacts them from all sinks.
+	SecretsConfig struct {
+		// Driver selects the backend: "memory" (default, dev) or "postgres"
+		// (encrypted at rest). Infisical is added in a follow-up.
+		Driver string `env:"SECRETS_DRIVER" envDefault:"memory"`
+		// EncryptionKey is a base64-encoded 32-byte AES-256 key; required for the
+		// postgres driver.
+		EncryptionKey string `env:"SECRETS_ENCRYPTION_KEY"`
 	}
 
 	// LLMConfig configures the available LLM provider connections. Each provider

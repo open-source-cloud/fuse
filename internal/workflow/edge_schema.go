@@ -17,6 +17,10 @@ const (
 	SourceSchema InputMappingSource = "schema"
 	// SourceFlow source data from workflow
 	SourceFlow InputMappingSource = "flow"
+	// SourceSecret resolves a secret by name (held in Variable) via the SecretStore,
+	// scoped by the workflow's environment. The resolved value is redacted in every
+	// engine sink (ADR-0031).
+	SourceSecret InputMappingSource = "secret"
 )
 
 type (
