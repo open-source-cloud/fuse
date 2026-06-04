@@ -1,6 +1,6 @@
 # 0029. LLM cost & token-usage tracking and budgets
 
-- Status: Proposed
+- Status: Accepted (Phase A — usage visibility — shipped; budget enforcement deferred)
 - Date: 2026-06-02
 - Deciders: FUSE maintainers
 
@@ -62,6 +62,15 @@ pricing) is a prerequisite and is left to the follow-up.
 
 ## More Information
 
+- **Phase A (usage visibility) shipped**: `ai/chat` and `ai/agent` emit per-call token usage as
+  Prometheus counters `fuse_llm_tokens_total{function,provider,model,type}` (type ∈ prompt|
+  completion) and `fuse_llm_calls_total{function,provider,model,status}`
+  (`internal/metrics/registry.go`). A narrow `ai.UsageRecorder` port
+  (`internal/packages/functions/ai/usage.go`) keeps the ai package free of the prometheus
+  dependency; a metrics-backed adapter is injected via `packages.NewInternal`
+  (`internal/packages/usage_recorder.go`). Usage is still also returned in each node's `usage`
+  output. **Deferred**: Option B budget enforcement (needs a per-provider/per-model pricing table)
+  and Option C external metering.
 - Current state: `pkg/llm/provider.go` (`Usage`), `internal/packages/functions/ai/agent.go`
   (per-run aggregation), `internal/packages/functions/ai/chat.go`.
 - Related: [ADR-0006](0006-llm-provider-abstraction-and-multi-provider-strategy.md),

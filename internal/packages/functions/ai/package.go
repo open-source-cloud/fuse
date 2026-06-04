@@ -13,11 +13,15 @@ const PackageID = "fuse/pkg/ai"
 
 // New creates a new ai Package. The LLM provider registry is closed over by the
 // function implementations so they can resolve providers at execution time; the
-// tool registry lets the agent expose existing functions as tools and invoke them.
-func New(providers llm.Registry, tools ToolRegistry) *workflow.Package {
+// tool registry lets the agent expose existing functions as tools and invoke them;
+// the usage recorder surfaces token usage to observability (ADR-0029).
+func New(providers llm.Registry, tools ToolRegistry, usage UsageRecorder) *workflow.Package {
+	if usage == nil {
+		usage = NopUsageRecorder{}
+	}
 	return workflow.NewPackage(
 		PackageID,
-		workflow.NewFunction(ChatFunctionID, ChatFunctionMetadata(), makeChatFunction(providers)),
-		workflow.NewFunction(AgentFunctionID, AgentFunctionMetadata(), makeAgentFunction(providers, tools)),
+		workflow.NewFunction(ChatFunctionID, ChatFunctionMetadata(), makeChatFunction(providers, usage)),
+		workflow.NewFunction(AgentFunctionID, AgentFunctionMetadata(), makeAgentFunction(providers, tools, usage)),
 	)
 }

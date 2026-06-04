@@ -20,6 +20,12 @@ type FuseMetrics struct {
 	// Labels: function_id, status (success|error).
 	NodeExecDuration *prometheus.HistogramVec
 
+	// LLMTokens counts tokens consumed by ai/chat and ai/agent nodes (ADR-0029).
+	// Labels: function (ai/chat|ai/agent), provider, model, type (prompt|completion).
+	LLMTokens *prometheus.CounterVec
+	// LLMCalls counts LLM completion calls. Labels: function, provider, model, status (success|error).
+	LLMCalls *prometheus.CounterVec
+
 	registry *prometheus.Registry
 }
 
@@ -57,6 +63,17 @@ func NewFuseMetrics() *FuseMetrics {
 			Help:      "Duration of individual node (function) executions in seconds.",
 			Buckets:   prometheus.DefBuckets,
 		}, []string{"function_id", "status"}),
+
+		LLMTokens: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: "fuse",
+			Name:      "llm_tokens_total",
+			Help:      "Total LLM tokens consumed by ai nodes, by token type.",
+		}, []string{"function", "provider", "model", "type"}),
+		LLMCalls: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: "fuse",
+			Name:      "llm_calls_total",
+			Help:      "Total LLM completion calls made by ai nodes.",
+		}, []string{"function", "provider", "model", "status"}),
 	}
 
 	reg.MustRegister(
@@ -65,6 +82,8 @@ func NewFuseMetrics() *FuseMetrics {
 		m.WorkflowsFailed,
 		m.WorkflowsCancelled,
 		m.NodeExecDuration,
+		m.LLMTokens,
+		m.LLMCalls,
 	)
 
 	return m
