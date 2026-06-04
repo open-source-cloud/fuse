@@ -37,12 +37,31 @@ func NewPackageRegistry() Registry {
 	return pkgRegistry
 }
 
-// Register registers a provider by id
+// Register registers a provider by id.
+//
+// A registration never downgrades an executable (code-backed) function to a metadata-only one.
+// Data-only registrations — API round-trips (PUT /v1/packages), persistence reloads, and
+// cluster replication — carry no function pointer (PackagedFunction.Function is json:"-"), so for
+// those functions we keep the executable transport already registered from code. A code-backed
+// registration (non-nil transport) still upgrades/replaces as usual.
 func (r *MemoryRegistry) Register(pkg *workflow.Package) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+
+	incoming := MapToRegistryPackage(pkg)
+	if existing, ok := r.packages[pkg.ID]; ok {
+		for id, fn := range incoming.Functions {
+			if fn.Transport != nil {
+				continue
+			}
+			if prev, had := existing.Functions[id]; had && prev.Transport != nil {
+				incoming.Functions[id] = prev
+			}
+		}
+	}
+
 	log.Info().Str("packageID", pkg.ID).Msg("Package registered")
-	r.packages[pkg.ID] = MapToRegistryPackage(pkg)
+	r.packages[pkg.ID] = incoming
 }
 
 // Get returns a provider by id

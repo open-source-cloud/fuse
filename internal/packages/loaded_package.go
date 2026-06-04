@@ -109,13 +109,18 @@ func MapToRegistryPackage(pkg *workflow.Package) *LoadedPackage {
 			metadata.Output.Edges[edge.Name] = outputEdge
 		}
 
-		if function.Metadata.Transport == transport.Internal {
+		if function.Metadata.Transport == transport.Internal && function.Function != nil {
 			functions[functionID] = NewLoadedInternalFunction(
 				functionID,
 				metadata,
 				function.Function,
 			)
 		} else {
+			// Either a non-internal transport, or an internal package without its code-backed
+			// function pointer (PackagedFunction.Function is json:"-", so it is lost whenever a
+			// package arrives as JSON over the API or is decoded from persistence). Register it as
+			// metadata-only (no executable transport); Registry.Register preserves any executable
+			// entry already registered from code rather than downgrading it.
 			functions[functionID] = NewLoadedFunction(
 				functionID,
 				metadata,
