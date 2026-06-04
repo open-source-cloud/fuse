@@ -138,13 +138,23 @@ drivers with the smallest, most incremental change and gives B and C a stable se
   ai/chat & ai/agent functions via `ExecutionInfo.Environment` (carried on
   `messaging.ExecuteFunctionMessage`); resolution runs in the function's async goroutine and the
   resolved key is `Reveal()`'d only into the SDK client, never logged. Different workflows in one
-  process can now use different provider credentials per environment. Credential objects (Phase 2)
-  and Infisical (the read-only external backend) remain scheduled.
+  process can now use different provider credentials per environment.
+- **Phase 2 — credential objects shipped**: typed, centrally-managed credentials referenced by id.
+  A `Credential` is metadata (`pkg/workflow/credential.go`: id, free-form type, field names) in a
+  `CredentialRepository` (memory + Postgres, migration `000011_create_credentials`); its field
+  **values** live in the `SecretStore` under the reserved `cred/<id>/<field>` name, per environment
+  — one custody point, reusing Phase-1 encryption (the `/` separator is outside the `{{secret:}}`
+  charset, so the namespaces cannot collide). `CredentialService` writes values via a
+  `ManagedSecretStore`; CRUD at `/v1/credentials` (values never returned on reads) and a
+  `fuse credentials` CLI manage them. Three reference forms — input-mapping `source:"credential"`,
+  the `{{credential:id.field}}` token (`pkg/secrets/credential.go`), and
+  `LLM_<PROVIDER>_CREDENTIAL=<id>` — all resolve through the existing environment-scoped resolver.
+  Only **Infisical** (the read-only external backend, option C) remains scheduled.
 - Supersedes [ADR-0008](0008-settings-environments-and-secrets-management.md) (which recorded the
   problem and deferred the decision).
 - Current state this changes: `internal/app/config/config.go` (env-var secrets),
   `internal/app/di/llm.go` (static-at-startup provider registry), `internal/workflow/edge_schema.go`
-  (`SourceSchema`/`SourceFlow` input mapping — gains `SourceSecret`), `pkg/strutil/strings.go`
+  (`SourceSchema`/`SourceFlow` input mapping — gains `SourceSecret` and `SourceCredential`), `pkg/strutil/strings.go`
   (`ReplaceTokens` precedent), `pkg/workflow/execution_info.go` (stays a clean contract — no secret
   field).
 - Related: [ADR-0005](0005-ai-agents-as-workflow-nodes-phased-roadmap.md) (agents drive per-context

@@ -39,7 +39,9 @@ defines its own SDK-agnostic `pkg/llm` types (`Provider`, `Message`, `Tool`,
 parameterized by base URL + API key + model, serves **OpenAI, OpenRouter, Ollama,
 and Gemini's OpenAI-compatible endpoint** via `openai-go` — four providers from
 one implementation. Native **Anthropic** gets its own implementation in Phase C.
-A registry, built from configuration at startup, resolves providers by name.
+A registry resolves providers by name (built from configuration; since
+[ADR-0031](0031-settings-secrets-and-environments.md) it builds providers per execution so keys /
+base URLs can resolve from the secret store per environment — see Consequences).
 
 This fits the actor model (we own the reasoning loop as our own code rather than
 embedding a second orchestration framework), keeps dependencies minimal, and
@@ -54,8 +56,11 @@ substituted later without touching callers.
 - Bad: we maintain the provider mapping and the agent loop ourselves (no framework
   doing it for us).
 - Bad: Anthropic's distinct protocol needs a separate mapping (deferred to Phase C).
-- Neutral: the registry is built once at startup, so keys/base URLs are static per
-  process — revisited by [ADR-0008](0008-settings-environments-and-secrets-management.md).
+- Neutral: the registry was originally built once at startup, so keys/base URLs were static per
+  process. [ADR-0031](0031-settings-secrets-and-environments.md) since made provider construction
+  dynamic — `provideLLMRegistry` now builds per-provider `llm.ProviderFactory` closures that
+  resolve `{{secret:NAME}}` / `{{credential:ID.FIELD}}` references per execution, scoped by the
+  workflow's environment; fully-static config is still built once (fast path).
 
 ## Pros and Cons of the Options
 
@@ -89,6 +94,10 @@ substituted later without touching callers.
 - Native **Anthropic** provider (Phase C): `internal/llm/providers/anthropic/` via
   `anthropic-sdk-go`, registered under the `anthropic` key in `internal/app/di/llm.go`. Specified
   under `specs/002-anthropic-provider/`. (Streaming and prompt caching remain Phase C follow-ups.)
+- Per-context provider keys: [ADR-0031](0031-settings-secrets-and-environments.md) made the
+  registry dynamic (per-provider factories resolving secret/credential references per environment),
+  superseding the original static-at-startup construction.
 - Related: [ADR-0005](0005-ai-agents-as-workflow-nodes-phased-roadmap.md),
   [ADR-0007](0007-agent-reasoning-loop-and-tools-from-functions.md),
-  [ADR-0008](0008-settings-environments-and-secrets-management.md).
+  [ADR-0031](0031-settings-secrets-and-environments.md) (supersedes the original reference to the
+  now-superseded [ADR-0008](0008-settings-environments-and-secrets-management.md)).
