@@ -40,7 +40,7 @@ func runChat(t *testing.T, reg llm.Registry, input map[string]any) (workflow.Fun
 	execInfo := workflow.NewExecutionInfo("wf-1", "exec-1", "", fnInput)
 	execInfo.Finish = func(out workflow.FunctionOutput) { done <- out }
 
-	res, err := makeChatFunction(reg)(execInfo)
+	res, err := makeChatFunction(reg, NopUsageRecorder{})(execInfo)
 	require.NoError(t, err)
 
 	if !res.Async {
@@ -119,7 +119,7 @@ func TestChat_ResolvesProviderForExecutionEnvironment(t *testing.T) {
 	execInfo := workflow.NewExecutionInfo("wf-1", "exec-1", "staging", fnInput)
 	execInfo.Finish = func(out workflow.FunctionOutput) { done <- out }
 
-	res, err := makeChatFunction(reg)(execInfo)
+	res, err := makeChatFunction(reg, NopUsageRecorder{})(execInfo)
 	require.NoError(t, err)
 	require.True(t, res.Async)
 	select {

@@ -83,8 +83,9 @@ func ChatFunctionMetadata() workflow.FunctionMetadata {
 	}
 }
 
-// makeChatFunction builds the ai/chat function, closing over the provider registry.
-func makeChatFunction(providers llm.Registry) workflow.Function {
+// makeChatFunction builds the ai/chat function, closing over the provider registry and the
+// usage recorder (ADR-0029).
+func makeChatFunction(providers llm.Registry, usage UsageRecorder) workflow.Function {
 	return func(execInfo *workflow.ExecutionInfo) (workflow.FunctionResult, error) {
 		input := execInfo.Input
 
@@ -124,10 +125,13 @@ func makeChatFunction(providers llm.Registry) workflow.Function {
 
 			resp, err := provider.Chat(ctx, req)
 			if err != nil {
+				usage.RecordCall(ChatFunctionID, provider.Name(), req.Model, "error")
 				log.Error().Err(err).Str("provider", provider.Name()).Msg("ai/chat completion failed")
 				execInfo.Finish(workflow.NewFunctionOutput(workflow.FunctionError, map[string]any{"error": err.Error()}))
 				return
 			}
+			usage.RecordCall(ChatFunctionID, provider.Name(), req.Model, "success")
+			usage.RecordUsage(ChatFunctionID, provider.Name(), req.Model, resp.Usage)
 
 			execInfo.Finish(workflow.NewFunctionSuccessOutput(map[string]any{
 				"output": resp.Message.Content,
