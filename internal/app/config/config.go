@@ -85,6 +85,11 @@ type (
 	ServerConfig struct {
 		Host string `env:"HOST" envDefault:"0.0.0.0"`
 		Port string `env:"PORT" envDefault:"9090"`
+		// BasePath is the URL path prefix the engine is reachable under when behind a
+		// reverse proxy (e.g. "/fuse" for https://api.example.com/fuse). It is used to build
+		// the Swagger UI redirect/spec URL so /docs works under the prefix. The proxy's
+		// X-Forwarded-Prefix header takes precedence when present. Empty = served at root.
+		BasePath string `env:"SERVER_BASE_PATH"`
 	}
 
 	// ClusterConfig configuration for ergo distributed clustering

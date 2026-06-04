@@ -1,6 +1,6 @@
 # 0030. Structured / JSON output enforcement for `ai/chat` & `ai/agent`
 
-- Status: Proposed
+- Status: Accepted (tool-forced "respond" path shipped; provider-native `response_format` deferred)
 - Date: 2026-06-02
 - Deciders: FUSE maintainers
 
@@ -68,6 +68,17 @@ provider supports native structured output, use it (B); otherwise fall back to t
 
 ## More Information
 
+- **Shipped (Option C, tool-forced — universal)**: `ai/chat` and `ai/agent` accept an optional
+  `outputSchema` input (a list of `{name,type,required,description}` ParameterSchema). When set, the
+  node offers a single forced `respond` tool whose parameters are the JSON Schema
+  (`ParameterSchemaToJSONSchema`) with `ToolChoice: "required"`, parses the tool-call arguments, and
+  validates them against the schema; one bounded repair retry on invalid output, then a
+  `FunctionError`. The validated object becomes the node's `output` (instead of free-form text); the
+  agent runs its normal loop, then coerces the final answer. Absent `outputSchema` = unchanged.
+  Works on every provider (all support tool calling). Logic in
+  `internal/packages/functions/ai/structured.go`. **Deferred (Option B optimization)**:
+  provider-native `response_format` / `json_schema` with a per-provider capability map for providers
+  that support it natively.
 - Reuse: `internal/packages/functions/ai/tools.go` (`ParameterSchemaToJSONSchema`),
   `pkg/workflow/metadata.go` (`ParameterSchema`).
 - Related: [ADR-0006](0006-llm-provider-abstraction-and-multi-provider-strategy.md),

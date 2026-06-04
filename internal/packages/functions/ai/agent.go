@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/open-source-cloud/fuse/internal/packages/transport"
@@ -42,6 +43,9 @@ func AgentFunctionMetadata() workflow.FunctionMetadata {
 				{Name: "temperature", Type: "float", Required: false, Description: "Sampling temperature; if omitted the provider default is used"},
 				{Name: "maxIterations", Type: "int", Required: false, Default: defaultMaxIterations, Description: "Maximum reasoning iterations (clamped to [1, 25])"},
 				{Name: "allowedTools", Type: "array", Required: false, Description: "Optional allowlist of full function ids the agent may use as tools; empty means all eligible tools"},
+				{Name: "maxContextTokens", Type: "int", Required: false, Description: "Optional token budget for the running transcript (approximate); 0/absent disables trimming (ADR-0028)"},
+				{Name: "contextStrategy", Type: "string", Required: false, Description: "When over maxContextTokens: 'drop-oldest' (default) or 'summarize' (an extra LLM call summarizes dropped turns)"},
+				{Name: "outputSchema", Type: "array", Required: false, Description: "Optional list of {name,type,required,description} fields; when set the final output is a validated object matching this schema (ADR-0030)"},
 			},
 			Edges: workflow.InputEdgeMetadata{
 				Count:      0,
@@ -81,10 +85,13 @@ func makeAgentFunction(providers llm.Registry, tools ToolRegistry, usage UsageRe
 			model:       input.GetStr("model"),
 			temp:        optionalTemperature(input),
 			maxIters:    clampIterations(input.GetInt("maxIterations")),
-			wfID:        execInfo.WorkflowID,
-			execID:      execInfo.ExecID,
-			environment: execInfo.Environment,
-			usage:       usage,
+			wfID:             execInfo.WorkflowID,
+			execID:           execInfo.ExecID,
+			environment:      execInfo.Environment,
+			usage:            usage,
+			maxContextTokens: input.GetInt("maxContextTokens"),
+			contextStrategy:  contextStrategyOrDefault(input.GetStr("contextStrategy")),
+			outputSchema:     parseOutputSchema(input),
 		}
 
 		messages := make([]llm.Message, 0, 4)
@@ -125,10 +132,13 @@ type agentExecutor struct {
 	model       string
 	temp        *float32
 	maxIters    int
-	wfID        workflow.ID
-	execID      workflow.ExecID
-	environment string
-	usage       UsageRecorder
+	wfID             workflow.ID
+	execID           workflow.ExecID
+	environment      string
+	usage            UsageRecorder
+	maxContextTokens int
+	contextStrategy  string
+	outputSchema     []workflow.ParameterSchema
 }
 
 // run drives the reasoning loop until a final answer, an error, or the iteration
@@ -138,6 +148,12 @@ func (e *agentExecutor) run(ctx context.Context, messages []llm.Message) workflo
 	steps := make([]map[string]any, 0)
 
 	for i := 0; i < e.maxIters; i++ {
+		// Bound the growing transcript to the configured token budget (ADR-0028).
+		if trimmed, step := e.applyContextPolicy(ctx, messages); step != nil {
+			messages = trimmed
+			steps = append(steps, step)
+		}
+
 		resp, err := e.provider.Chat(ctx, llm.ChatRequest{
 			Model:       e.model,
 			Messages:    messages,
@@ -160,6 +176,17 @@ func (e *agentExecutor) run(ctx context.Context, messages []llm.Message) workflo
 		messages = append(messages, resp.Message)
 
 		if len(resp.Message.ToolCalls) == 0 {
+			// Structured output (ADR-0030): coerce the final answer into the requested schema.
+			if len(e.outputSchema) > 0 {
+				obj, u, serr := structuredOutput(ctx, e.provider, e.model, messages, e.outputSchema, e.usage, AgentFunctionID)
+				if serr != nil {
+					return errorOutput(fmt.Sprintf("ai/agent: structured output failed: %v", serr))
+				}
+				totalUsage.PromptTokens += u.PromptTokens
+				totalUsage.CompletionTokens += u.CompletionTokens
+				totalUsage.TotalTokens += u.TotalTokens
+				return successOutputData(obj, totalUsage, steps)
+			}
 			return successOutput(resp.Message.Content, totalUsage, steps)
 		}
 
@@ -171,6 +198,52 @@ func (e *agentExecutor) run(ctx context.Context, messages []llm.Message) workflo
 	}
 
 	return errorOutput("ai/agent: max iterations reached")
+}
+
+// applyContextPolicy bounds the running transcript to maxContextTokens (ADR-0028). It returns the
+// trimmed messages and a step record, or (nil, nil) when no trimming was needed.
+func (e *agentExecutor) applyContextPolicy(ctx context.Context, messages []llm.Message) ([]llm.Message, map[string]any) {
+	if e.maxContextTokens <= 0 {
+		return nil, nil
+	}
+	kept, dropped := trimContext(messages, e.maxContextTokens)
+	if len(dropped) == 0 {
+		return nil, nil
+	}
+	step := map[string]any{"context": "trimmed", "strategy": e.contextStrategy, "droppedTurns": len(dropped)}
+	if e.contextStrategy == contextStrategySummarize {
+		if summary := e.summarizeDropped(ctx, dropped); summary != "" {
+			h := headLen(messages)
+			summaryTurn := llm.Message{Role: llm.RoleSystem, Content: "Summary of earlier turns: " + summary}
+			out := concatMessages(messages[:h], append([]llm.Message{summaryTurn}, kept[h:]...))
+			step["summarized"] = true
+			return out, step
+		}
+	}
+	return kept, step
+}
+
+// summarizeDropped asks the provider to summarize the dropped turns into one note. Returns "" on
+// error, so the caller falls back to plain drop-oldest.
+func (e *agentExecutor) summarizeDropped(ctx context.Context, dropped []llm.Message) string {
+	var b strings.Builder
+	for _, m := range dropped {
+		fmt.Fprintf(&b, "%s: %s\n", m.Role, m.Content)
+	}
+	resp, err := e.provider.Chat(ctx, llm.ChatRequest{
+		Model: e.model,
+		Messages: []llm.Message{
+			{Role: llm.RoleSystem, Content: "Summarize the following conversation turns concisely, preserving facts, tool results, and decisions."},
+			{Role: llm.RoleUser, Content: b.String()},
+		},
+	})
+	if err != nil {
+		log.Warn().Err(err).Msg("ai/agent context summarization failed; dropping oldest turns instead")
+		return ""
+	}
+	e.usage.RecordCall(AgentFunctionID, e.provider.Name(), e.model, "success")
+	e.usage.RecordUsage(AgentFunctionID, e.provider.Name(), e.model, resp.Usage)
+	return resp.Message.Content
 }
 
 // executeToolCall resolves, invokes, and records a single model-requested tool
@@ -282,8 +355,14 @@ func marshalToolContent(data map[string]any) string {
 
 // successOutput builds the agent's final successful output.
 func successOutput(answer string, usage llm.Usage, steps []map[string]any) workflow.FunctionOutput {
+	return successOutputData(answer, usage, steps)
+}
+
+// successOutputData builds the agent's final output; output is the answer text or, for structured
+// output (ADR-0030), the validated object.
+func successOutputData(output any, usage llm.Usage, steps []map[string]any) workflow.FunctionOutput {
 	return workflow.NewFunctionSuccessOutput(map[string]any{
-		"output": answer,
+		"output": output,
 		"usage": map[string]any{
 			"promptTokens":     usage.PromptTokens,
 			"completionTokens": usage.CompletionTokens,

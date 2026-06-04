@@ -3,6 +3,7 @@ package actors
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"ergo.services/ergo/act"
 	"ergo.services/ergo/gen"
@@ -84,10 +85,24 @@ func (m *muxServer) Init(_ ...any) error {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(spec.ReadDoc()))
 	})
+	// When FUSE is hosted under a reverse-proxy path prefix (e.g. /fuse), the /docs redirect and
+	// the Swagger UI spec URL must carry that prefix or the browser drops it. The prefix comes from
+	// the proxy's X-Forwarded-Prefix header when set, else SERVER_BASE_PATH.
+	configuredBasePath := strings.TrimRight(m.config.Server.BasePath, "/")
 	muxRouter.HandleFunc("/docs", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/docs/index.html", http.StatusMovedPermanently)
+		prefix := strings.TrimRight(r.Header.Get("X-Forwarded-Prefix"), "/")
+		if prefix == "" {
+			prefix = configuredBasePath
+		}
+		http.Redirect(w, r, prefix+"/docs/index.html", http.StatusMovedPermanently)
 	})
-	muxRouter.PathPrefix("/docs/").Handler(httpSwagger.WrapHandler)
+	// The UI loads its spec relatively ("doc.json" resolves under <prefix>/docs/) so it works
+	// behind any prefix; a configured base path makes it explicit/absolute.
+	specURL := "doc.json"
+	if configuredBasePath != "" {
+		specURL = configuredBasePath + "/docs/doc.json"
+	}
+	muxRouter.PathPrefix("/docs/").Handler(httpSwagger.Handler(httpSwagger.URL(specURL)))
 	m.Log().Info("swagger documentation available at /docs or /docs/index.html")
 
 	// create and spawn a web server meta-process
