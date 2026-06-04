@@ -57,6 +57,12 @@ func ChatFunctionMetadata() workflow.FunctionMetadata {
 					Required:    false,
 					Description: "Sampling temperature; if omitted the provider default is used",
 				},
+				{
+					Name:        "outputSchema",
+					Type:        "array",
+					Required:    false,
+					Description: "Optional list of {name,type,required,description} fields; when set the output is a validated object matching this schema (ADR-0030)",
+				},
 			},
 			Edges: workflow.InputEdgeMetadata{
 				Count:      0,
@@ -107,6 +113,7 @@ func makeChatFunction(providers llm.Registry, usage UsageRecorder) workflow.Func
 			Messages:    messages,
 			Temperature: optionalTemperature(input),
 		}
+		outputSchema := parseOutputSchema(input)
 
 		// Provider resolution and the completion run in their own goroutine and report back via
 		// Finish so the WorkflowFunc pool worker is freed immediately (mirrors logic/timer).
@@ -120,6 +127,25 @@ func makeChatFunction(providers llm.Registry, usage UsageRecorder) workflow.Func
 			if err != nil {
 				log.Error().Err(err).Str("provider", providerName).Msg("ai/chat provider resolution failed")
 				execInfo.Finish(workflow.NewFunctionOutput(workflow.FunctionError, map[string]any{"error": err.Error()}))
+				return
+			}
+
+			// Structured output (ADR-0030): coerce the answer into the requested schema.
+			if len(outputSchema) > 0 {
+				obj, u, serr := structuredOutput(ctx, provider, req.Model, messages, outputSchema, usage, ChatFunctionID)
+				if serr != nil {
+					log.Error().Err(serr).Str("provider", provider.Name()).Msg("ai/chat structured output failed")
+					execInfo.Finish(workflow.NewFunctionOutput(workflow.FunctionError, map[string]any{"error": serr.Error()}))
+					return
+				}
+				execInfo.Finish(workflow.NewFunctionSuccessOutput(map[string]any{
+					"output": obj,
+					"usage": map[string]any{
+						"promptTokens":     u.PromptTokens,
+						"completionTokens": u.CompletionTokens,
+						"totalTokens":      u.TotalTokens,
+					},
+				}))
 				return
 			}
 

@@ -45,6 +45,7 @@ func AgentFunctionMetadata() workflow.FunctionMetadata {
 				{Name: "allowedTools", Type: "array", Required: false, Description: "Optional allowlist of full function ids the agent may use as tools; empty means all eligible tools"},
 				{Name: "maxContextTokens", Type: "int", Required: false, Description: "Optional token budget for the running transcript (approximate); 0/absent disables trimming (ADR-0028)"},
 				{Name: "contextStrategy", Type: "string", Required: false, Description: "When over maxContextTokens: 'drop-oldest' (default) or 'summarize' (an extra LLM call summarizes dropped turns)"},
+				{Name: "outputSchema", Type: "array", Required: false, Description: "Optional list of {name,type,required,description} fields; when set the final output is a validated object matching this schema (ADR-0030)"},
 			},
 			Edges: workflow.InputEdgeMetadata{
 				Count:      0,
@@ -90,6 +91,7 @@ func makeAgentFunction(providers llm.Registry, tools ToolRegistry, usage UsageRe
 			usage:            usage,
 			maxContextTokens: input.GetInt("maxContextTokens"),
 			contextStrategy:  contextStrategyOrDefault(input.GetStr("contextStrategy")),
+			outputSchema:     parseOutputSchema(input),
 		}
 
 		messages := make([]llm.Message, 0, 4)
@@ -136,6 +138,7 @@ type agentExecutor struct {
 	usage            UsageRecorder
 	maxContextTokens int
 	contextStrategy  string
+	outputSchema     []workflow.ParameterSchema
 }
 
 // run drives the reasoning loop until a final answer, an error, or the iteration
@@ -173,6 +176,17 @@ func (e *agentExecutor) run(ctx context.Context, messages []llm.Message) workflo
 		messages = append(messages, resp.Message)
 
 		if len(resp.Message.ToolCalls) == 0 {
+			// Structured output (ADR-0030): coerce the final answer into the requested schema.
+			if len(e.outputSchema) > 0 {
+				obj, u, serr := structuredOutput(ctx, e.provider, e.model, messages, e.outputSchema, e.usage, AgentFunctionID)
+				if serr != nil {
+					return errorOutput(fmt.Sprintf("ai/agent: structured output failed: %v", serr))
+				}
+				totalUsage.PromptTokens += u.PromptTokens
+				totalUsage.CompletionTokens += u.CompletionTokens
+				totalUsage.TotalTokens += u.TotalTokens
+				return successOutputData(obj, totalUsage, steps)
+			}
 			return successOutput(resp.Message.Content, totalUsage, steps)
 		}
 
@@ -341,8 +355,14 @@ func marshalToolContent(data map[string]any) string {
 
 // successOutput builds the agent's final successful output.
 func successOutput(answer string, usage llm.Usage, steps []map[string]any) workflow.FunctionOutput {
+	return successOutputData(answer, usage, steps)
+}
+
+// successOutputData builds the agent's final output; output is the answer text or, for structured
+// output (ADR-0030), the validated object.
+func successOutputData(output any, usage llm.Usage, steps []map[string]any) workflow.FunctionOutput {
 	return workflow.NewFunctionSuccessOutput(map[string]any{
-		"output": answer,
+		"output": output,
 		"usage": map[string]any{
 			"promptTokens":     usage.PromptTokens,
 			"completionTokens": usage.CompletionTokens,
