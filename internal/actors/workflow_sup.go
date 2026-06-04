@@ -210,7 +210,9 @@ func (a *WorkflowSupervisor) HandleEvent(event gen.MessageEvent) error {
 }
 
 func (a *WorkflowSupervisor) recoverWorkflows() {
-	ids, err := a.workflowRepository.FindByState(internalworkflow.StateRunning, internalworkflow.StateSleeping)
+	// Include untriggered: a workflow can be stranded in untriggered if its node crashed between
+	// the create-Save and the running-state persist, so recovery must re-drive those too (ADR-0018).
+	ids, err := a.workflowRepository.FindByState(internalworkflow.StateUntriggered, internalworkflow.StateRunning, internalworkflow.StateSleeping)
 	if err != nil {
 		a.Log().Error("failed to query workflows for recovery: %s", err)
 		return

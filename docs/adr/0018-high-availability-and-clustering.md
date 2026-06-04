@@ -38,6 +38,18 @@ infrastructure.** Three mechanisms:
    (`node_heartbeats`), and reassigns workflows from nodes whose heartbeat is older than
    `HA_LEASE_TIMEOUT` (default 30s). The memory backend is a no-op (HA off).
 
+   **Ownership invariants (fix #89).** Two invariants prevent a node's own sweep — or another
+   node's NOTIFY-driven immediate sweep — from stealing a workflow that is already being run:
+   (a) when a node spawns a workflow it **claims it for itself first** (`ClaimRepository.ClaimWorkflow`
+   in `WorkflowHandler.Init`, both the new-trigger and replay paths); if another live node already
+   owns it the handler bows out without running, so no duplicate executes; and (b) the
+   `untriggered → running/sleeping` state transition is **persisted immediately at `Init`** (not
+   only journaled), so the DB row never sits at a stale `untriggered` for a running workflow — which
+   keeps `GET /v1/workflows/{id}` accurate, lets `recoverWorkflows` (which now also includes
+   `untriggered`) re-drive a crash-stranded row, and lets the lease-expiry reclaim cover `untriggered`
+   too. Before this, a freshly triggered workflow stayed `claimed_by = NULL, state = untriggered`
+   for its whole run and was repeatedly stolen by other nodes' sweeps, intermittently stranding it.
+
 2. **Lower-latency claims.** A `PgListenerActor` subscribes to Postgres **LISTEN/NOTIFY**
    (`workflow_state_change`) on a dedicated connection; a newly available workflow nudges the
    claim actor (`ClaimSweepNowMsg`) to claim immediately instead of waiting for the next sweep.

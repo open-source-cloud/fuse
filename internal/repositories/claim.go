@@ -15,6 +15,12 @@ type ClaimRepository interface {
 	// Returns up to limit claimed workflows.
 	ClaimWorkflows(nodeID string, limit int) ([]ClaimedWorkflow, error)
 
+	// ClaimWorkflow atomically claims a single workflow for nodeID. It returns true when this node
+	// now owns the workflow (it was unclaimed, already this node's, or the previous owner's lease
+	// expired) and false when another live node owns it. Used by a node to claim a workflow it is
+	// about to run, so the sweep on other nodes cannot steal it (ADR-0018).
+	ClaimWorkflow(nodeID, workflowID string) (bool, error)
+
 	// ReleaseWorkflows releases all workflows claimed by the given node.
 	ReleaseWorkflows(nodeID string) error
 

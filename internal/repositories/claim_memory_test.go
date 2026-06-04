@@ -38,6 +38,15 @@ func TestMemoryClaimRepository_ClaimWorkflows_ConcurrentCallsNoPanic(_ *testing.
 	// Assert — if we reach here without panic/race, test passes
 }
 
+func TestMemoryClaimRepository_ClaimWorkflow_AlwaysOwned(t *testing.T) {
+	repo := repositories.NewMemoryClaimRepository()
+
+	owned, err := repo.ClaimWorkflow("node-1", "wf-1")
+
+	require.NoError(t, err)
+	assert.True(t, owned, "memory claim is a single-process no-op and always succeeds")
+}
+
 func TestMemoryClaimRepository_ReleaseWorkflows_NoError(t *testing.T) {
 	// Arrange
 	repo := repositories.NewMemoryClaimRepository()

@@ -15,6 +15,11 @@ func (r *MemoryClaimRepository) ClaimWorkflows(_ string, _ int) ([]ClaimedWorkfl
 	return nil, nil
 }
 
+// ClaimWorkflow always succeeds in memory mode (single process; no other node can contend).
+func (r *MemoryClaimRepository) ClaimWorkflow(_, _ string) (bool, error) {
+	return true, nil
+}
+
 // ReleaseWorkflows is a no-op in memory mode.
 func (r *MemoryClaimRepository) ReleaseWorkflows(_ string) error {
 	return nil
