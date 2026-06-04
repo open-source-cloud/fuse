@@ -91,20 +91,37 @@ func (s *DefaultPackageService) Save(pkg *workflow.Package) (*workflow.Package, 
 	return pkg, nil
 }
 
-// RegisterInternalPackages registers the internal packages to the repository and registry
+// RegisterInternalPackages registers the internal packages to the registry (always) and the
+// repository (best-effort).
+//
+// Internal packages are compiled-in: their function pointers cannot be reconstructed from
+// persistence (PackagedFunction.Function is json:"-"). Their availability on this node must
+// therefore never depend on a database write succeeding. We register them in the in-memory
+// registry FIRST and unconditionally, then persist to the repository best-effort for cross-node
+// discovery/metadata.
+//
+// This decoupling is what prevents the HA startup race that left a node's registry without the
+// real function: when several nodes upsert the same package rows concurrently, one transaction
+// can lose a deadlock and fail; previously that skipped Register entirely, after which
+// FindByID/FindAll(Load:true) would backfill a nil-fn copy decoded from Postgres and panic the
+// worker on execute (workflow stuck "running" until the e2e timeout).
 func (s *DefaultPackageService) RegisterInternalPackages() error {
-	wg := sync.WaitGroup{}
-	wg.Add(len(s.internalPackages.List()))
+	pkgs := s.internalPackages.List()
 
-	for _, pkg := range s.internalPackages.List() {
+	for _, pkg := range pkgs {
+		s.packageRegistry.Register(pkg)
+	}
+
+	wg := sync.WaitGroup{}
+	wg.Add(len(pkgs))
+	for _, pkg := range pkgs {
 		go func(pkg *workflow.Package) {
 			defer wg.Done()
-			if _, err := s.Save(pkg); err != nil {
-				log.Error().Err(err).Msgf("failed to save internal package %s", pkg.ID)
+			if err := s.packageRepo.Save(pkg); err != nil {
+				log.Warn().Err(err).Msgf("failed to persist internal package %s (registered locally, available on this node)", pkg.ID)
 			}
 		}(pkg)
 	}
-
 	wg.Wait()
 
 	return nil

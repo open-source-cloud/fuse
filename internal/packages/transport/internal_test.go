@@ -90,3 +90,27 @@ func TestExecute_NilExecutionInfoReturnsError(t *testing.T) {
 	_, err := tr.Execute(fakeHandle{}, nil)
 	require.ErrorIs(t, err, errNilExecutionInfo)
 }
+
+// A nil function pointer reaches the transport when an internal package is decoded from
+// persistence (PackagedFunction.Function is json:"-") and registered as executable. Executing
+// it must return an error, never call a nil func value (which panics the worker and leaves the
+// workflow stuck "running").
+func TestExecute_NilFunctionReturnsError(t *testing.T) {
+	t.Parallel()
+
+	tr := NewInternalFunctionTransport(nil)
+	execInfo := workflow.NewExecutionInfo("wf-1", workflow.NewExecID(1), "", nil)
+
+	_, err := tr.Execute(fakeHandle{}, execInfo)
+	require.ErrorIs(t, err, errNilFunction)
+}
+
+func TestExecuteSync_NilFunctionReturnsError(t *testing.T) {
+	t.Parallel()
+
+	tr := NewInternalFunctionTransport(nil)
+	execInfo := workflow.NewExecutionInfo("wf-1", workflow.NewExecID(1), "", nil)
+
+	_, err := tr.ExecuteSync(execInfo)
+	require.ErrorIs(t, err, errNilFunction)
+}

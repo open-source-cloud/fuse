@@ -41,6 +41,9 @@ func (t *InternalFunctionTransport) Execute(handle actor.Handle, execInfo *workf
 	if execInfo == nil {
 		return workflow.FunctionResult{}, errNilExecutionInfo
 	}
+	if t.fn == nil {
+		return workflow.FunctionResult{}, errNilFunction
+	}
 	execInfo.Finish = func(result workflow.FunctionOutput) {
 		if execInfo == nil {
 			log.Error().Msg("async Finish invoked with nil ExecutionInfo")
@@ -65,6 +68,9 @@ func (t *InternalFunctionTransport) Execute(handle actor.Handle, execInfo *workf
 func (t *InternalFunctionTransport) ExecuteSync(execInfo *workflow.ExecutionInfo) (workflow.FunctionResult, error) {
 	if execInfo == nil {
 		return workflow.FunctionResult{}, errNilExecutionInfo
+	}
+	if t.fn == nil {
+		return workflow.FunctionResult{}, errNilFunction
 	}
 	execInfo.Finish = func(workflow.FunctionOutput) {
 		log.Error().Msg("synchronous tool invocation attempted async Finish; ignored (only sync functions are exposed as tools)")

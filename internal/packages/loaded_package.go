@@ -37,6 +37,9 @@ func (p *LoadedPackage) ExecuteFunction(handle actor.Handle, functionID string, 
 	if !exists {
 		return workflow.FunctionResult{}, fmt.Errorf("function %s not found", functionID)
 	}
+	if function.Transport == nil {
+		return workflow.FunctionResult{}, fmt.Errorf("function %s has no transport (package likely loaded from persistence without its code-backed function)", functionID)
+	}
 
 	return function.Transport.Execute(handle, execInfo)
 }
@@ -48,6 +51,9 @@ func (p *LoadedPackage) ExecuteFunctionSync(functionID string, execInfo *workflo
 	function, exists := p.Functions[functionID]
 	if !exists {
 		return workflow.FunctionResult{}, fmt.Errorf("function %s not found", functionID)
+	}
+	if function.Transport == nil {
+		return workflow.FunctionResult{}, fmt.Errorf("function %s has no transport (package likely loaded from persistence without its code-backed function)", functionID)
 	}
 
 	return function.Transport.ExecuteSync(execInfo)
