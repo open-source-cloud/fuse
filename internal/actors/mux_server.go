@@ -1,6 +1,7 @@
 package actors
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
@@ -75,20 +76,23 @@ func (m *muxServer) Init(_ ...any) error {
 		}
 	}
 
-	// Serve OpenAPI doc.json from the swag/v2 registry and Swagger UI
-	muxRouter.HandleFunc("/docs/doc.json", func(w http.ResponseWriter, _ *http.Request) {
+	// When FUSE is hosted under a reverse-proxy path prefix (e.g. /fuse), the /docs redirect and
+	// the Swagger UI spec URL must carry that prefix or the browser drops it. The prefix comes from
+	// the proxy's X-Forwarded-Prefix header when set, else SERVER_BASE_PATH.
+	configuredBasePath := strings.TrimRight(m.config.Server.BasePath, "/")
+	// Serve OpenAPI doc.json from the swag/v2 registry and Swagger UI. The build-time spec carries a
+	// fixed @host (localhost:9090); rewrite host/schemes/basePath from the incoming request so the
+	// UI's "Try it out" targets whatever environment actually serves the docs (local, behind a
+	// reverse proxy, or a production domain) without rebuilding the spec.
+	muxRouter.HandleFunc("/docs/doc.json", func(w http.ResponseWriter, r *http.Request) {
 		spec := swag.GetSwagger("swagger")
 		if spec == nil {
 			http.Error(w, "swagger spec not found", http.StatusInternalServerError)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(spec.ReadDoc()))
+		_, _ = w.Write([]byte(patchSwaggerServer(spec.ReadDoc(), r, configuredBasePath)))
 	})
-	// When FUSE is hosted under a reverse-proxy path prefix (e.g. /fuse), the /docs redirect and
-	// the Swagger UI spec URL must carry that prefix or the browser drops it. The prefix comes from
-	// the proxy's X-Forwarded-Prefix header when set, else SERVER_BASE_PATH.
-	configuredBasePath := strings.TrimRight(m.config.Server.BasePath, "/")
 	muxRouter.HandleFunc("/docs", func(w http.ResponseWriter, r *http.Request) {
 		prefix := strings.TrimRight(r.Header.Get("X-Forwarded-Prefix"), "/")
 		if prefix == "" {
@@ -159,4 +163,62 @@ func (m *muxServer) createWorkerPool(webWorker WebWorker, mux *mux.Router) error
 	mux.Handle(webWorker.Pattern, workerPool)
 
 	return nil
+}
+
+// patchSwaggerServer rewrites the host, schemes, and basePath of a Swagger 2.0 spec from the
+// incoming request so the served doc.json reflects the environment actually serving it rather
+// than the build-time @host. It honors the standard reverse-proxy forwarding headers
+// (X-Forwarded-Host / X-Forwarded-Proto / X-Forwarded-Prefix) and falls back to the request Host,
+// the request's TLS state, and the configured base path. If the document is not the expected
+// JSON object shape it is returned unchanged.
+func patchSwaggerServer(doc string, r *http.Request, configuredBasePath string) string {
+	var spec map[string]any
+	if err := json.Unmarshal([]byte(doc), &spec); err != nil {
+		return doc
+	}
+
+	host := firstForwardedValue(r.Header.Get("X-Forwarded-Host"))
+	if host == "" {
+		host = r.Host
+	}
+	if host != "" {
+		spec["host"] = host
+	}
+
+	scheme := firstForwardedValue(r.Header.Get("X-Forwarded-Proto"))
+	if scheme == "" {
+		if r.TLS != nil {
+			scheme = "https"
+		} else {
+			scheme = "http"
+		}
+	}
+	spec["schemes"] = []string{scheme}
+
+	prefix := strings.TrimRight(firstForwardedValue(r.Header.Get("X-Forwarded-Prefix")), "/")
+	if prefix == "" {
+		prefix = configuredBasePath
+	}
+	if prefix == "" {
+		prefix = "/"
+	}
+	spec["basePath"] = prefix
+
+	patched, err := json.Marshal(spec)
+	if err != nil {
+		return doc
+	}
+	return string(patched)
+}
+
+// firstForwardedValue returns the first entry of a possibly comma-separated forwarding header
+// value (proxies may append a list, e.g. "a.example.com, b.internal"), trimmed of whitespace.
+func firstForwardedValue(v string) string {
+	if v == "" {
+		return ""
+	}
+	if i := strings.IndexByte(v, ','); i >= 0 {
+		v = v[:i]
+	}
+	return strings.TrimSpace(v)
 }
