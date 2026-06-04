@@ -56,7 +56,7 @@ copying [`template.md`](template.md).
 | 0027 | [Async tool invocation via a sub-execution channel](0027-async-tool-invocation-sub-execution-channel.md) | Proposed | 2026-06-02 |
 | 0028 | [Agent prompt/context & conversation-memory model](0028-agent-prompt-context-and-memory-model.md) | Accepted | 2026-06-02 |
 | 0029 | [LLM cost & token-usage tracking and budgets](0029-llm-cost-and-usage-tracking-and-budgets.md) | Accepted | 2026-06-02 |
-| 0030 | [Structured/JSON output enforcement for ai nodes](0030-structured-output-enforcement.md) | Proposed | 2026-06-02 |
+| 0030 | [Structured/JSON output enforcement for ai nodes](0030-structured-output-enforcement.md) | Accepted | 2026-06-02 |
 | 0031 | [Settings, secrets & environments: a SecretStore seam](0031-settings-secrets-and-environments.md) | Accepted | 2026-06-02 |
 | 0032 | [Sub-workflow composition: child workflows as first-class instances](0032-sub-workflow-composition.md) | Accepted | 2026-06-03 |
 | 0033 | [Dependency injection & app composition with uber-go/fx](0033-dependency-injection-and-app-composition.md) | Accepted | 2026-06-03 |
@@ -66,8 +66,9 @@ copying [`template.md`](template.md).
 ADRs **0026–0030** are a cohesive **agent-capabilities** series for the next phase of the AI agent
 ([ADR-0005](0005-ai-agents-as-workflow-nodes-phased-roadmap.md)) — orchestrator mode (0026), async
 tool invocation (0027), prompt/context & memory (0028), cost/usage tracking & budgets (0029), and
-structured-output enforcement (0030). The leaf capabilities are being implemented first: **0029**
-Phase A (usage visibility) is `Accepted`/shipped; 0028 and 0030 follow; the larger orchestrator
-(0026) + async-tools (0027) pair stays `Proposed` until reassessed. **0025** (browser-automation
+structured-output enforcement (0030). The leaf capabilities shipped first: **0028**
+(context policy), **0029** Phase A (usage visibility), and **0030** (structured output) are
+`Accepted`. The larger orchestrator (0026) + async-tools (0027) pair stays `Proposed` until
+reassessed. **0025** (browser-automation
 package) is an independent, parallel stream, not part of that series. When an ADR is implemented its
 status moves to `Accepted` and its "More Information" records what shipped (as 0031 does).
