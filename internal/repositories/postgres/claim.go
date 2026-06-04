@@ -32,7 +32,7 @@ func (r *ClaimRepository) ClaimWorkflows(nodeID string, limit int) ([]repositori
 			WHERE (claimed_by IS NULL AND state IN ('untriggered', 'running', 'sleeping'))
 			   OR (claimed_by IS NOT NULL AND claimed_by != $1
 			       AND claimed_at < NOW() - INTERVAL '1 second' * $3
-			       AND state IN ('running', 'sleeping'))
+			       AND state IN ('untriggered', 'running', 'sleeping'))
 			ORDER BY id
 			FOR UPDATE SKIP LOCKED
 			LIMIT $2
@@ -53,6 +53,26 @@ func (r *ClaimRepository) ClaimWorkflows(nodeID string, limit int) ([]repositori
 		claimed = append(claimed, cw)
 	}
 	return claimed, rows.Err()
+}
+
+// ClaimWorkflow atomically claims a single workflow for nodeID. It succeeds when the workflow is
+// unclaimed, already claimed by this node, or the previous owner's lease has expired; it returns
+// false when another live node holds the claim. The owning node calls this on spawn so the sweep
+// on other nodes cannot steal a workflow it is actively running (ADR-0018).
+func (r *ClaimRepository) ClaimWorkflow(nodeID, workflowID string) (bool, error) {
+	ctx := context.Background()
+	tag, err := r.pool.Exec(ctx, `
+		UPDATE workflows
+		SET claimed_by = $1, claimed_at = NOW(), updated_at = NOW()
+		WHERE workflow_id = $2
+		  AND (claimed_by IS NULL
+		       OR claimed_by = $1
+		       OR claimed_at < NOW() - INTERVAL '1 second' * $3)
+	`, nodeID, workflowID, r.leaseTimeout.Seconds())
+	if err != nil {
+		return false, err
+	}
+	return tag.RowsAffected() == 1, nil
 }
 
 // ReleaseWorkflows releases all workflows claimed by the given node.

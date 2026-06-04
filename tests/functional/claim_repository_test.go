@@ -91,6 +91,27 @@ func contractTestClaimRepository(
 		assert.Empty(t, claimed)
 	})
 
+	t.Run("ClaimWorkflow claims a specific workflow, is idempotent for the owner, and blocks others", func(t *testing.T) {
+		reset()
+		repo := newClaimRepo()
+		ids := seedWorkflows(t, 1, internalworkflow.StateUntriggered)
+
+		// The owning node claims it.
+		owned, err := repo.ClaimWorkflow("node-A", ids[0])
+		require.NoError(t, err)
+		assert.True(t, owned)
+
+		// Re-claiming by the same node is idempotent.
+		owned, err = repo.ClaimWorkflow("node-A", ids[0])
+		require.NoError(t, err)
+		assert.True(t, owned)
+
+		// Another live node cannot steal it (its lease has not expired).
+		owned, err = repo.ClaimWorkflow("node-B", ids[0])
+		require.NoError(t, err)
+		assert.False(t, owned)
+	})
+
 	t.Run("ReleaseWorkflows releases all claims for a node", func(t *testing.T) {
 		reset()
 		repo := newClaimRepo()

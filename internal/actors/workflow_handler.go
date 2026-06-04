@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/open-source-cloud/fuse/internal/actors/actornames"
@@ -45,6 +46,7 @@ func NewWorkflowHandlerFactory(
 	fuseMetrics *metrics.FuseMetrics,
 	tracingProvider *tracing.Provider,
 	secretStore secrets.SecretStore,
+	claimRepo repositories.ClaimRepository,
 ) *WorkflowHandlerFactory {
 	return &WorkflowHandlerFactory{
 		Factory: func() gen.ProcessBehavior {
@@ -60,6 +62,7 @@ func NewWorkflowHandlerFactory(
 				fuseMetrics:        fuseMetrics,
 				tracingProvider:    tracingProvider,
 				secretStore:        secretStore,
+				claimRepo:          claimRepo,
 			}
 		},
 	}
@@ -81,6 +84,7 @@ type (
 		fuseMetrics        *metrics.FuseMetrics
 		tracingProvider    *tracing.Provider
 		secretStore        secrets.SecretStore
+		claimRepo          repositories.ClaimRepository
 
 		workflow       *internalworkflow.Workflow
 		executionTimer *ExecutionTimer
@@ -124,6 +128,11 @@ func (a *WorkflowHandler) Init(args ...any) error {
 
 	if a.workflowRepository.Exists(initArgs.workflowID.String()) {
 		a.workflow, _ = a.workflowRepository.Get(initArgs.workflowID.String())
+		// Claim this workflow for this node before running it; if another live node owns it, bow
+		// out so we don't run a duplicate (ADR-0018).
+		if !a.claimForThisNode(initArgs.workflowID) {
+			return nil
+		}
 		// Replay: the environment comes from the reconstructed workflow, not init args, so
 		// resolution stays deterministic across restart/recovery (ADR-0031).
 		a.workflow.SetSecretResolver(a.newSecretResolver(a.workflow.Environment()))
@@ -149,6 +158,9 @@ func (a *WorkflowHandler) Init(args ...any) error {
 		if action != nil {
 			a.handleWorkflowAction(action)
 		}
+		// Persist the (possibly advanced) state so the DB row reflects running/sleeping, not a
+		// stale untriggered (ADR-0018).
+		a.persistWorkflowState()
 		return nil
 	}
 
@@ -168,6 +180,11 @@ func (a *WorkflowHandler) Init(args ...any) error {
 		a.Log().Error("failed to save workflow for id %s: %s", initArgs.workflowID, err)
 		return nil
 	}
+	// Claim this freshly-created workflow for this node before running it, so the claim sweep on
+	// other nodes cannot steal it mid-run (ADR-0018, fixes #89).
+	if !a.claimForThisNode(initArgs.workflowID) {
+		return nil
+	}
 	a.Log().Debug("created new workflow with id %s", initArgs.workflowID)
 	a.startRootSpan()
 
@@ -175,6 +192,9 @@ func (a *WorkflowHandler) Init(args ...any) error {
 	a.persistJournal()
 	a.startWorkflowTimeout()
 	a.handleWorkflowAction(action)
+	// Persist the running/sleeping state immediately so the DB row no longer reads untriggered
+	// (status accuracy + recovery + lease reclaim) (ADR-0018).
+	a.persistWorkflowState()
 	return nil
 }
 
@@ -335,6 +355,36 @@ func (a *WorkflowHandler) handleMsgAsyncFunctionResult(msg messaging.Message) er
 	a.handleWorkflowAction(action)
 
 	return nil
+}
+
+// claimForThisNode claims the workflow for this node before running it (ADR-0018, fixes #89). It
+// returns true when this node owns the workflow and may run it. On loss (another live node already
+// owns it) it stops this duplicate instance tree by telling the instance supervisor the workflow is
+// done here — without touching the workflow's persisted state — and returns false. In non-HA /
+// memory mode the claim is a no-op that always succeeds. On a claim-store error it fails open (runs)
+// rather than dropping the workflow.
+func (a *WorkflowHandler) claimForThisNode(wfID workflow.ID) bool {
+	owned, err := a.claimRepo.ClaimWorkflow(resolveNodeID(a.config), wfID.String())
+	if err != nil {
+		a.Log().Error("failed to claim workflow %s (running anyway): %s", wfID, err)
+		return true
+	}
+	if !owned {
+		a.Log().Info("workflow %s is owned by another node; not running it here", wfID)
+		if sendErr := a.Send(a.Parent(), messaging.NewWorkflowCompletedMessage(wfID, "claimed-elsewhere")); sendErr != nil {
+			a.Log().Error("failed to stop duplicate instance for workflow %s: %s", wfID, sendErr)
+		}
+	}
+	return owned
+}
+
+// resolveNodeID returns this node's HA identifier (HA_NODE_ID, else hostname).
+func resolveNodeID(cfg *config.Config) string {
+	if cfg.HA.NodeID != "" {
+		return cfg.HA.NodeID
+	}
+	host, _ := os.Hostname()
+	return host
 }
 
 // persistWorkflowState persists both the journal and the workflow state to the repository.
