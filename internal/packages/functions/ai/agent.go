@@ -60,8 +60,8 @@ func AgentFunctionMetadata() workflow.FunctionMetadata {
 }
 
 // makeAgentFunction builds the ai/agent function, closing over the provider
-// registry and the tool registry.
-func makeAgentFunction(providers llm.Registry, tools ToolRegistry) workflow.Function {
+// registry, the tool registry, and the usage recorder (ADR-0029).
+func makeAgentFunction(providers llm.Registry, tools ToolRegistry, usage UsageRecorder) workflow.Function {
 	return func(execInfo *workflow.ExecutionInfo) (workflow.FunctionResult, error) {
 		input := execInfo.Input
 
@@ -84,6 +84,7 @@ func makeAgentFunction(providers llm.Registry, tools ToolRegistry) workflow.Func
 			wfID:        execInfo.WorkflowID,
 			execID:      execInfo.ExecID,
 			environment: execInfo.Environment,
+			usage:       usage,
 		}
 
 		messages := make([]llm.Message, 0, 4)
@@ -127,12 +128,13 @@ type agentExecutor struct {
 	wfID        workflow.ID
 	execID      workflow.ExecID
 	environment string
+	usage       UsageRecorder
 }
 
 // run drives the reasoning loop until a final answer, an error, or the iteration
 // limit. It returns exactly one FunctionOutput; the caller calls Finish once.
 func (e *agentExecutor) run(ctx context.Context, messages []llm.Message) workflow.FunctionOutput {
-	usage := llm.Usage{}
+	totalUsage := llm.Usage{}
 	steps := make([]map[string]any, 0)
 
 	for i := 0; i < e.maxIters; i++ {
@@ -144,18 +146,21 @@ func (e *agentExecutor) run(ctx context.Context, messages []llm.Message) workflo
 			ToolChoice:  "auto",
 		})
 		if err != nil {
+			e.usage.RecordCall(AgentFunctionID, e.provider.Name(), e.model, "error")
 			log.Error().Err(err).Str("provider", e.provider.Name()).Msg("ai/agent completion failed")
 			return errorOutput(fmt.Sprintf("ai/agent: completion failed: %v", err))
 		}
+		e.usage.RecordCall(AgentFunctionID, e.provider.Name(), e.model, "success")
+		e.usage.RecordUsage(AgentFunctionID, e.provider.Name(), e.model, resp.Usage)
 
-		usage.PromptTokens += resp.Usage.PromptTokens
-		usage.CompletionTokens += resp.Usage.CompletionTokens
-		usage.TotalTokens += resp.Usage.TotalTokens
+		totalUsage.PromptTokens += resp.Usage.PromptTokens
+		totalUsage.CompletionTokens += resp.Usage.CompletionTokens
+		totalUsage.TotalTokens += resp.Usage.TotalTokens
 
 		messages = append(messages, resp.Message)
 
 		if len(resp.Message.ToolCalls) == 0 {
-			return successOutput(resp.Message.Content, usage, steps)
+			return successOutput(resp.Message.Content, totalUsage, steps)
 		}
 
 		for _, tc := range resp.Message.ToolCalls {

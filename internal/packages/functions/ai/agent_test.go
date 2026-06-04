@@ -108,7 +108,7 @@ func runAgent(t *testing.T, providers llm.Registry, tools ToolRegistry, input ma
 	execInfo := workflow.NewExecutionInfo("wf-1", workflow.NewExecID(1), "", fnInput)
 	execInfo.Finish = func(out workflow.FunctionOutput) { done <- out }
 
-	res, err := makeAgentFunction(providers, tools)(execInfo)
+	res, err := makeAgentFunction(providers, tools, NopUsageRecorder{})(execInfo)
 	require.NoError(t, err)
 	if !res.Async {
 		return res, workflow.FunctionOutput{}
