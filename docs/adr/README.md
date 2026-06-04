@@ -54,7 +54,7 @@ copying [`template.md`](template.md).
 | 0025 | [Browser automation & web-scraping package](0025-browser-automation-and-web-scraping-package.md) | Proposed | 2026-06-01 |
 | 0026 | [Agent-as-orchestrator mode](0026-agent-as-orchestrator-mode.md)                       | Proposed | 2026-06-02 |
 | 0027 | [Async tool invocation via a sub-execution channel](0027-async-tool-invocation-sub-execution-channel.md) | Proposed | 2026-06-02 |
-| 0028 | [Agent prompt/context & conversation-memory model](0028-agent-prompt-context-and-memory-model.md) | Proposed | 2026-06-02 |
+| 0028 | [Agent prompt/context & conversation-memory model](0028-agent-prompt-context-and-memory-model.md) | Accepted | 2026-06-02 |
 | 0029 | [LLM cost & token-usage tracking and budgets](0029-llm-cost-and-usage-tracking-and-budgets.md) | Accepted | 2026-06-02 |
 | 0030 | [Structured/JSON output enforcement for ai nodes](0030-structured-output-enforcement.md) | Proposed | 2026-06-02 |
 | 0031 | [Settings, secrets & environments: a SecretStore seam](0031-settings-secrets-and-environments.md) | Accepted | 2026-06-02 |
