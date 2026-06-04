@@ -1,6 +1,6 @@
 # 0028. Agent prompt / context & conversation-memory model
 
-- Status: Proposed
+- Status: Accepted (Option A — bounded context-assembly policy — shipped; session store / RAG deferred)
 - Date: 2026-06-02
 - Deciders: FUSE maintainers
 
@@ -67,6 +67,14 @@ multi-turn requirements are concrete.
 
 ## More Information
 
+- **Option A shipped**: `ai/agent` accepts optional `maxContextTokens` (an approximate token budget)
+  and `contextStrategy` (`drop-oldest` default | `summarize`). Before each completion the running
+  transcript is bounded by `trimContext` (`internal/packages/functions/ai/context.go`), which
+  preserves the leading system turns + the first user task and the most recent turns, dropping the
+  oldest middle turns; `summarize` replaces them with one LLM-generated summary turn (an extra,
+  opt-in model call — recorded as a `steps` entry). Token estimation is a coarse ~4-chars/token
+  heuristic, centralized so a real tokenizer can replace it. Absent budget = unchanged behavior.
+  **Deferred**: Option B (persisted cross-run session store) and Option C (vector/RAG memory).
 - Current assembly: `internal/packages/functions/ai/agent.go` (per-run message slice).
 - Related: [ADR-0007](0007-agent-reasoning-loop-and-tools-from-functions.md),
   [ADR-0019](0019-object-store-payload-externalization.md),
