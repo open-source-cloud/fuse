@@ -1,0 +1,53 @@
+# FUSE engine (open-source-cloud/fuse) — devstack project config.
+# Source of truth lives in the workspace at config/core.devstack.yaml and is
+# copied to core/devstack.yaml by scripts/setup.sh (core/ is git-ignored here).
+#
+#   ds up                → single-node engine on http://localhost:9090
+#   ds up -p ha          → also starts the 3-node HA cluster (etcd discovery)
+apiVersion: devstack/v1
+kind: Project
+name: core
+services:
+  # Default single-node engine: Postgres + S3, clustering off. Everyday target.
+  engine:
+    template: fuse-engine
+    ports:
+      http: 9090
+    uses:
+      - workspace.shared.postgres
+      - workspace.shared.minio
+
+  # ── HA cluster (profile: ha) — 3 nodes with etcd discovery on shared infra ──
+  engine-ha-1:
+    template: fuse-engine
+    uses:
+      - workspace.shared.postgres
+      - workspace.shared.minio
+      - workspace.shared.etcd
+    params:
+      hostPort: "9091"
+      clusterEnabled: "true"
+      haEnabled: "true"
+      haNodeId: "fuse-ha-node-1"
+  engine-ha-2:
+    template: fuse-engine
+    uses:
+      - workspace.shared.postgres
+      - workspace.shared.minio
+      - workspace.shared.etcd
+    params:
+      hostPort: "9092"
+      clusterEnabled: "true"
+      haEnabled: "true"
+      haNodeId: "fuse-ha-node-2"
+  engine-ha-3:
+    template: fuse-engine
+    uses:
+      - workspace.shared.postgres
+      - workspace.shared.minio
+      - workspace.shared.etcd
+    params:
+      hostPort: "9093"
+      clusterEnabled: "true"
+      haEnabled: "true"
+      haNodeId: "fuse-ha-node-3"
