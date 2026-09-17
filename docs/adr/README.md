@@ -60,6 +60,8 @@ copying [`template.md`](template.md).
 | 0031 | [Settings, secrets & environments: a SecretStore seam](0031-settings-secrets-and-environments.md) | Accepted | 2026-06-02 |
 | 0032 | [Sub-workflow composition: child workflows as first-class instances](0032-sub-workflow-composition.md) | Accepted | 2026-06-03 |
 | 0033 | [Dependency injection & app composition with uber-go/fx](0033-dependency-injection-and-app-composition.md) | Accepted | 2026-06-03 |
+| 0034 | [Deliver backlog work through a pipeline of specialised subagents](0034-backlog-delivery-pipeline-of-subagents.md) | Accepted | 2026-08-11 |
+| 0035 | [Remote node protocol: push-based HTTP as the v1 transport](0035-remote-node-protocol-push-transport.md) | Proposed | 2026-09-10 |
 
 ### Proposed backlog (not yet implemented)
 
