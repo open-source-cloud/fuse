@@ -76,3 +76,40 @@ func TestLLMConfig_EnvPrefixParsing(t *testing.T) {
 	// Unset providers default to disabled.
 	assert.False(t, cfg.Anthropic.Enabled)
 }
+
+func TestDatabaseConfig_PostgresDSNFallsBackToDatabaseURL(t *testing.T) {
+	tests := []struct {
+		name        string
+		postgresDSN string
+		databaseURL string
+		want        string
+	}{
+		{
+			name:        "DB_POSTGRES_DSN wins when both are set",
+			postgresDSN: "postgres://explicit@localhost:5432/fuse",
+			databaseURL: "postgresql://injected@cloud/main",
+			want:        "postgres://explicit@localhost:5432/fuse",
+		},
+		{
+			name:        "DATABASE_URL is used when DB_POSTGRES_DSN is unset",
+			databaseURL: "postgresql://injected@cloud/main?sslmode=require",
+			want:        "postgresql://injected@cloud/main?sslmode=require",
+		},
+		{
+			name: "empty when neither is set",
+			want: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("DB_POSTGRES_DSN", tt.postgresDSN)
+			t.Setenv("DATABASE_URL", tt.databaseURL)
+
+			var cfg config.DatabaseConfig
+			require.NoError(t, env.Parse(&cfg))
+
+			assert.Equal(t, tt.want, cfg.PostgresDSN)
+		})
+	}
+}

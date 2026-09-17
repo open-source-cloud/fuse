@@ -33,8 +33,8 @@ func newRoot() *cobra.Command {
 		Short:         "FUSE Workflow Engine application server",
 		SilenceErrors: false,
 		SilenceUsage:  false,
-		PersistentPreRun: func(_ *cobra.Command, _ []string) {
-			setupGlobalConfig()
+		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
+			setupGlobalConfig(cmd)
 		},
 		Run: func(cmd *cobra.Command, _ []string) {
 			err := cmd.Help()
@@ -59,7 +59,7 @@ func newRoot() *cobra.Command {
 	return rootCmd
 }
 
-func setupGlobalConfig() {
+func setupGlobalConfig(cmd *cobra.Command) {
 	cfg := config.Instance()
 
 	level, err := zerolog.ParseLevel(strings.ToLower(loglevel))
@@ -72,7 +72,11 @@ func setupGlobalConfig() {
 		cfg.Params.LogFormat = logformat
 	}
 	cfg.Params.ActorObserver = observer
-	cfg.Server.Port = port
+	// Only an explicit --port overrides PORT; otherwise the flag default would always
+	// win over the environment, which platforms like Laravel Cloud use to assign the port.
+	if cmd.Flags().Changed("port") {
+		cfg.Server.Port = port
+	}
 	color.NoColor = color.NoColor || nocolor
 }
 

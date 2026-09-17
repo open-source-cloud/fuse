@@ -76,7 +76,7 @@ type (
 	// ParamsConfig configuration parameters
 	ParamsConfig struct {
 		LogLevel        string
-		LogFormat       string        `env:"LOG_FORMAT" envDefault:"json"`
+		LogFormat       string `env:"LOG_FORMAT" envDefault:"json"`
 		ActorObserver   bool
 		ShutdownTimeout time.Duration `env:"SHUTDOWN_TIMEOUT" envDefault:"30s"`
 	}
@@ -115,8 +115,11 @@ type (
 
 	// DatabaseConfig configuration for the persistence backend
 	DatabaseConfig struct {
-		Driver          string        `env:"DB_DRIVER" envDefault:"memory"`
-		PostgresDSN     string        `env:"DB_POSTGRES_DSN"`
+		Driver string `env:"DB_DRIVER" envDefault:"memory"`
+		// PostgresDSN falls back to DATABASE_URL, the connection string managed
+		// platforms (Laravel Cloud, Heroku, Render) inject when a Postgres resource
+		// is attached, so the engine needs no duplicated DSN variable there.
+		PostgresDSN     string        `env:"DB_POSTGRES_DSN,expand" envDefault:"${DATABASE_URL}"`
 		MaxOpenConns    int32         `env:"DB_MAX_OPEN_CONNS" envDefault:"25"`
 		MaxIdleConns    int32         `env:"DB_MAX_IDLE_CONNS" envDefault:"5"`
 		ConnMaxLifetime time.Duration `env:"DB_CONN_MAX_LIFETIME" envDefault:"5m"`
