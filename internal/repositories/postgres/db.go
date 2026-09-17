@@ -5,6 +5,7 @@ package postgres
 import (
 	"embed"
 	"fmt"
+	"strings"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/pgx/v5" // pgx v5 driver for migrate
@@ -45,14 +46,13 @@ func RunMigrations(dsn string) error {
 	return nil
 }
 
-// convertDSNForMigrate converts a standard postgres:// DSN to the pgx5:// scheme
-// required by golang-migrate's pgx v5 driver.
+// convertDSNForMigrate converts a standard postgres:// or postgresql:// DSN to the
+// pgx5:// scheme required by golang-migrate's pgx v5 driver.
 func convertDSNForMigrate(dsn string) string {
-	if len(dsn) > 11 && dsn[:11] == "postgres://" {
-		return "pgx5://" + dsn[11:]
-	}
-	if len(dsn) > 14 && dsn[:14] == "postgresql://" {
-		return "pgx5://" + dsn[14:]
+	for _, scheme := range []string{"postgres://", "postgresql://"} {
+		if rest, ok := strings.CutPrefix(dsn, scheme); ok {
+			return "pgx5://" + rest
+		}
 	}
 	return dsn
 }
