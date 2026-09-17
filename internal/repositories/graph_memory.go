@@ -27,7 +27,13 @@ func NewMemoryGraphRepository() GraphRepository {
 	}
 }
 
-// FindByID retrieves a graph from the repository
+// FindByID retrieves a graph from the repository.
+//
+// Returns a fresh *workflow.Graph built from a deep-copied schema rather than the stored
+// pointer, so a later Save/Upsert for the same id cannot rewrite the topology of a Graph
+// already handed out to an in-flight Workflow (BACKLOG_V2.md A-06). This mirrors the
+// FindByIDAndVersion idiom below and the Postgres driver, which already rebuilds from the
+// object store on every call.
 func (m *MemoryGraphRepository) FindByID(id string) (*workflow.Graph, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -35,7 +41,8 @@ func (m *MemoryGraphRepository) FindByID(id string) (*workflow.Graph, error) {
 	if !ok {
 		return nil, ErrGraphNotFound
 	}
-	return graph, nil
+	schema := graph.Schema()
+	return workflow.NewGraph(&schema)
 }
 
 // Save stores a graph in the repository
